@@ -26,11 +26,18 @@ function domo(){};
       req.open('GET', url);
       
       req.onload = function() {
-        // This is called even on 404 etc
-        // so check the status
+        var data;
+        // This is called even on 404 etc so check the status
         if (req.status == 200) {
+          try {
+            data = JSON.parse(req.response);
+          }
+          catch (ex){
+            reject(Error("Invalid JSON response"));
+            return;
+          }
           // Resolve the promise with the response text
-          resolve(req.response);
+          resolve(data);
         }
         else {
           // Otherwise reject with the status text
