@@ -11,6 +11,5 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Dave Geddes",
-  "homepage": "https://github.com/DomoApps/domo.js"
+  "author": "Dave Geddes"
 }
