@@ -1,7 +1,7 @@
 {
   "name": "ryuu.js",
   "version": "2.0.1",
-  "description": "DomoApps JavaScript Utility Library",
+  "description": "Ryuu JavaScript Utility Library",
   "main": "domo.js",
   "dependencies": {},
   "devDependencies": {
@@ -11,13 +11,6 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/DomoApps/domo.js.git"
-  },
   "author": "Dave Geddes",
-  "bugs": {
-    "url": "https://github.com/DomoApps/domo.js/issues"
-  },
   "homepage": "https://github.com/DomoApps/domo.js"
 }
