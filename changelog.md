@@ -1,3 +1,6 @@
+# v2.0.0
+Parse the JSON response
+
 # v1.0.0
 Initial release.
 Polyfill the Promise API for older browsers

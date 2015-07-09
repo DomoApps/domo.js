@@ -1,5 +1,5 @@
 {
-  "name": "domo.js",
+  "name": "ryuu.js",
   "version": "2.0.0",
   "description": "DomoApps JavaScript Utility Library",
   "main": "domo.js",
@@ -16,7 +16,6 @@
     "url": "https://github.com/DomoApps/domo.js.git"
   },
   "author": "Dave Geddes",
-  "private": true,
   "bugs": {
     "url": "https://github.com/DomoApps/domo.js/issues"
   },
