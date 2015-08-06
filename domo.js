@@ -59,6 +59,25 @@ function domo(){};
   domo.getAll = function(urls) {
     return Promise.all(urls.map(domo.get));
   };
+
+  /**
+   * Let the domoapp optionally handle its own data updates.
+   */
+  domo.onDataUpdate = function(cb){
+    window.addEventListener('message', function(event) {
+      var message = JSON.parse(event.data);
+      
+      // send acknowledgement to prevent autorefresh
+      var ack = JSON.stringify({
+        event: 'ack',
+        alias: message.alias
+      });
+      event.source.postMessage(ack, event.origin);
+      
+      // inform domo app which alias has been updated
+      cb(message.alias);
+    });
+  };
   
   domo.env = getQueryParams();
   
