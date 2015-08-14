@@ -18,17 +18,33 @@ Includes es6-promises polyfill (https://github.com/jakearchibald/es6-promise) fo
 function domo(){};
 
 (function(){
-  domo.get = function(url) {
+  domo.get = function(url, options) {
+    options = options || {};
+
     // Return a new promise.
     return new Promise(function(resolve, reject) {
       // Do the usual XHR stuff
       var req = new XMLHttpRequest();
+      
       req.open('GET', url);
+      
+      // set format
+      if (options.format === 'array-of-arrays'){
+        req.setRequestHeader('Accept', 'application/json');
+      }
+      else if (options.format === 'csv'){
+        req.setRequestHeader('Accept', 'text/csv');
+      }
       
       req.onload = function() {
         var data;
         // This is called even on 404 etc so check the status
         if (req.status == 200) {
+          
+          if (options.format === 'csv'){
+            resolve(req.response);
+          }
+          
           try {
             data = JSON.parse(req.response);
           }
@@ -56,8 +72,10 @@ function domo(){};
     });
   }
   
-  domo.getAll = function(urls) {
-    return Promise.all(urls.map(domo.get));
+  domo.getAll = function(urls, options) {
+    return Promise.all(urls.map(function(url){
+      return domo.get(url, options);
+    }));
   };
 
   /**
