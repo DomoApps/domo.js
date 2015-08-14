@@ -35,13 +35,16 @@ function domo(){};
       else if (options.format === 'csv'){
         req.setRequestHeader('Accept', 'text/csv');
       }
+      else if (options.format === 'excel'){
+        req.setRequestHeader('Accept', 'application/vnd.ms-excel');
+      }
       
       req.onload = function() {
         var data;
         // This is called even on 404 etc so check the status
         if (req.status == 200) {
           
-          if (options.format === 'csv'){
+          if (options.format === 'csv' || options.format === 'excel'){
             resolve(req.response);
           }
           
