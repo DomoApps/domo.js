@@ -36,7 +36,7 @@ function domo(){};
         req.setRequestHeader('Accept', 'text/csv');
       }
       else if (options.format === 'excel'){
-        req.setRequestHeader('Accept', 'application/vnd.ms-excel');
+        req.setRequestHeader('Accept', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       }
       
       req.onload = function() {
