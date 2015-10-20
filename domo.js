@@ -38,6 +38,9 @@ function domo(){};
       else if (options.format === 'excel'){
         req.setRequestHeader('Accept', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       }
+      else{
+        req.setRequestHeader('Accept', 'application/array-of-objects');
+      }
       
       req.onload = function() {
         var data;
