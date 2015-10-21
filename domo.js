@@ -103,6 +103,17 @@ function domo(){};
     });
   };
   
+  /**
+   * Request a navigation change
+   */
+  domo.navigate = function(url){
+    var message = JSON.stringify({
+      event: 'navigate',
+      url: url
+    });
+    window.parent.postMessage(message, "*");
+  }
+  
   domo.env = getQueryParams();
   
   function getQueryParams() {
