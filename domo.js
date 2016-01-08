@@ -13,7 +13,7 @@ Includes es6-promises polyfill (https://github.com/jakearchibald/es6-promise) fo
         k.prototype.q=function(a,b){var c=this;u(a,void 0,function(a){c.g(1,b,a)},function(a){c.g(2,b,a)})};var O=0;h.all=function(a,b){return(new k(this,a,!0,b)).c};h.race=function(a,b){function c(a){q(e,a)}function d(a){g(e,a)}var e=new this(p,b);if(!E(a))return (g(e,new TypeError("You must pass an array to race.")), e);for(var f=a.length,h=0;void 0===e.a&&h<f;h++)u(this.resolve(a[h]),void 0,c,d);return e};h.resolve=function(a,b){if(a&&"object"===typeof a&&a.constructor===this)return a;var c=new this(p,b);
         q(c,a);return c};h.reject=function(a,b){var c=new this(p,b);g(c,a);return c};h.prototype={constructor:h,then:function(a,b){var c=this.a;if(1===c&&!a||2===c&&!b)return this;var d=new this.constructor(p),e=this.b;if(c){var f=arguments[c-1];r(function(){C(c,d,f,e)})}else u(this,d,a,b);return d},"catch":function(a){return this.then(null,a)}};var z={Promise:h,polyfill:function(){var a;a="undefined"!==typeof global?global:"undefined"!==typeof window&&window.document?window:self;"Promise"in a&&"resolve"in
         a.Promise&&"reject"in a.Promise&&"all"in a.Promise&&"race"in a.Promise&&function(){var b;new a.Promise(function(a){b=a});return s(b)}()||(a.Promise=h)}};"function"===typeof define&&define.amd?define(function(){return z}):"undefined"!==typeof module&&module.exports?module.exports=z:"undefined"!==typeof this&&(this.ES6Promise=z)}).call(this);
-        
+
 
 function domo(){};
 
@@ -25,9 +25,9 @@ function domo(){};
     return new Promise(function(resolve, reject) {
       // Do the usual XHR stuff
       var req = new XMLHttpRequest();
-      
+
       req.open('GET', url);
-      
+
       // set format
       if (options.format === 'array-of-arrays'){
         req.setRequestHeader('Accept', 'application/json');
@@ -41,16 +41,16 @@ function domo(){};
       else{
         req.setRequestHeader('Accept', 'application/array-of-objects');
       }
-      
+
       req.onload = function() {
         var data;
         // This is called even on 404 etc so check the status
         if (req.status == 200) {
-          
+
           if (options.format === 'csv' || options.format === 'excel'){
             resolve(req.response);
           }
-          
+
           try {
             data = JSON.parse(req.response);
           }
@@ -67,17 +67,17 @@ function domo(){};
           reject(Error(req.statusText));
         }
       };
-      
+
       // Handle network errors
       req.onerror = function() {
         reject(Error("Network Error"));
       };
-      
+
       // Make the request
       req.send();
     });
   }
-  
+
   domo.getAll = function(urls, options) {
     return Promise.all(urls.map(function(url){
       return domo.get(url, options);
@@ -90,32 +90,33 @@ function domo(){};
   domo.onDataUpdate = function(cb){
     window.addEventListener('message', function(event) {
       var message = JSON.parse(event.data);
-      
+
       // send acknowledgement to prevent autorefresh
       var ack = JSON.stringify({
         event: 'ack',
         alias: message.alias
       });
       event.source.postMessage(ack, event.origin);
-      
+
       // inform domo app which alias has been updated
       cb(message.alias);
     });
   };
-  
+
   /**
    * Request a navigation change
    */
-  domo.navigate = function(url){
+  domo.navigate = function(url, isNewWindow){
     var message = JSON.stringify({
       event: 'navigate',
-      url: url
+      url: url,
+      isNewWindow: isNewWindow
     });
     window.parent.postMessage(message, "*");
   }
-  
+
   domo.env = getQueryParams();
-  
+
   function getQueryParams() {
     var query = location.search.substr(1);
     var result = {};
@@ -125,5 +126,5 @@ function domo(){};
     });
     return result;
   }
-  
+
 })()
