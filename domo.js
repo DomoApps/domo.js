@@ -1,5 +1,5 @@
 /**
-domo.js v2.5.0
+domo.js v2.5.2
 Optional utility library for Custom Apps
 Includes es6-promises polyfill (https://github.com/stefanpenner/es6-promise) for older browsers
 */
