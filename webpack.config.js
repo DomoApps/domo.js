@@ -12,10 +12,6 @@ const config = {
 
   entry: './domo.js',
 
-  resolve: {
-    modulesDirectories: ['node_modules']
-  },
-
   output: {
     path: path.join(__dirname, 'dist'),
     publicPath: '/dist/',
@@ -23,8 +19,6 @@ const config = {
     library: 'domo',
     libraryTarget: 'umd'
   },
-
-  externals: {},
 
   plugins: [
     new webpack.BannerPlugin(bannerComment)
