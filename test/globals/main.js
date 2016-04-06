@@ -1,0 +1,1 @@
+assertDomoExists(domo);
