@@ -2,7 +2,7 @@
   "name": "ryuu.js",
   "version": "2.5.3",
   "description": "Ryuu JavaScript Utility Library",
-  "main": "domo.js",
+  "main": "dist/domo.js",
   "dependencies": {},
   "devDependencies": {
     "babel": "^6.5.2",
