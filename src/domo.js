@@ -13,20 +13,8 @@ domo.get = function(url, options) {
     var req = new XMLHttpRequest();
 
     req.open('GET', url);
-
-    // set format
-    if (options.format === 'array-of-arrays'){
-      req.setRequestHeader('Accept', 'application/json');
-    }
-    else if (options.format === 'csv'){
-      req.setRequestHeader('Accept', 'text/csv');
-    }
-    else if (options.format === 'excel'){
-      req.setRequestHeader('Accept', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    }
-    else{
-      req.setRequestHeader('Accept', 'application/array-of-objects');
-    }
+    
+    setFormatHeaders(req, url);
 
     req.onload = function() {
       var data;
@@ -111,4 +99,22 @@ function getQueryParams() {
     result[item[0]] = decodeURIComponent(item[1]);
   });
   return result;
+}
+
+function setFormatHeaders(req, url){
+  if (url.indexOf('data/v1') === -1 ) { return; }
+  
+  // set format
+  if (options.format === 'array-of-arrays'){
+    req.setRequestHeader('Accept', 'application/json');
+  }
+  else if (options.format === 'csv'){
+    req.setRequestHeader('Accept', 'text/csv');
+  }
+  else if (options.format === 'excel'){
+    req.setRequestHeader('Accept', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  }
+  else{
+    req.setRequestHeader('Accept', 'application/array-of-objects');
+  }
 }
