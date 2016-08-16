@@ -13,8 +13,8 @@ domo.get = function(url, options) {
     var req = new XMLHttpRequest();
 
     req.open('GET', url);
-    
-    setFormatHeaders(req, url);
+
+    setFormatHeaders(req, url, options);
 
     req.onload = function() {
       var data;
@@ -101,9 +101,9 @@ function getQueryParams() {
   return result;
 }
 
-function setFormatHeaders(req, url){
+function setFormatHeaders(req, url, options){
   if (url.indexOf('data/v1') === -1 ) { return; }
-  
+
   // set format
   if (options.format === 'array-of-arrays'){
     req.setRequestHeader('Accept', 'application/json');
