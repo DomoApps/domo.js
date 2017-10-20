@@ -63,17 +63,26 @@ domo.getAll = function(urls, options) {
  */
 domo.onDataUpdate = function(cb){
   window.addEventListener('message', function(event) {
-    var message = JSON.parse(event.data);
+    try {
+      var message = JSON.parse(event.data);
+      if (!message.hasOwnProperty('alias')) {
+        return;
+      }
 
-    // send acknowledgement to prevent autorefresh
-    var ack = JSON.stringify({
-      event: 'ack',
-      alias: message.alias
-    });
-    event.source.postMessage(ack, event.origin);
+      var alias = message.alias;
 
-    // inform domo app which alias has been updated
-    cb(message.alias);
+      // send acknowledgement to prevent autorefresh
+      var ack = JSON.stringify({
+        event: 'ack',
+        alias,
+      });
+      event.source.postMessage(ack, event.origin);
+
+      // inform domo app which alias has been updated
+      cb(alias);
+    } catch(err) {
+      console.error(err);
+    }
   });
 };
 
