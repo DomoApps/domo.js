@@ -63,17 +63,31 @@ domo.getAll = function(urls, options) {
  */
 domo.onDataUpdate = function(cb){
   window.addEventListener('message', function(event) {
-    var message = JSON.parse(event.data);
+    if (typeof event.data === 'string') {
+      try {
+        var message = JSON.parse(event.data);
+        if (!message.hasOwnProperty('alias')) {
+          return;
+        }
 
-    // send acknowledgement to prevent autorefresh
-    var ack = JSON.stringify({
-      event: 'ack',
-      alias: message.alias
-    });
-    event.source.postMessage(ack, event.origin);
+        var alias = message.alias;
 
-    // inform domo app which alias has been updated
-    cb(message.alias);
+        // send acknowledgement to prevent autorefresh
+        var ack = JSON.stringify({
+          event: 'ack',
+          alias: alias,
+        });
+        event.source.postMessage(ack, event.origin);
+
+        // inform domo app which alias has been updated
+        cb(alias);
+      } catch(err) {
+        var info = 'There was an error in domo.onDataUpdate! It may be that our event listener caught ' +
+                   'a message from another source and tried to parse it, so your update still may have worked. ' +
+                   'If you would like more info, here is the error: \n'
+        console.warn(info, err);
+      }
+    }
   });
 };
 
