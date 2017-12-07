@@ -63,6 +63,9 @@ domo.getAll = function(urls, options) {
  */
 domo.onDataUpdate = function(cb){
   window.addEventListener('message', function(event) {
+    if (!isVerifiedOrigin(event.origin))
+      return;
+
     var message = JSON.parse(event.data);
 
     // send acknowledgement to prevent autorefresh
@@ -90,6 +93,12 @@ domo.navigate = function(url, isNewWindow){
 }
 
 domo.env = getQueryParams();
+
+function isVerifiedOrigin(origin) {
+  var whitelisted = origin.match('^https?://([^/]+[.])?(domo|domotech|domorig)\.(com|io)?(/.*)?$');
+  var blacklisted = origin.match('(.*)\.(domoapps)\.(.*)');
+  return whitelisted && !blacklisted;
+}
 
 function getQueryParams() {
   var query = location.search.substr(1);
