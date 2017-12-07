@@ -65,7 +65,7 @@ domo.onDataUpdate = function(cb){
   window.addEventListener('message', function(event) {
     if (!isVerifiedOrigin(event.origin))
       return;
-    
+
     if (typeof event.data === 'string') {
       try {
         var message = JSON.parse(event.data);
@@ -108,10 +108,16 @@ domo.navigate = function(url, isNewWindow){
 
 domo.env = getQueryParams();
 
+domo.__util = {
+  isVerifiedOrigin,
+  getQueryParams,
+  setFormatHeaders
+}
+
 function isVerifiedOrigin(origin) {
   var whitelisted = origin.match('^https?://([^/]+[.])?(domo|domotech|domorig)\.(com|io)?(/.*)?$');
   var blacklisted = origin.match('(.*)\.(domoapps)\.(.*)');
-  return whitelisted && !blacklisted;
+  return !!whitelisted && !blacklisted;
 }
 
 function getQueryParams() {

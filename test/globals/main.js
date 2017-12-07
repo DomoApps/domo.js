@@ -1,1 +1,2 @@
 assertDomoExists(domo);
+assertOriginVerified(domo);
