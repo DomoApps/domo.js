@@ -4,6 +4,47 @@ function domo(){};
 
 module.exports = domo;
 
+console.log('hello domo.js');
+
+domo.post = function(url, body) {
+  return new Promise(function(resolve, reject) {
+    var req = new XMLHttpRequest();
+    req.open('POST', url, true);
+    req.setRequestHeader('Content-Type','application/json');
+
+    req.onload = function() {
+      var data;
+      // This is called even on 404 etc so check the status
+      if (req.status == 200) {
+        // Resolve the promise
+        resolve(req.response);
+      }
+      else {
+        // Otherwise reject with the status text
+        // which will hopefully be a meaningful error
+        reject(Error(req.statusText));
+      }
+    };
+
+    // Handle network errors
+    req.onerror = function(error) {
+      console.error(error)
+      reject(Error("Network Error"));
+    };
+
+    var json = JSON.stringify(body);
+    // Make the request
+    req.send(json);
+  });
+}
+
+domo.put = function(url, body) {
+  var promise = new Promise(function(resolve, reject) {
+    reject(Error('not implemented yet...'));
+  });
+  return promise;
+}
+
 domo.get = function(url, options) {
   options = options || {};
 
