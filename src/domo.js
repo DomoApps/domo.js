@@ -82,7 +82,7 @@ domo.get = function(url, options) {
     req.onload = function() {
       var data;
       // This is called even on 404 etc so check the status
-      if (isSuccesss(req.status)) {
+      if (isSuccess(req.status)) {
 
         if (options.format === 'csv' || options.format === 'excel'){
           resolve(req.response);
