@@ -4,6 +4,69 @@ function domo(){};
 
 module.exports = domo;
 
+domo.post = function(url, body) {
+  return new Promise(function(resolve, reject) {
+    var req = new XMLHttpRequest();
+    req.open('POST', url, true);
+    req.setRequestHeader('Content-Type','application/json');
+
+    req.onload = function() {
+      // This is called even on 404 etc so check the status
+      if (isSuccess(req.status)) {
+        // Resolve the promise
+        resolve(JSON.parse(req.response));
+      }
+      else {
+        // Otherwise reject with the status text
+        // which will hopefully be a meaningful error
+        reject(Error(req.statusText));
+      }
+    };
+
+    // Handle network errors
+    req.onerror = function(error) {
+      console.error(error);
+      reject(Error("Network Error"));
+    };
+
+    var json = JSON.stringify(body);
+    // Make the request
+    req.send(json);
+  });
+}
+
+domo.put = function(url, body) {
+  var promise = new Promise(function(resolve, reject) {
+    var req = new XMLHttpRequest();
+    req.open('PUT', url, true);
+    req.setRequestHeader('Content-Type','application/json');
+
+    req.onload = function() {
+      // This is called even on 404 etc so check the status
+      if (isSuccess(req.status)) {
+        // Resolve the promise
+        resolve(JSON.parse(req.response));
+      }
+      else {
+        // Otherwise reject with the status text
+        // which will hopefully be a meaningful error
+        reject(Error(req.statusText));
+      }
+    };
+
+    // Handle network errors
+    req.onerror = function(error) {
+      console.error(error);
+      reject(Error("Network Error"));
+    };
+
+    var json = JSON.stringify(body);
+    // Make the request
+    req.send(json);
+  });
+  return promise;
+}
+
 domo.get = function(url, options) {
   options = options || {};
 
@@ -11,15 +74,13 @@ domo.get = function(url, options) {
   return new Promise(function(resolve, reject) {
     // Do the usual XHR stuff
     var req = new XMLHttpRequest();
-
     req.open('GET', url);
-
     setFormatHeaders(req, url, options);
 
     req.onload = function() {
       var data;
       // This is called even on 404 etc so check the status
-      if (req.status == 200) {
+      if (isSuccess(req.status)) {
 
         if (options.format === 'csv' || options.format === 'excel'){
           resolve(req.response);
@@ -111,7 +172,12 @@ domo.env = getQueryParams();
 domo.__util = {
   isVerifiedOrigin,
   getQueryParams,
-  setFormatHeaders
+  setFormatHeaders, 
+  isSuccess
+}
+
+function isSuccess(status) {
+  return status >= 200 && status < 300;
 }
 
 function isVerifiedOrigin(origin) {
