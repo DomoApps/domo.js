@@ -4,8 +4,6 @@ function domo(){};
 
 module.exports = domo;
 
-console.log('domo.js with put an post')
-
 domo.post = function(url, body) {
   return new Promise(function(resolve, reject) {
     var req = new XMLHttpRequest();
