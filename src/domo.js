@@ -174,7 +174,8 @@ domo.env = getQueryParams();
 domo.__util = {
   isVerifiedOrigin,
   getQueryParams,
-  setFormatHeaders
+  setFormatHeaders, 
+  isSuccess
 }
 
 function isSuccess(status) {
