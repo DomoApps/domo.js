@@ -5,6 +5,8 @@ function domo(){};
 module.exports = domo;
 
 domo.post = function(url, body, options) {
+  options = options || {};
+
   return new Promise(function(resolve, reject) {
     var req = new XMLHttpRequest();
     req.open('POST', url, true);
@@ -36,7 +38,9 @@ domo.post = function(url, body, options) {
 }
 
 domo.put = function(url, body, options) {
-  var promise = new Promise(function(resolve, reject) {
+  options = options || {};
+
+  return new Promise(function(resolve, reject) {
     var req = new XMLHttpRequest();
     req.open('PUT', url, true);
     setContentHeaders(req, url, options);
@@ -64,7 +68,6 @@ domo.put = function(url, body, options) {
     // Make the request
     req.send(json);
   });
-  return promise;
 }
 
 domo.get = function(url, options) {
