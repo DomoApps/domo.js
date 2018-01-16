@@ -130,7 +130,7 @@ domo.onDataUpdate = function(cb){
     if (!isVerifiedOrigin(event.origin))
       return;
 
-    if (typeof event.data === 'string') {
+    if (typeof event.data === 'string' && event.data.length > 0) {
       try {
         var message = JSON.parse(event.data);
         if (!message.hasOwnProperty('alias')) {
