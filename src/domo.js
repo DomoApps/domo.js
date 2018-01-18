@@ -4,11 +4,13 @@ function domo(){};
 
 module.exports = domo;
 
-domo.post = function(url, body) {
+domo.post = function(url, body, options) {
+  options = options || {};
+
   return new Promise(function(resolve, reject) {
     var req = new XMLHttpRequest();
     req.open('POST', url, true);
-    req.setRequestHeader('Content-Type','application/json');
+    setContentHeaders(req, url, options);
 
     req.onload = function() {
       // This is called even on 404 etc so check the status
@@ -39,11 +41,13 @@ domo.post = function(url, body) {
   });
 }
 
-domo.put = function(url, body) {
-  var promise = new Promise(function(resolve, reject) {
+domo.put = function(url, body, options) {
+  options = options || {};
+
+  return new Promise(function(resolve, reject) {
     var req = new XMLHttpRequest();
     req.open('PUT', url, true);
-    req.setRequestHeader('Content-Type','application/json');
+    setContentHeaders(req, url, options);
 
     req.onload = function() {
       // This is called even on 404 etc so check the status
@@ -72,7 +76,6 @@ domo.put = function(url, body) {
     // Make the request
     req.send(json);
   });
-  return promise;
 }
 
 domo.get = function(url, options) {
@@ -135,7 +138,7 @@ domo.onDataUpdate = function(cb){
     if (!isVerifiedOrigin(event.origin))
       return;
 
-    if (typeof event.data === 'string') {
+    if (typeof event.data === 'string' && event.data.length > 0) {
       try {
         var message = JSON.parse(event.data);
         if (!message.hasOwnProperty('alias')) {
@@ -219,5 +222,17 @@ function setFormatHeaders(req, url, options){
   }
   else{
     req.setRequestHeader('Accept', 'application/array-of-objects');
+  }
+}
+
+function setContentHeaders(req, url, options) {
+  if (url.indexOf('data/v1') === -1 ) { return; }
+
+  // set content type
+  if (options.contentType === 'csv'){
+    req.setRequestHeader('Content-Type', 'text/csv');
+  }
+  else{
+    req.setRequestHeader('Content-Type','application/json');
   }
 }
