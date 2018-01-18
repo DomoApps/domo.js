@@ -13,8 +13,12 @@ domo.post = function(url, body) {
     req.onload = function() {
       // This is called even on 404 etc so check the status
       if (isSuccess(req.status)) {
-        // Resolve the promise
-        resolve(JSON.parse(req.response));
+        try {
+          resolve(JSON.parse(req.response));
+        } catch(e) {
+          console.warn(e);
+          resolve(req.response);
+        }
       }
       else {
         // Otherwise reject with the status text
@@ -44,8 +48,12 @@ domo.put = function(url, body) {
     req.onload = function() {
       // This is called even on 404 etc so check the status
       if (isSuccess(req.status)) {
-        // Resolve the promise
-        resolve(JSON.parse(req.response));
+        try {
+          resolve(JSON.parse(req.response));
+        } catch(e) {
+          console.warn(e);
+          resolve(req.response);
+        }
       }
       else {
         // Otherwise reject with the status text
