@@ -3,7 +3,6 @@ require('es6-promise').polyfill(); // Promise polyfill for older browsers
 function domo(){};
 
 module.exports = domo;
-
 domo.post = function(url, body, options) {
   options = options || {};
 
@@ -15,8 +14,15 @@ domo.post = function(url, body, options) {
     req.onload = function() {
       // This is called even on 404 etc so check the status
       if (isSuccess(req.status)) {
-        // Resolve the promise
-        resolve(JSON.parse(req.response));
+        try {
+          if(req.response) {
+            resolve(JSON.parse(req.response));
+          } else {
+            resolve();
+          }
+        } catch(e) {
+          reject(req.response);
+        }
       }
       else {
         // Otherwise reject with the status text
@@ -48,8 +54,15 @@ domo.put = function(url, body, options) {
     req.onload = function() {
       // This is called even on 404 etc so check the status
       if (isSuccess(req.status)) {
-        // Resolve the promise
-        resolve(JSON.parse(req.response));
+        try {
+          if(req.response) {
+            resolve(JSON.parse(req.response));
+          } else {
+            resolve();
+          }
+        } catch(e) {
+          reject(req.response);
+        }
       }
       else {
         // Otherwise reject with the status text
@@ -212,19 +225,17 @@ function setFormatHeaders(req, url, options){
   else if (options.format === 'excel'){
     req.setRequestHeader('Accept', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   }
-  else{
+  else {
     req.setRequestHeader('Accept', 'application/array-of-objects');
   }
 }
 
 function setContentHeaders(req, url, options) {
-  if (url.indexOf('data/v1') === -1 ) { return; }
-
-  // set content type
-  if (options.contentType === 'csv'){
-    req.setRequestHeader('Content-Type', 'text/csv');
+  if (options.contentType) {
+    // set content type if user passed option
+    req.setRequestHeader('Content-Type', options.contentType);
   }
-  else{
+  else {
     req.setRequestHeader('Content-Type','application/json');
   }
 }
