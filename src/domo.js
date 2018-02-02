@@ -36,10 +36,14 @@ domo.post = function(url, body, options) {
       console.error(error);
       reject(Error("Network Error"));
     };
-
-    var json = JSON.stringify(body);
-    // Make the request
-    req.send(json);
+    // If we are not overriding the contentType or it is application/json then stringify.
+    if (!options.contentType || options.contentType === 'application/json') {
+      var json = JSON.stringify(body);
+      // Make the request
+      req.send(json);
+    } else {
+      req.send(body);
+    }
   });
 }
 
@@ -76,10 +80,14 @@ domo.put = function(url, body, options) {
       console.error(error);
       reject(Error("Network Error"));
     };
-
-    var json = JSON.stringify(body);
-    // Make the request
-    req.send(json);
+    // If we are not overriding the contentType or it is application/json then stringify.
+    if (!options.contentType || options.contentType === 'application/json') {
+      var json = JSON.stringify(body);
+      // Make the request
+      req.send(json);
+    } else {
+      req.send(body);
+    }
   });
 }
 
