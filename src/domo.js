@@ -137,6 +137,52 @@ domo.get = function(url, options) {
   });
 }
 
+domo.delete = function(url, options) {
+  options = options || {};
+
+  // Return a new promise.
+  return new Promise(function(resolve, reject) {
+    // Do the usual XHR stuff
+    var req = new XMLHttpRequest();
+    req.open('DELETE', url);
+    setFormatHeaders(req, url, options);
+
+    req.onload = function() {
+      var data;
+      // This is called even on 404 etc so check the status
+      if (isSuccess(req.status)) {
+
+        if (options.format === 'csv' || options.format === 'excel'){
+          resolve(req.response);
+        }
+
+        try {
+          data = JSON.parse(req.response);
+        }
+        catch (ex){
+          reject(Error("Invalid JSON response"));
+          return;
+        }
+        // Resolve the promise with the response text
+        resolve(data);
+      }
+      else {
+        // Otherwise reject with the status text
+        // which will hopefully be a meaningful error
+        reject(Error(req.statusText));
+      }
+    };
+
+    // Handle network errors
+    req.onerror = function() {
+      reject(Error("Network Error"));
+    };
+
+    // Make the request
+    req.send();
+  });
+}
+
 domo.getAll = function(urls, options) {
   return Promise.all(urls.map(function(url){
     return domo.get(url, options);
