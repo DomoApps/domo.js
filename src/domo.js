@@ -148,23 +148,17 @@ domo.delete = function(url, options) {
     setFormatHeaders(req, url, options);
 
     req.onload = function() {
-      var data;
       // This is called even on 404 etc so check the status
       if (isSuccess(req.status)) {
-
-        if (options.format === 'csv' || options.format === 'excel'){
-          resolve(req.response);
-        }
-
         try {
-          data = JSON.parse(req.response);
+          if(req.response) {
+            resolve(JSON.parse(req.response));
+          } else {
+            resolve();
+          }
+        } catch(e) {
+          reject(req.response);
         }
-        catch (ex){
-          reject(Error("Invalid JSON response"));
-          return;
-        }
-        // Resolve the promise with the response text
-        resolve(data);
       }
       else {
         // Otherwise reject with the status text
