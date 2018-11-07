@@ -7,7 +7,15 @@ function assert(result, value, message) {
 }
 
 function assertDomoExists(domo) {
-  if (typeof domo === 'function' && typeof domo.get === 'function') {
+  var arr = [
+    assert(typeof domo === 'function', true, 'domo is not defined properly'),
+    assert(typeof domo.get === 'function', true, 'domo.get is not defined properly'),
+    assert(typeof domo.put === 'function', true, 'domo.put is not defined properly'),
+    assert(typeof domo.post === 'function', true, 'domo.post is not defined properly'),
+    assert(typeof domo.delete === 'function', true, 'domo.delete is not defined properly'),
+  ]
+
+  if (arr.every(function(result) { return result })) {
     console.log('domo is loaded:', domo);
   } else {
     console.error('domo is not defined properly:', domo);

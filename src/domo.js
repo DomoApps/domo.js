@@ -3,23 +3,42 @@ require('es6-promise').polyfill(); // Promise polyfill for older browsers
 function domo(){};
 
 module.exports = domo;
+domo.post = function(url, body, options) {
+  return domoHttp('POST', url, options, true, body);
+}
+
+domo.put = function(url, body, options) {
+  return domoHttp('PUT', url, options, true, body);
+}
 
 domo.get = function(url, options) {
+  return domoHttp('GET', url, options);
+}
+
+domo.delete = function(url, options) {
+  return domoHttp('DELETE', url, options);
+}
+
+function domoHttp(method, url, options, async, body) {
   options = options || {};
 
   // Return a new promise.
   return new Promise(function(resolve, reject) {
     // Do the usual XHR stuff
     var req = new XMLHttpRequest();
-
-    req.open('GET', url);
-
+    if(async) {
+      req.open(method, url, async);
+    }
+    else {
+      req.open(method, url);
+    }
     setFormatHeaders(req, url, options);
+    setContentHeaders(req, options);
 
     req.onload = function() {
       var data;
       // This is called even on 404 etc so check the status
-      if (req.status == 200) {
+      if (isSuccess(req.status)) {
 
         if (options.format === 'csv' || options.format === 'excel'){
           resolve(req.response);
@@ -48,9 +67,21 @@ domo.get = function(url, options) {
     };
 
     // Make the request
-    req.send();
+    if(body) {
+      if (!options.contentType || options.contentType === 'application/json') {
+        var json = JSON.stringify(body);
+        // Make the request
+        req.send(json);
+      } else {
+        req.send(body);
+      }
+    }
+    else {
+      req.send();
+    }
   });
 }
+
 
 domo.getAll = function(urls, options) {
   return Promise.all(urls.map(function(url){
@@ -66,7 +97,7 @@ domo.onDataUpdate = function(cb){
     if (!isVerifiedOrigin(event.origin))
       return;
 
-    if (typeof event.data === 'string') {
+    if (typeof event.data === 'string' && event.data.length > 0) {
       try {
         var message = JSON.parse(event.data);
         if (!message.hasOwnProperty('alias')) {
@@ -111,7 +142,12 @@ domo.env = getQueryParams();
 domo.__util = {
   isVerifiedOrigin,
   getQueryParams,
-  setFormatHeaders
+  setFormatHeaders, 
+  isSuccess
+}
+
+function isSuccess(status) {
+  return status >= 200 && status < 300;
 }
 
 function isVerifiedOrigin(origin) {
@@ -143,7 +179,17 @@ function setFormatHeaders(req, url, options){
   else if (options.format === 'excel'){
     req.setRequestHeader('Accept', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   }
-  else{
+  else {
     req.setRequestHeader('Accept', 'application/array-of-objects');
+  }
+}
+
+function setContentHeaders(req, options) {
+  if (options.contentType) {
+    // set content type if user passed option
+    req.setRequestHeader('Content-Type', options.contentType);
+  }
+  else {
+    req.setRequestHeader('Content-Type','application/json');
   }
 }

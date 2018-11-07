@@ -18,8 +18,8 @@
     "webpack": "^1.12.14"
   },
   "scripts": {
-    "test": "http-server .",
+    "test": "NODE_ENV=dev webpack && http-server .",
     "build": "NODE_ENV=production webpack -p"
   },
-  "author": "Dave Geddes"
+  "author": "Domo"
 }
