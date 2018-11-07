@@ -4,102 +4,36 @@ function domo(){};
 
 module.exports = domo;
 domo.post = function(url, body, options) {
-  options = options || {};
-
-  return new Promise(function(resolve, reject) {
-    var req = new XMLHttpRequest();
-    req.open('POST', url, true);
-    setContentHeaders(req, url, options);
-
-    req.onload = function() {
-      // This is called even on 404 etc so check the status
-      if (isSuccess(req.status)) {
-        try {
-          if(req.response) {
-            resolve(JSON.parse(req.response));
-          } else {
-            resolve();
-          }
-        } catch(e) {
-          reject(req.response);
-        }
-      }
-      else {
-        // Otherwise reject with the status text
-        // which will hopefully be a meaningful error
-        reject(Error(req.statusText));
-      }
-    };
-
-    // Handle network errors
-    req.onerror = function(error) {
-      console.error(error);
-      reject(Error("Network Error"));
-    };
-    // If we are not overriding the contentType or it is application/json then stringify.
-    if (!options.contentType || options.contentType === 'application/json') {
-      var json = JSON.stringify(body);
-      // Make the request
-      req.send(json);
-    } else {
-      req.send(body);
-    }
-  });
+  return domoHttp('POST', url, options, true, body);
 }
 
 domo.put = function(url, body, options) {
-  options = options || {};
-
-  return new Promise(function(resolve, reject) {
-    var req = new XMLHttpRequest();
-    req.open('PUT', url, true);
-    setContentHeaders(req, url, options);
-
-    req.onload = function() {
-      // This is called even on 404 etc so check the status
-      if (isSuccess(req.status)) {
-        try {
-          if(req.response) {
-            resolve(JSON.parse(req.response));
-          } else {
-            resolve();
-          }
-        } catch(e) {
-          reject(req.response);
-        }
-      }
-      else {
-        // Otherwise reject with the status text
-        // which will hopefully be a meaningful error
-        reject(Error(req.statusText));
-      }
-    };
-
-    // Handle network errors
-    req.onerror = function(error) {
-      console.error(error);
-      reject(Error("Network Error"));
-    };
-    // If we are not overriding the contentType or it is application/json then stringify.
-    if (!options.contentType || options.contentType === 'application/json') {
-      var json = JSON.stringify(body);
-      // Make the request
-      req.send(json);
-    } else {
-      req.send(body);
-    }
-  });
+  return domoHttp('PUT', url, options, true, body);
 }
 
 domo.get = function(url, options) {
+  return domoHttp('GET', url, options);
+}
+
+domo.delete = function(url, options) {
+  return domoHttp('DELETE', url, options);
+}
+
+function domoHttp(method, url, options, async, body) {
   options = options || {};
 
   // Return a new promise.
   return new Promise(function(resolve, reject) {
     // Do the usual XHR stuff
     var req = new XMLHttpRequest();
-    req.open('GET', url);
+    if(async) {
+      req.open(method, url, async);
+    }
+    else {
+      req.open(method, url);
+    }
     setFormatHeaders(req, url, options);
+    setContentHeaders(req, options);
 
     req.onload = function() {
       var data;
@@ -133,49 +67,21 @@ domo.get = function(url, options) {
     };
 
     // Make the request
-    req.send();
+    if(body) {
+      if (!options.contentType || options.contentType === 'application/json') {
+        var json = JSON.stringify(body);
+        // Make the request
+        req.send(json);
+      } else {
+        req.send(body);
+      }
+    }
+    else {
+      req.send();
+    }
   });
 }
 
-domo.delete = function(url, options) {
-  options = options || {};
-
-  // Return a new promise.
-  return new Promise(function(resolve, reject) {
-    // Do the usual XHR stuff
-    var req = new XMLHttpRequest();
-    req.open('DELETE', url);
-    setFormatHeaders(req, url, options);
-
-    req.onload = function() {
-      // This is called even on 404 etc so check the status
-      if (isSuccess(req.status)) {
-        try {
-          if(req.response) {
-            resolve(JSON.parse(req.response));
-          } else {
-            resolve();
-          }
-        } catch(e) {
-          reject(req.response);
-        }
-      }
-      else {
-        // Otherwise reject with the status text
-        // which will hopefully be a meaningful error
-        reject(Error(req.statusText));
-      }
-    };
-
-    // Handle network errors
-    req.onerror = function() {
-      reject(Error("Network Error"));
-    };
-
-    // Make the request
-    req.send();
-  });
-}
 
 domo.getAll = function(urls, options) {
   return Promise.all(urls.map(function(url){
@@ -278,7 +184,7 @@ function setFormatHeaders(req, url, options){
   }
 }
 
-function setContentHeaders(req, url, options) {
+function setContentHeaders(req, options) {
   if (options.contentType) {
     // set content type if user passed option
     req.setRequestHeader('Content-Type', options.contentType);
