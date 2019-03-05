@@ -179,7 +179,7 @@ function setFormatHeaders(req, url, options){
     'csv': 'text/csv',
     'excel': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   }
-  req.setRequestHeader('Accept', options.format ? formatTypes[options.format] : 'application/array-of-objects');
+  req.setRequestHeader('Accept', options.format ? formatTypes[options.format] || 'application/array-of-objects' : 'application/array-of-objects');
 }
 
 function setContentHeaders(req, options) {
