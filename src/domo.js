@@ -34,14 +34,18 @@ function domoHttp(method, url, options, async, body) {
     }
     setFormatHeaders(req, url, options);
     setContentHeaders(req, options);
+    setResponseType(req, options);
 
     req.onload = function() {
       var data;
       // This is called even on 404 etc so check the status
       if (isSuccess(req.status)) {
-
-        if (options.format === 'csv' || options.format === 'excel'){
+        
+        if (['csv', 'excel'].includes(options.format)){
           resolve(req.response);
+        }
+        if(options.responseType === 'blob') {
+          resolve(new Blob([req.response], {type: req.getResponseHeader('content-type')}));
         }
 
         try {
@@ -170,26 +174,29 @@ function setFormatHeaders(req, url, options){
   if (url.indexOf('data/v1') === -1 ) { return; }
 
   // set format
-  if (options.format === 'array-of-arrays'){
-    req.setRequestHeader('Accept', 'application/json');
+  var formatTypes = {
+    'array-of-arrays': 'application/json',
+    'csv': 'text/csv',
+    'excel': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   }
-  else if (options.format === 'csv'){
-    req.setRequestHeader('Accept', 'text/csv');
-  }
-  else if (options.format === 'excel'){
-    req.setRequestHeader('Accept', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  }
-  else {
-    req.setRequestHeader('Accept', 'application/array-of-objects');
-  }
+  req.setRequestHeader('Accept', options.format ? formatTypes[options.format] : 'application/array-of-objects');
 }
 
 function setContentHeaders(req, options) {
   if (options.contentType) {
     // set content type if user passed option
-    req.setRequestHeader('Content-Type', options.contentType);
+    if(options.contentType !== 'multipart'){
+      req.setRequestHeader('Content-Type', options.contentType);
+    }
   }
   else {
     req.setRequestHeader('Content-Type','application/json');
+  }
+}
+
+function setResponseType(req, options) {
+  //set response type if user passed option
+  if (options.responseType) {
+      req.responseType = options.responseType;
   }
 }
