@@ -141,6 +141,24 @@ domo.navigate = function(url, isNewWindow){
   window.parent.postMessage(message, "*");
 }
 
+/**
+ * Post a filter to the parent page/dashboard
+ * @param {String} column 
+ * @param {String} operator 
+ * @param {Array} values 
+ */
+domo.filterContainer = function(column, operator, values){
+  var message = JSON.stringify({
+    event: 'filter',
+    filter: {
+      columnName: column,
+      operator: operator,
+      values: values
+    }
+  });
+  window.parent.postMessage(message, "*");
+}
+
 domo.env = getQueryParams();
 
 domo.__util = {
