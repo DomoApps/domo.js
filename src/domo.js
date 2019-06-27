@@ -147,16 +147,27 @@ domo.navigate = function(url, isNewWindow){
  * @param {String} operator 
  * @param {Array} values 
  */
-domo.filterContainer = function(column, operator, values){
+domo.filterContainer = function(column, operator, values, dataType){
+  var userAgent = window.navigator.userAgent.toLowerCase(),
+    safari = /safari/.test( userAgent ),
+    ios = /iphone|ipod|ipad/.test( userAgent );
+
   var message = JSON.stringify({
     event: 'filter',
     filter: {
       columnName: column,
       operator: operator,
-      values: values
+      values: values,
+      dataType: dataType
     }
   });
-  window.parent.postMessage(message, "*");
+
+  if(ios && !safari) {
+    window.webkit.messageHandlers.domofilter.postMessage({ column: column, operand: operator, values: values, dataType: dataType });
+  }
+  else {
+    window.parent.postMessage(message, "*");
+  }
 }
 
 domo.env = getQueryParams();
