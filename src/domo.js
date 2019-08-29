@@ -41,15 +41,19 @@ function domoHttp(method, url, options, async, body) {
       // This is called even on 404 etc so check the status
       if (isSuccess(req.status)) {
         
-        if (['csv', 'excel'].includes(options.format)){
+        if (['csv', 'excel'].includes(options.format) || !req.response){
           resolve(req.response);
         }
         if(options.responseType === 'blob') {
           resolve(new Blob([req.response], {type: req.getResponseHeader('content-type')}));
         }
 
+        let responseStr = req.response;
         try {
-          data = JSON.parse(req.response);
+          // if(!responseStr) {
+          //   responseStr = "{}";
+          // }
+          data = JSON.parse(responseStr);
         }
         catch (ex){
           reject(Error("Invalid JSON response"));
