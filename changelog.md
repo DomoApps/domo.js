@@ -1,3 +1,6 @@
+# v2.7.0
+Converted to TypeScript
+
 # v2.0.0
 Parse the JSON response
 
