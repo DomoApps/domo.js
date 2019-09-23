@@ -1,23 +1,26 @@
+import { RequestMethods, RequestOptions, DataFormats, DomoDataFormats } from './models';
+import { domoFormatToRequestFormat } from './utils/data-helpers';
+
 export = domo;
 
 class domo {
-  static post(url: string, body: any, options: { [index: string] : string }) {
-    return domoHttp('POST', url, options, true, body);
+  static post(url: string, body: any, options: RequestOptions) {
+    return domoHttp(RequestMethods.POST, url, options, true, body);
   }
   
-  static put(url: string, body: any, options: { [index: string] : string }) {
-    return domoHttp('PUT', url, options, true, body);
+  static put(url: string, body: any, options: RequestOptions) {
+    return domoHttp(RequestMethods.PUT, url, options, true, body);
   }
   
-  static get(url: string, options: { [index: string] : string }) {
-    return domoHttp('GET', url, options);
+  static get(url: string, options: RequestOptions) {
+    return domoHttp(RequestMethods.GET, url, options);
   }
   
-  static delete(url: string, options: { [index: string] : string }) {
-    return domoHttp('DELETE', url, options);
+  static delete(url: string, options: RequestOptions) {
+    return domoHttp(RequestMethods.DELETE, url, options);
   }
 
-  static getAll(urls: string[], options: { [index: string] : string }) {
+  static getAll(urls: string[], options: RequestOptions) {
     return Promise.all(urls.map(function(url){
       return domo.get(url, options);
     }));
@@ -114,13 +117,10 @@ class domo {
 };
 
 
-function domoHttp(method: string, url: string, options: { [index: string] : string }, async?: any, body?: any) {
-  options = options || {};
-
-  // Return a new promise.
+function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: any): Promise<any> {
   return new Promise(function(resolve: any, reject: any) {
     // Do the usual XHR stuff
-    var req = new XMLHttpRequest();
+    var req: XMLHttpRequest = new XMLHttpRequest();
     if(async) {
       req.open(method, url, async);
     }
@@ -136,7 +136,7 @@ function domoHttp(method: string, url: string, options: { [index: string] : stri
       // This is called even on 404 etc so check the status
       if (isSuccess(req.status)) {
         
-        if (['csv', 'excel'].includes(options.format) || !req.response){
+        if ([DomoDataFormats.CSV, DomoDataFormats.EXCEL].includes(options.format) || !req.response){
           resolve(req.response);
         }
         if(options.responseType === 'blob') {
@@ -171,7 +171,7 @@ function domoHttp(method: string, url: string, options: { [index: string] : stri
 
     // Make the request
     if(body) {
-      if (!options.contentType || options.contentType === 'application/json') {
+      if (!options.contentType || options.contentType === DataFormats.JSON) {
         var json = JSON.stringify(body);
         // Make the request
         req.send(json);
@@ -205,18 +205,17 @@ function getQueryParams() {
   return result;
 }
 
-function setFormatHeaders(req: any, url: string, options: { [index: string] : string }){
+function setFormatHeaders(req: XMLHttpRequest, url: string, options: RequestOptions){
   if (url.indexOf('data/v1') === -1 ) { return; }
   // set format
-  let formatTypes : { [index: string] : string } = {
-    'array-of-arrays': 'application/json',
-    'csv': 'text/csv',
-    'excel': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  }
-  req.setRequestHeader('Accept', options.format ? formatTypes[options.format] || 'application/array-of-objects' : 'application/array-of-objects');
+  const requestFormat: DataFormats = (options.format !== undefined)
+    ? (domoFormatToRequestFormat(options.format)) 
+    : (DataFormats.DEFAULT);
+
+  req.setRequestHeader('Accept', requestFormat);
 }
 
-function setContentHeaders(req: any, options: { [index: string] : string }) {
+function setContentHeaders(req: XMLHttpRequest, options: RequestOptions) {
   if (options.contentType) {
     // set content type if user passed option
     if(options.contentType !== 'multipart'){
@@ -224,13 +223,13 @@ function setContentHeaders(req: any, options: { [index: string] : string }) {
     }
   }
   else {
-    req.setRequestHeader('Content-Type','application/json');
+    req.setRequestHeader('Content-Type', DataFormats.JSON);
   }
 }
 
-function setResponseType(req: any, options: { [index: string] : string }) {
+function setResponseType(req: XMLHttpRequest, options: RequestOptions) {
   //set response type if user passed option
-  if (options.responseType) {
-      req.responseType = options.responseType;
+  if (options.responseType !== undefined) {
+    req.responseType = options.responseType;
   }
 }
