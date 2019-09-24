@@ -1,4 +1,13 @@
-import { RequestMethods, RequestOptions, DataFormats, DomoDataFormats, QueryParams, Json } from './models';
+import {
+  RequestMethods,
+  RequestOptions,
+  DataFormats,
+  DomoDataFormats,
+  QueryParams,
+  Json,
+  FilterDataTypes,
+  FilterOperators,
+} from './models';
 import { domoFormatToRequestFormat } from './utils/data-helpers';
 
 export = domo;
@@ -76,14 +85,10 @@ class domo {
     window.parent.postMessage(message, "*");
   }
   
-  /**
-   * Post a filter to the parent page/dashboard
-   * @param {String} column 
-   * @param {String} operator 
-   * @param {Array} values 
-   */
-  //TODO: Typing on values and dataType
-  static filterContainer(column: string, operator: string, values: any, dataType: any) {
+  static filterContainer(column: string, operator: FilterOperators, values: string[], dataType: FilterDataTypes.STRING): void;
+  static filterContainer(column: string, operator: FilterOperators, values: number[], dataType: FilterDataTypes.NUMERIC): void;
+  static filterContainer(column: string, operator: FilterOperators, values: Date[], dataType: FilterDataTypes.DATE | FilterDataTypes.DATETIME): void;
+  static filterContainer(column: string, operator: FilterOperators, values: (string | number | Date)[], dataType: FilterDataTypes): void {
     const userAgent = window.navigator.userAgent.toLowerCase(),
       safari = /safari/.test( userAgent ),
       ios = /iphone|ipod|ipad/.test( userAgent );
