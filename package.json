@@ -12,6 +12,7 @@
     "webpack": "^4.40.2",
     "webpack-cli": "^3.3.9"
   },
+  "types": "dist/domo.d.ts",
   "scripts": {
     "test": "NODE_ENV=dev webpack && http-server .",
     "build": "NODE_ENV=production webpack -p"
