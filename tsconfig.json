@@ -8,6 +8,5 @@
       "declaration": true,
       "lib": ["es6", "es2017", "dom"],
       "jsx": "react",
-      "allowJs": true
     }
   }

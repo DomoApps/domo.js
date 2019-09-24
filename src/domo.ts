@@ -4,23 +4,23 @@ import { domoFormatToRequestFormat } from './utils/data-helpers';
 export = domo;
 
 class domo {
-  static post(url: string, body: any, options: RequestOptions) {
+  static post(url: string, body?: any, options?: RequestOptions) {
     return domoHttp(RequestMethods.POST, url, options, true, body);
   }
   
-  static put(url: string, body: any, options: RequestOptions) {
+  static put(url: string, body?: any, options?: RequestOptions) {
     return domoHttp(RequestMethods.PUT, url, options, true, body);
   }
   
-  static get(url: string, options: RequestOptions) {
+  static get(url: string, options?: RequestOptions) {
     return domoHttp(RequestMethods.GET, url, options);
   }
   
-  static delete(url: string, options: RequestOptions) {
+  static delete(url: string, options?: RequestOptions) {
     return domoHttp(RequestMethods.DELETE, url, options);
   }
 
-  static getAll(urls: string[], options: RequestOptions) {
+  static getAll(urls: string[], options?: RequestOptions) {
     return Promise.all(urls.map(function(url){
       return domo.get(url, options);
     }));
@@ -29,22 +29,22 @@ class domo {
   /**
    * Let the domoapp optionally handle its own data updates.
    */
-  static onDataUpdate(cb: any) {
+  static onDataUpdate(cb: (alias: string) => void) {
     window.addEventListener('message', function(event) {
       if (!isVerifiedOrigin(event.origin))
         return;
   
       if (typeof event.data === 'string' && event.data.length > 0) {
         try {
-          var message = JSON.parse(event.data);
+          const message = JSON.parse(event.data);
           if (!message.hasOwnProperty('alias')) {
             return;
           }
   
-          let alias = message.alias;
+          const alias = message.alias;
   
           // send acknowledgement to prevent autorefresh
-          var ack = JSON.stringify({
+          const ack = JSON.stringify({
             event: 'ack',
             alias: alias,
           });
@@ -55,7 +55,7 @@ class domo {
           // inform domo app which alias has been updated
           cb(alias);
         } catch(err) {
-          let info = 'There was an error in onDataUpdate! It may be that our event listener caught ' +
+          const info = 'There was an error in onDataUpdate! It may be that our event listener caught ' +
                      'a message from another source and tried to parse it, so your update still may have worked. ' +
                      'If you would like more info, here is the error: \n'
           console.warn(info, err);
@@ -68,7 +68,7 @@ class domo {
    * Request a navigation change
    */
   static navigate(url: string, isNewWindow: boolean) {
-    var message = JSON.stringify({
+    const message = JSON.stringify({
       event: 'navigate',
       url: url,
       isNewWindow: isNewWindow
@@ -82,12 +82,13 @@ class domo {
    * @param {String} operator 
    * @param {Array} values 
    */
+  //TODO: Typing on values and dataType
   static filterContainer(column: string, operator: string, values: any, dataType: any) {
-    var userAgent = window.navigator.userAgent.toLowerCase(),
+    const userAgent = window.navigator.userAgent.toLowerCase(),
       safari = /safari/.test( userAgent ),
       ios = /iphone|ipod|ipad/.test( userAgent );
   
-    var message = JSON.stringify({
+    const message = JSON.stringify({
       event: 'filter',
       filter: {
         columnName: column,
@@ -118,9 +119,10 @@ class domo {
 
 
 function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: any): Promise<any> {
+  options = options || {};
   return new Promise(function(resolve: any, reject: any) {
     // Do the usual XHR stuff
-    var req: XMLHttpRequest = new XMLHttpRequest();
+    let req: XMLHttpRequest = new XMLHttpRequest();
     if(async) {
       req.open(method, url, async);
     }
@@ -132,7 +134,7 @@ function domoHttp(method: RequestMethods, url: string, options: RequestOptions, 
     setResponseType(req, options);
 
     req.onload = function() {
-      var data;
+      let data;
       // This is called even on 404 etc so check the status
       if (isSuccess(req.status)) {
         
@@ -172,7 +174,7 @@ function domoHttp(method: RequestMethods, url: string, options: RequestOptions, 
     // Make the request
     if(body) {
       if (!options.contentType || options.contentType === DataFormats.JSON) {
-        var json = JSON.stringify(body);
+        const json = JSON.stringify(body);
         // Make the request
         req.send(json);
       } else {
@@ -189,23 +191,23 @@ function isSuccess(status: number) {
   return status >= 200 && status < 300;
 }
 
-function isVerifiedOrigin(origin: any) {
-  var whitelisted = origin.match('^https?://([^/]+[.])?(domo|domotech|domorig)\.(com|io)?(/.*)?$');
-  var blacklisted = origin.match('(.*)\.(domoapps)\.(.*)');
+function isVerifiedOrigin(origin: string) {
+  const whitelisted = origin.match('^https?://([^/]+[.])?(domo|domotech|domorig)\.(com|io)?(/.*)?$');
+  const blacklisted = origin.match('(.*)\.(domoapps)\.(.*)');
   return !!whitelisted && !blacklisted;
 }
 
 function getQueryParams() {
-  var query = location.search.substr(1);
+  const query = location.search.substr(1);
   let result : { [index : string] : string} = {};
   query.split("&").forEach(function(part) {
-    var item = part.split("=");
+    const item = part.split("=");
     result[item[0]] = decodeURIComponent(item[1]);
   });
   return result;
 }
 
-function setFormatHeaders(req: XMLHttpRequest, url: string, options: RequestOptions){
+function setFormatHeaders(req: XMLHttpRequest, url: string, options?: RequestOptions){
   if (url.indexOf('data/v1') === -1 ) { return; }
   // set format
   const requestFormat: DataFormats = (options.format !== undefined)
@@ -215,7 +217,7 @@ function setFormatHeaders(req: XMLHttpRequest, url: string, options: RequestOpti
   req.setRequestHeader('Accept', requestFormat);
 }
 
-function setContentHeaders(req: XMLHttpRequest, options: RequestOptions) {
+function setContentHeaders(req: XMLHttpRequest, options?: RequestOptions) {
   if (options.contentType) {
     // set content type if user passed option
     if(options.contentType !== 'multipart'){
@@ -227,7 +229,7 @@ function setContentHeaders(req: XMLHttpRequest, options: RequestOptions) {
   }
 }
 
-function setResponseType(req: XMLHttpRequest, options: RequestOptions) {
+function setResponseType(req: XMLHttpRequest, options?: RequestOptions) {
   //set response type if user passed option
   if (options.responseType !== undefined) {
     req.responseType = options.responseType;
