@@ -1,4 +1,4 @@
-import { RequestOptions } from './models';
+import { RequestOptions, QueryParams } from './models';
 export = domo;
 declare class domo {
     static post(url: string, body?: any, options?: RequestOptions): Promise<any>;
@@ -21,9 +21,7 @@ declare class domo {
      * @param {Array} values
      */
     static filterContainer(column: string, operator: string, values: any, dataType: any): void;
-    static env: {
-        [index: string]: string;
-    };
+    static env: QueryParams;
     static __util: {
         isVerifiedOrigin: typeof isVerifiedOrigin;
         getQueryParams: typeof getQueryParams;
@@ -33,7 +31,5 @@ declare class domo {
 }
 declare function isSuccess(status: number): boolean;
 declare function isVerifiedOrigin(origin: string): boolean;
-declare function getQueryParams(): {
-    [index: string]: string;
-};
+declare function getQueryParams(): QueryParams;
 declare function setFormatHeaders(req: XMLHttpRequest, url: string, options?: RequestOptions): void;

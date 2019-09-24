@@ -1,4 +1,4 @@
-import { RequestMethods, RequestOptions, DataFormats, DomoDataFormats } from './models';
+import { RequestMethods, RequestOptions, DataFormats, DomoDataFormats, QueryParams, Json } from './models';
 import { domoFormatToRequestFormat } from './utils/data-helpers';
 
 export = domo;
@@ -197,7 +197,7 @@ function isVerifiedOrigin(origin: string) {
   return !!whitelisted && !blacklisted;
 }
 
-function getQueryParams() {
+function getQueryParams(): QueryParams {
   const query = location.search.substr(1);
   let result : { [index : string] : string} = {};
   query.split("&").forEach(function(part) {
