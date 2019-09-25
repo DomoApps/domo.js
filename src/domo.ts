@@ -4,20 +4,20 @@ import {
   DataFormats,
   DomoDataFormats,
   QueryParams,
-  Json,
   FilterDataTypes,
   FilterOperators,
+  RequestBody,
 } from './models';
 import { domoFormatToRequestFormat } from './utils/data-helpers';
 
 export = domo;
 
 class domo {
-  static post(url: string, body?: Json, options?: RequestOptions) {
+  static post(url: string, body?: RequestBody, options?: RequestOptions) {
     return domoHttp(RequestMethods.POST, url, options, true, body);
   }
   
-  static put(url: string, body?: Json, options?: RequestOptions) {
+  static put(url: string, body?: RequestBody, options?: RequestOptions) {
     return domoHttp(RequestMethods.PUT, url, options, true, body);
   }
   
@@ -39,7 +39,7 @@ class domo {
    * Let the domoapp optionally handle its own data updates.
    */
   static onDataUpdate(cb: (alias: string) => void) {
-    window.addEventListener('message', function(event) {
+    window.addEventListener('message', function(event: MessageEvent) {
       if (!isVerifiedOrigin(event.origin))
         return;
   
@@ -123,7 +123,7 @@ class domo {
 };
 
 
-function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: Json): Promise<any> {
+function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: RequestBody): Promise<any> {
   options = options || {};
   return new Promise(function(resolve: any, reject: any) {
     // Do the usual XHR stuff
