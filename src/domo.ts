@@ -6,18 +6,19 @@ import {
   QueryParams,
   FilterDataTypes,
   FilterOperators,
-  RequestBody,
+  Json,
+  XMLHttpRequestBody,
 } from './models';
 import { domoFormatToRequestFormat } from './utils/data-helpers';
 
 export = domo;
 
 class domo {
-  static post(url: string, body?: RequestBody, options?: RequestOptions) {
+  static post(url: string, body?: Json | XMLHttpRequestBody, options?: RequestOptions) {
     return domoHttp(RequestMethods.POST, url, options, true, body);
   }
   
-  static put(url: string, body?: RequestBody, options?: RequestOptions) {
+  static put(url: string, body?: Json | XMLHttpRequestBody, options?: RequestOptions) {
     return domoHttp(RequestMethods.PUT, url, options, true, body);
   }
   
@@ -123,7 +124,7 @@ class domo {
 };
 
 
-function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: RequestBody): Promise<any> {
+function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: Json | XMLHttpRequestBody): Promise<any> {
   options = options || {};
   return new Promise(function(resolve: any, reject: any) {
     // Do the usual XHR stuff
@@ -183,7 +184,8 @@ function domoHttp(method: RequestMethods, url: string, options: RequestOptions, 
         // Make the request
         req.send(json);
       } else {
-        req.send(body);
+        // body can no longer be JSON
+        req.send(body as XMLHttpRequestBody);
       }
     }
     else {
