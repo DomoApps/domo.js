@@ -21,3 +21,5 @@ export type XMLHttpRequestBody =
   | FormData
   | URLSearchParams
   | ReadableStream<Uint8Array>;
+
+export type RequestBody = Json | XMLHttpRequestBody;

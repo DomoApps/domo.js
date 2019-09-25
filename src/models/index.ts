@@ -6,4 +6,4 @@ export { FilterOperators } from './enums/filter-operators';
 
 export { RequestOptions } from './interfaces/request-options';
 export { QueryParams } from './interfaces/query-params';
-export { Json, XMLHttpRequestBody } from './interfaces/request-body';
+export { RequestBody, XMLHttpRequestBody } from './interfaces/request-body';
