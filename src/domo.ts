@@ -13,11 +13,11 @@ import { domoFormatToRequestFormat } from './utils/data-helpers';
 export = domo;
 
 class domo {
-  static post(url: string, body?: any, options?: RequestOptions) {
+  static post(url: string, body?: Json, options?: RequestOptions) {
     return domoHttp(RequestMethods.POST, url, options, true, body);
   }
   
-  static put(url: string, body?: any, options?: RequestOptions) {
+  static put(url: string, body?: Json, options?: RequestOptions) {
     return domoHttp(RequestMethods.PUT, url, options, true, body);
   }
   
@@ -123,7 +123,7 @@ class domo {
 };
 
 
-function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: any): Promise<any> {
+function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: Json): Promise<any> {
   options = options || {};
   return new Promise(function(resolve: any, reject: any) {
     // Do the usual XHR stuff
