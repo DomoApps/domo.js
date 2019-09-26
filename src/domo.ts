@@ -1,36 +1,46 @@
 import {
   RequestMethods,
   RequestOptions,
+  ObjectRequestOptions,
+  ArrayRequestOptions,
   DataFormats,
-  DomoDataFormats,
   QueryParams,
   FilterDataTypes,
   FilterOperators,
   RequestBody,
   XMLHttpRequestBody,
+  ResponseBody,
+  ObjectResponseBody,
+  ArrayResponseBody,
 } from './models';
 import { domoFormatToRequestFormat } from './utils/data-helpers';
 
 export = domo;
 
 class domo {
-  static post(url: string, body?: RequestBody, options?: RequestOptions) {
+  static post(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody> {
     return domoHttp(RequestMethods.POST, url, options, true, body);
   }
   
-  static put(url: string, body?: RequestBody, options?: RequestOptions) {
+  static put(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody> {
     return domoHttp(RequestMethods.PUT, url, options, true, body);
   }
   
-  static get(url: string, options?: RequestOptions) {
+  static get(url: string, options: ObjectRequestOptions): Promise<ObjectResponseBody[]>;
+  static get(url: string, options: ArrayRequestOptions): Promise<ArrayResponseBody>;
+  static get(url: string, options?: RequestOptions): Promise<ResponseBody>;
+  static get(url: string, options?: RequestOptions): Promise<ResponseBody> {
     return domoHttp(RequestMethods.GET, url, options);
   }
   
-  static delete(url: string, options?: RequestOptions) {
+  static delete(url: string, options?: RequestOptions): Promise<ResponseBody> {
     return domoHttp(RequestMethods.DELETE, url, options);
   }
 
-  static getAll(urls: string[], options?: RequestOptions) {
+  static getAll(urls: string[], options: ObjectRequestOptions): Promise<ObjectResponseBody[][]>;
+  static getAll(urls: string[], options: ArrayRequestOptions): Promise<ArrayResponseBody[]>;
+  static getAll(urls: string[], options?: RequestOptions): Promise<ResponseBody[]>;
+  static getAll(urls: string[], options?: RequestOptions): Promise<ResponseBody[]> {
     return Promise.all(urls.map(function(url){
       return domo.get(url, options);
     }));
@@ -123,10 +133,12 @@ class domo {
 
 };
 
-
-function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: RequestBody): Promise<any> {
+function domoHttp(method: RequestMethods, url: string, options: ObjectRequestOptions, async?: boolean, body?: RequestBody): Promise<ObjectResponseBody[]>;
+function domoHttp(method: RequestMethods, url: string, options: ArrayRequestOptions, async?: boolean, body?: RequestBody): Promise<ArrayResponseBody>;
+function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: RequestBody): Promise<ResponseBody>;
+function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: RequestBody): Promise<ResponseBody> {
   options = options || {};
-  return new Promise(function(resolve: any, reject: any) {
+  return new Promise(function(resolve: (value?: ResponseBody) => void, reject: (reason?: Error) => void) {
     // Do the usual XHR stuff
     let req: XMLHttpRequest = new XMLHttpRequest();
     if(async) {
@@ -144,7 +156,7 @@ function domoHttp(method: RequestMethods, url: string, options: RequestOptions, 
       // This is called even on 404 etc so check the status
       if (isSuccess(req.status)) {
         
-        if ([DomoDataFormats.CSV, DomoDataFormats.EXCEL].includes(options.format) || !req.response){
+        if (['csv', 'excel'].includes(options.format) || !req.response){
           resolve(req.response);
         }
         if(options.responseType === 'blob') {
@@ -159,7 +171,7 @@ function domoHttp(method: RequestMethods, url: string, options: RequestOptions, 
           data = JSON.parse(responseStr);
         }
         catch (ex){
-          reject(Error("Invalid JSON response"));
+          reject(Error('Invalid JSON response'));
           return;
         }
         // Resolve the promise with the response text
