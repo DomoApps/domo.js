@@ -7,7 +7,7 @@ export interface RequestOptions {
 }
 
 export interface ObjectRequestOptions extends RequestOptions {
-  format?: 'array-of-objects';
+  format: 'array-of-objects';
 }
 
 export interface ArrayRequestOptions extends RequestOptions {

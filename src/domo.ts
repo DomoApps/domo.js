@@ -18,36 +18,27 @@ import { domoFormatToRequestFormat } from './utils/data-helpers';
 export = domo;
 
 class domo {
-  static post(url: string, body?: RequestBody, options?: ObjectRequestOptions): Promise<ObjectResponseBody[]>;
-  static post(url: string, body?: RequestBody, options?: ArrayRequestOptions): Promise<ArrayResponseBody>;
-  static post(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
   static post(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody> {
     return domoHttp(RequestMethods.POST, url, options, true, body);
   }
   
-  static put(url: string, body?: RequestBody, options?: ObjectRequestOptions): Promise<ObjectResponseBody[]>;
-  static put(url: string, body?: RequestBody, options?: ArrayRequestOptions): Promise<ArrayResponseBody>;
-  static put(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
   static put(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody> {
     return domoHttp(RequestMethods.PUT, url, options, true, body);
   }
   
-  static get(url: string, options?: ObjectRequestOptions): Promise<ObjectResponseBody[]>;
-  static get(url: string, options?: ArrayRequestOptions): Promise<ArrayResponseBody>;
+  static get(url: string, options: ObjectRequestOptions): Promise<ObjectResponseBody[]>;
+  static get(url: string, options: ArrayRequestOptions): Promise<ArrayResponseBody>;
   static get(url: string, options?: RequestOptions): Promise<ResponseBody>;
   static get(url: string, options?: RequestOptions): Promise<ResponseBody> {
     return domoHttp(RequestMethods.GET, url, options);
   }
   
-  static delete(url: string, options?: ObjectRequestOptions): Promise<ObjectResponseBody[]>;
-  static delete(url: string, options?: ArrayRequestOptions): Promise<ArrayResponseBody>;
-  static delete(url: string, options?: RequestOptions): Promise<ResponseBody>;
   static delete(url: string, options?: RequestOptions): Promise<ResponseBody> {
     return domoHttp(RequestMethods.DELETE, url, options);
   }
 
-  static getAll(urls: string[], options?: ObjectRequestOptions): Promise<ObjectResponseBody[][]>;
-  static getAll(urls: string[], options?: ArrayRequestOptions): Promise<ArrayResponseBody[]>;
+  static getAll(urls: string[], options: ObjectRequestOptions): Promise<ObjectResponseBody[][]>;
+  static getAll(urls: string[], options: ArrayRequestOptions): Promise<ArrayResponseBody[]>;
   static getAll(urls: string[], options?: RequestOptions): Promise<ResponseBody[]>;
   static getAll(urls: string[], options?: RequestOptions): Promise<ResponseBody[]> {
     return Promise.all(urls.map(function(url){
