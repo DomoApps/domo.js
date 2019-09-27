@@ -1,4 +1,4 @@
-# v2.7.0
+# v3.0.0
 Converted to TypeScript
 
 # v2.0.0
