@@ -7,36 +7,27 @@ const bannerComment = [
   'Optional utility library for Custom Apps'
 ].join('\n');
 
-const config = {
-  context: __dirname + '/src',
-
-  entry: './domo.js',
-
-  output: {
-    path: path.join(__dirname, 'dist'),
-    publicPath: '/dist/',
-    filename: 'domo.js',
-    library: 'domo',
-    libraryTarget: 'umd'
-  },
-
+module.exports = {
+  entry: './src/domo.ts',
+  devtool: 'inline-source-map',
   plugins: [
     new webpack.BannerPlugin(bannerComment)
   ],
   module: {
-    loaders: [{
-      test: /\.js$/,
-      exclude: /node_modules/,
-      loader: 'babel',
-      query: {
-        cacheDirectory: true,
-        presets: ['es2015', 'stage-1'],
-        plugins: []
+    rules: [{
+      test: /\.tsx?$/,
+      use: 'ts-loader',
+      exclude: /node_modules/
       }
-    }]
+    ]
   },
-
-  devtool: 'source-map'
+  resolve: {
+    extensions: [ '.tsx', '.ts', '.js' ]
+  },
+  output: {
+    filename: 'domo.js',
+    path: path.resolve(__dirname, 'dist'),
+    library: 'domo',
+    libraryTarget: 'umd'
+  }
 };
-
-module.exports = config;
