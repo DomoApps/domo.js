@@ -18,31 +18,39 @@ import { domoFormatToRequestFormat } from './utils/data-helpers';
 export = domo;
 
 class domo {
-  static post(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody> {
-    return domoHttp(RequestMethods.POST, url, options, true, body);
+  static post(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
+  static post<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T>;
+  static post<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
+    return domoHttp<T>(RequestMethods.POST, url, options, true, body);
   }
   
-  static put(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody> {
-    return domoHttp(RequestMethods.PUT, url, options, true, body);
+  static put(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
+  static put<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T>;
+  static put<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
+    return domoHttp<T>(RequestMethods.PUT, url, options, true, body);
   }
   
   static get(url: string, options: ObjectRequestOptions): Promise<ObjectResponseBody[]>;
   static get(url: string, options: ArrayRequestOptions): Promise<ArrayResponseBody>;
   static get(url: string, options?: RequestOptions): Promise<ResponseBody>;
-  static get(url: string, options?: RequestOptions): Promise<ResponseBody> {
-    return domoHttp(RequestMethods.GET, url, options);
+  static get<T>(url: string, options?: RequestOptions): Promise<T>;
+  static get<T>(url: string, options?: RequestOptions): Promise<T> {
+    return domoHttp<T>(RequestMethods.GET, url, options);
   }
   
-  static delete(url: string, options?: RequestOptions): Promise<ResponseBody> {
-    return domoHttp(RequestMethods.DELETE, url, options);
+  static delete(url: string, options?: RequestOptions): Promise<ResponseBody>;
+  static delete<T>(url: string, options?: RequestOptions): Promise<T>;
+  static delete<T>(url: string, options?: RequestOptions): Promise<T> {
+    return domoHttp<T>(RequestMethods.DELETE, url, options);
   }
 
   static getAll(urls: string[], options: ObjectRequestOptions): Promise<ObjectResponseBody[][]>;
   static getAll(urls: string[], options: ArrayRequestOptions): Promise<ArrayResponseBody[]>;
   static getAll(urls: string[], options?: RequestOptions): Promise<ResponseBody[]>;
-  static getAll(urls: string[], options?: RequestOptions): Promise<ResponseBody[]> {
+  static getAll<T>(urls: string[], options?: RequestOptions): Promise<T[]>;
+  static getAll<T>(urls: string[], options?: RequestOptions): Promise<T[]> {
     return Promise.all(urls.map(function(url){
-      return domo.get(url, options);
+      return domo.get<T>(url, options);
     }));
   };
   
@@ -136,6 +144,7 @@ class domo {
 function domoHttp(method: RequestMethods, url: string, options: ObjectRequestOptions, async?: boolean, body?: RequestBody): Promise<ObjectResponseBody[]>;
 function domoHttp(method: RequestMethods, url: string, options: ArrayRequestOptions, async?: boolean, body?: RequestBody): Promise<ArrayResponseBody>;
 function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: RequestBody): Promise<ResponseBody>;
+function domoHttp<T>(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: RequestBody): Promise<T>;
 function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: RequestBody): Promise<ResponseBody> {
   options = options || {};
   return new Promise(function(resolve: (value?: ResponseBody) => void, reject: (reason?: Error) => void) {
