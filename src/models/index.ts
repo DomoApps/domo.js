@@ -1,8 +1,8 @@
 export { RequestMethods } from './enums/request-methods';
 export { DomoDataFormats } from './interfaces/domo-data-formats';
 export { DataFormats } from './enums/data-formats';
-export { FilterDataTypes } from './enums/filter-data-types';
-export { FilterOperators } from './enums/filter-operators';
+export { FilterDataTypes } from './interfaces/filter-data-types';
+export { FilterOperators } from './interfaces/filter-operators';
 
 export { RequestOptions, ObjectRequestOptions, ArrayRequestOptions } from './interfaces/request-options';
 export { QueryParams } from './interfaces/query-params';

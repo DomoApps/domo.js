@@ -104,9 +104,9 @@ class domo {
     window.parent.postMessage(message, "*");
   }
   
-  static filterContainer(column: string, operator: FilterOperators, values: string[], dataType: FilterDataTypes.STRING): void;
-  static filterContainer(column: string, operator: FilterOperators, values: number[], dataType: FilterDataTypes.NUMERIC): void;
-  static filterContainer(column: string, operator: FilterOperators, values: Date[], dataType: FilterDataTypes.DATE | FilterDataTypes.DATETIME): void;
+  static filterContainer(column: string, operator: FilterOperators, values: string[], dataType: 'STRING'): void;
+  static filterContainer(column: string, operator: FilterOperators, values: number[], dataType: 'NUMERIC'): void;
+  static filterContainer(column: string, operator: FilterOperators, values: Date[], dataType: 'DATE' | 'DATETIME'): void;
   static filterContainer(column: string, operator: FilterOperators, values: (string | number | Date)[], dataType: FilterDataTypes): void {
     const userAgent = window.navigator.userAgent.toLowerCase(),
       safari = /safari/.test( userAgent ),
