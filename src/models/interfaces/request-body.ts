@@ -14,4 +14,4 @@ export type XMLHttpRequestBody =
   | URLSearchParams
   | ReadableStream<Uint8Array>;
 
-export type RequestBody = Json | XMLHttpRequestBody;
+export type RequestBody = unknown;
