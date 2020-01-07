@@ -19,14 +19,14 @@ export = domo;
 
 class domo {
   static post(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
-  static post<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T>;
-  static post<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
+  static post<T, S>(url: string, body?: S, options?: RequestOptions): Promise<T>;
+  static post<T, S>(url: string, body?: S, options?: RequestOptions): Promise<T> {
     return domoHttp<T>(RequestMethods.POST, url, options, true, body);
   }
   
   static put(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
-  static put<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T>;
-  static put<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
+  static put<T, S>(url: string, body?: S, options?: RequestOptions): Promise<T>;
+  static put<T, S>(url: string, body?: S, options?: RequestOptions): Promise<T> {
     return domoHttp<T>(RequestMethods.PUT, url, options, true, body);
   }
   
