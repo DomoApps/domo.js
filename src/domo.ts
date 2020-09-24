@@ -145,7 +145,12 @@ class domo {
     window.parent.postMessage(message, "*");
   }
 
-  static filterContainer(filters: { column: string, operator: FilterOperators, values: (string | number | Date)[], dataType: FilterDataTypes }[]): void {
+  static filterContainer(filters:
+    ({ column: string, operator: FilterOperators, values: (string | number | Date)[], dataType: FilterDataTypes }
+      | { column: string, operator: FilterOperators, values: Date[], dataType: 'DATE' | 'DATETIME' }
+      | { column: string, operator: FilterOperators, values: number[], dataType: 'NUMERIC' }
+      | { column: string, operator: FilterOperators, values: string[], dataType: 'STRING' })[]
+  ): void {
     const userAgent = window.navigator.userAgent.toLowerCase(),
       safari = /safari/.test(userAgent),
       ios = /iphone|ipod|ipad/.test(userAgent);
