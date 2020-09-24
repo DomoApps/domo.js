@@ -120,11 +120,10 @@ class domo {
     domo.channel.port1.onmessage = (e: MessageEvent) => {
       const [responsePort] = e.ports;
       if (responsePort === undefined) return;
-      let callbacks: Function[] = [];
 
       if (e.data.event === 'filtersUpdated' && domo.listeners.onFiltersUpdate.length > 0) {
         responsePort.postMessage({}); // Prevents the app from reloading. Says we've handled it
-        callbacks.forEach((cb) => cb(e.data.filters)); // <- split out onFiltersUpdate so that you can handle each message differently here
+        domo.listeners.onFiltersUpdate.forEach((cb) => cb(e.data.filters)); // <- split out onFiltersUpdate so that you can handle each message differently here
       }
     };
 
