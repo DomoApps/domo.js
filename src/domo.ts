@@ -120,9 +120,9 @@ class domo {
     });
 
     if (ios && !safari) {
-      (window as any).webkit.messageHandlers.domofilter.postMessage({ column: filters[0].column, operand: filters[0].operator, values: filters[0].values, dataType: filters[0].dataType }
-        // filters.map(filter =>
-        // ({ column: filter.column, operand: filter.operator, values: filter.values, dataType: filter.dataType }))
+      (window as any).webkit.messageHandlers.domofilter.postMessage(
+        filters.map(filter =>
+          ({ column: filter.column, operand: filter.operator, values: filter.values, dataType: filter.dataType }))
       );
     }
     else {
