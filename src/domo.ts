@@ -93,6 +93,48 @@ class domo {
   };
 
   /**
+   * Let the domoapp optionally handle other events
+   */
+  static channel?: MessageChannel;
+  static connected = false;
+  static listeners: { [index: string]: Function[] } = {
+    onFiltersUpdate: [],
+  };
+
+  static connect = () => {
+    if (domo.connected) return;
+    domo.connected = true;
+    domo.channel = new MessageChannel();
+    window.parent.postMessage(JSON.stringify({ event: 'subscribe' }), '*', [
+      domo.channel.port2,
+    ]);
+  };
+
+  /**
+   * Let the domoapp handle its own filter updates
+   */
+  static onFiltersUpdate = (callback: Function) => {
+    domo.connect();
+    const index = domo.listeners.onFiltersUpdate.push(callback) - 1;
+
+    domo.channel.port1.onmessage = (e: MessageEvent) => {
+      const [responsePort] = e.ports;
+      if (responsePort === undefined) return;
+      let callbacks: Function[] = [];
+
+      if (e.data.event === 'filtersUpdated' && domo.listeners.onFiltersUpdate.length > 0) {
+        responsePort.postMessage({}); // Prevents the app from reloading. Says we've handled it
+        callbacks.forEach((cb) => cb(e.data.filters)); // <- split out onFiltersUpdate so that you can handle each message differently here
+      }
+    };
+
+    // unregister
+    return () => {
+      domo.listeners.onFiltersUpdate.splice(index, 1);
+    };
+  };
+
+  /**
    * Request a navigation change
    */
   static navigate(url: string, isNewWindow: boolean) {
