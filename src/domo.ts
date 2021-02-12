@@ -257,6 +257,8 @@ class domo {
   };
 }
 
+const token = (window as any).__RYUU_AUTHENTICATION_TOKEN__;
+
 function domoHttp(
   method: RequestMethods,
   url: string,
@@ -306,6 +308,7 @@ function domoHttp(
     }
     setFormatHeaders(req, url, options);
     setContentHeaders(req, options);
+    setAuthTokenHeader(req);
     setResponseType(req, options);
 
     req.onload = function () {
@@ -413,9 +416,60 @@ function setContentHeaders(req: XMLHttpRequest, options?: RequestOptions) {
   }
 }
 
+function setAuthTokenHeader(req: XMLHttpRequest) {
+  if (token) {
+    req.setRequestHeader('X-DOMO-Ryuu-Token', token);
+  }
+}
+
+
 function setResponseType(req: XMLHttpRequest, options?: RequestOptions) {
   //set response type if user passed option
   if (options.responseType !== undefined) {
     req.responseType = options.responseType;
   }
 }
+
+function handleNode(node: HTMLElement){
+  if (node === document.body) {
+    return processBody(node);
+  }
+  let attr;
+  let url;
+  if (node.dataset && node.dataset.domoHref) {
+    attr = 'href';
+    url = node.dataset.domoHref;
+  } else if (node.dataset && node.dataset.domoSrc) {
+    attr = 'src';
+    url = node.dataset.domoSrc;
+  } else if (node.hasAttribute && node.hasAttribute('href')) {
+    attr = 'href';
+    url = node.getAttribute('href');
+  } else if (node.hasAttribute && node.hasAttribute('src')) {
+    attr = 'src';
+    url = node.getAttribute('src');
+  }
+
+  if (url && token) {
+    const newUrl = new URL(url, document.location.origin);
+    const isRelativeUrl = (newUrl).origin === document.location.origin;
+    if (isRelativeUrl) {
+      newUrl.searchParams.append('rpt', token);
+      node.setAttribute(attr, newUrl.href);
+    }
+  }
+};
+
+function processBody(node: Element) {
+  for (let i = 0; i < node.children.length; i++) {
+    handleNode(<HTMLElement>node.children[i]);
+  }
+}
+
+const ob = new MutationObserver((mutations) => {
+  for (const record of mutations) {
+    record.addedNodes.forEach(handleNode);
+  }
+});
+ob.observe(document.documentElement, { childList: true });
+ob.observe(document.head, { childList: true });
