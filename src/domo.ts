@@ -12,26 +12,56 @@ import {
   ResponseBody,
   ObjectResponseBody,
   ArrayResponseBody,
-} from './models';
-import { domoFormatToRequestFormat } from './utils/data-helpers';
+} from "./models";
+import { domoFormatToRequestFormat } from "./utils/data-helpers";
 
 export = domo;
 
 class domo {
-  static post(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
-  static post<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T>;
-  static post<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
+  static post(
+    url: string,
+    body?: RequestBody,
+    options?: RequestOptions
+  ): Promise<ResponseBody>;
+  static post<T>(
+    url: string,
+    body?: RequestBody,
+    options?: RequestOptions
+  ): Promise<T>;
+  static post<T>(
+    url: string,
+    body?: RequestBody,
+    options?: RequestOptions
+  ): Promise<T> {
     return domoHttp<T>(RequestMethods.POST, url, options, true, body);
   }
 
-  static put(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
-  static put<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T>;
-  static put<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
+  static put(
+    url: string,
+    body?: RequestBody,
+    options?: RequestOptions
+  ): Promise<ResponseBody>;
+  static put<T>(
+    url: string,
+    body?: RequestBody,
+    options?: RequestOptions
+  ): Promise<T>;
+  static put<T>(
+    url: string,
+    body?: RequestBody,
+    options?: RequestOptions
+  ): Promise<T> {
     return domoHttp<T>(RequestMethods.PUT, url, options, true, body);
   }
 
-  static get(url: string, options: ObjectRequestOptions): Promise<ObjectResponseBody[]>;
-  static get(url: string, options: ArrayRequestOptions): Promise<ArrayResponseBody>;
+  static get(
+    url: string,
+    options: ObjectRequestOptions
+  ): Promise<ObjectResponseBody[]>;
+  static get(
+    url: string,
+    options: ArrayRequestOptions
+  ): Promise<ArrayResponseBody>;
   static get(url: string, options?: RequestOptions): Promise<ResponseBody>;
   static get<T>(url: string, options?: RequestOptions): Promise<T>;
   static get<T>(url: string, options?: RequestOptions): Promise<T> {
@@ -44,28 +74,38 @@ class domo {
     return domoHttp<T>(RequestMethods.DELETE, url, options);
   }
 
-  static getAll(urls: string[], options: ObjectRequestOptions): Promise<ObjectResponseBody[][]>;
-  static getAll(urls: string[], options: ArrayRequestOptions): Promise<ArrayResponseBody[]>;
-  static getAll(urls: string[], options?: RequestOptions): Promise<ResponseBody[]>;
+  static getAll(
+    urls: string[],
+    options: ObjectRequestOptions
+  ): Promise<ObjectResponseBody[][]>;
+  static getAll(
+    urls: string[],
+    options: ArrayRequestOptions
+  ): Promise<ArrayResponseBody[]>;
+  static getAll(
+    urls: string[],
+    options?: RequestOptions
+  ): Promise<ResponseBody[]>;
   static getAll<T>(urls: string[], options?: RequestOptions): Promise<T[]>;
   static getAll<T>(urls: string[], options?: RequestOptions): Promise<T[]> {
-    return Promise.all(urls.map(function (url) {
-      return domo.get<T>(url, options);
-    }));
-  };
+    return Promise.all(
+      urls.map(function (url) {
+        return domo.get<T>(url, options);
+      })
+    );
+  }
 
   /**
    * Let the domoapp optionally handle its own data updates.
    */
   static onDataUpdate(cb: (alias: string) => void) {
-    window.addEventListener('message', function (event: MessageEvent) {
-      if (!isVerifiedOrigin(event.origin))
-        return;
+    function innerCallback(event: MessageEvent) {
+      if (!isVerifiedOrigin(event.origin)) return;
 
-      if (typeof event.data === 'string' && event.data.length > 0) {
+      if (typeof event.data === "string" && event.data.length > 0) {
         try {
           const message = JSON.parse(event.data);
-          if (!message.hasOwnProperty('alias')) {
+          if (!message.hasOwnProperty("alias")) {
             return;
           }
 
@@ -73,7 +113,7 @@ class domo {
 
           // send acknowledgement to prevent autorefresh
           const ack = JSON.stringify({
-            event: 'ack',
+            event: "ack",
             alias: alias,
           });
           if (event.source instanceof Window) {
@@ -83,14 +123,17 @@ class domo {
           // inform domo app which alias has been updated
           cb(alias);
         } catch (err) {
-          const info = 'There was an error in onDataUpdate! It may be that our event listener caught ' +
-            'a message from another source and tried to parse it, so your update still may have worked. ' +
-            'If you would like more info, here is the error: \n'
+          const info =
+            "There was an error in onDataUpdate! It may be that our event listener caught " +
+            "a message from another source and tried to parse it, so your update still may have worked. " +
+            "If you would like more info, here is the error: \n";
           console.warn(info, err);
         }
       }
-    });
-  };
+    }
+    window.addEventListener("message", innerCallback);
+    return () => window.removeEventListener("message", innerCallback);
+  }
 
   /**
    * Let the domoapp optionally handle other events
@@ -105,7 +148,7 @@ class domo {
     if (domo.connected) return;
     domo.connected = true;
     domo.channel = new MessageChannel();
-    window.parent.postMessage(JSON.stringify({ event: 'subscribe' }), '*', [
+    window.parent.postMessage(JSON.stringify({ event: "subscribe" }), "*", [
       domo.channel.port2,
     ]);
   };
@@ -121,7 +164,10 @@ class domo {
       const [responsePort] = e.ports;
       if (responsePort === undefined) return;
 
-      if (e.data.event === 'filtersUpdated' && domo.listeners.onFiltersUpdate.length > 0) {
+      if (
+        e.data.event === "filtersUpdated" &&
+        domo.listeners.onFiltersUpdate.length > 0
+      ) {
         responsePort.postMessage({}); // Prevents the app from reloading. Says we've handled it
         domo.listeners.onFiltersUpdate.forEach((cb) => cb(e.data.filters)); // <- split out onFiltersUpdate so that you can handle each message differently here
       }
@@ -138,40 +184,65 @@ class domo {
    */
   static navigate(url: string, isNewWindow: boolean) {
     const message = JSON.stringify({
-      event: 'navigate',
+      event: "navigate",
       url: url,
-      isNewWindow: isNewWindow
+      isNewWindow: isNewWindow,
     });
     window.parent.postMessage(message, "*");
   }
 
-  static filterContainer(filters:
-    ({ column: string, operator: FilterOperators, values: (string | number | Date)[], dataType: FilterDataTypes }
-      | { column: string, operator: FilterOperators, values: Date[], dataType: 'DATE' | 'DATETIME' }
-      | { column: string, operator: FilterOperators, values: number[], dataType: 'NUMERIC' }
-      | { column: string, operator: FilterOperators, values: string[], dataType: 'STRING' })[]
+  static filterContainer(
+    filters: (
+      | {
+          column: string;
+          operator: FilterOperators;
+          values: (string | number | Date)[];
+          dataType: FilterDataTypes;
+        }
+      | {
+          column: string;
+          operator: FilterOperators;
+          values: Date[];
+          dataType: "DATE" | "DATETIME";
+        }
+      | {
+          column: string;
+          operator: FilterOperators;
+          values: number[];
+          dataType: "NUMERIC";
+        }
+      | {
+          column: string;
+          operator: FilterOperators;
+          values: string[];
+          dataType: "STRING";
+        }
+    )[]
   ): void {
     const userAgent = window.navigator.userAgent.toLowerCase(),
       safari = /safari/.test(userAgent),
       ios = /iphone|ipod|ipad/.test(userAgent);
 
     const message = JSON.stringify({
-      event: 'filter',
-      filter: filters.map(filter => ({
+      event: "filter",
+      filter: filters.map((filter) => ({
         columnName: filter.column,
         operator: filter.operator,
         values: filter.values,
-        dataType: filter.dataType
-      }))
+        dataType: filter.dataType,
+      })),
     });
 
     if (ios && !safari) {
       (window as any).webkit.messageHandlers.domofilter.postMessage(
-        filters.map(filter =>
-          ({ column: filter.column, operand: filter.operator, values: filter.values, dataType: filter.dataType }))
+        filters.map((filter) => ({
+          column: filter.column,
+          operand: filter.operator,
+          values: filter.values,
+          dataType: filter.dataType,
+        }))
       );
-    }
-    else {
+    } else {
       window.parent.postMessage(message, "*");
     }
   }
@@ -182,26 +253,57 @@ class domo {
     isVerifiedOrigin,
     getQueryParams,
     setFormatHeaders,
-    isSuccess
-  }
-
-};
+    isSuccess,
+  };
+}
 
 const token = (window as any).__RYUU_AUTHENTICATION_TOKEN__;
 
-function domoHttp(method: RequestMethods, url: string, options: ObjectRequestOptions, async?: boolean, body?: RequestBody): Promise<ObjectResponseBody[]>;
-function domoHttp(method: RequestMethods, url: string, options: ArrayRequestOptions, async?: boolean, body?: RequestBody): Promise<ArrayResponseBody>;
-function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: RequestBody): Promise<ResponseBody>;
-function domoHttp<T>(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: RequestBody): Promise<T>;
-function domoHttp(method: RequestMethods, url: string, options: RequestOptions, async?: boolean, body?: RequestBody): Promise<ResponseBody> {
+function domoHttp(
+  method: RequestMethods,
+  url: string,
+  options: ObjectRequestOptions,
+  async?: boolean,
+  body?: RequestBody
+): Promise<ObjectResponseBody[]>;
+function domoHttp(
+  method: RequestMethods,
+  url: string,
+  options: ArrayRequestOptions,
+  async?: boolean,
+  body?: RequestBody
+): Promise<ArrayResponseBody>;
+function domoHttp(
+  method: RequestMethods,
+  url: string,
+  options: RequestOptions,
+  async?: boolean,
+  body?: RequestBody
+): Promise<ResponseBody>;
+function domoHttp<T>(
+  method: RequestMethods,
+  url: string,
+  options: RequestOptions,
+  async?: boolean,
+  body?: RequestBody
+): Promise<T>;
+function domoHttp(
+  method: RequestMethods,
+  url: string,
+  options: RequestOptions,
+  async?: boolean,
+  body?: RequestBody
+): Promise<ResponseBody> {
   options = options || {};
-  return new Promise(function (resolve: (value?: ResponseBody) => void, reject: (reason?: Error) => void) {
+  return new Promise(function (
+    resolve: (value?: ResponseBody) => void,
+    reject: (reason?: Error) => void
+  ) {
     // Do the usual XHR stuff
     let req: XMLHttpRequest = new XMLHttpRequest();
     if (async) {
       req.open(method, url, async);
-    }
-    else {
+    } else {
       req.open(method, url);
     }
     setFormatHeaders(req, url, options);
@@ -213,12 +315,15 @@ function domoHttp(method: RequestMethods, url: string, options: RequestOptions, 
       let data;
       // This is called even on 404 etc so check the status
       if (isSuccess(req.status)) {
-
-        if (['csv', 'excel'].includes(options.format) || !req.response) {
+        if (["csv", "excel"].includes(options.format) || !req.response) {
           resolve(req.response);
         }
-        if (options.responseType === 'blob') {
-          resolve(new Blob([req.response], { type: req.getResponseHeader('content-type') }));
+        if (options.responseType === "blob") {
+          resolve(
+            new Blob([req.response], {
+              type: req.getResponseHeader("content-type"),
+            })
+          );
         }
 
         let responseStr = req.response;
@@ -227,15 +332,13 @@ function domoHttp(method: RequestMethods, url: string, options: RequestOptions, 
           //   responseStr = "{}";
           // }
           data = JSON.parse(responseStr);
-        }
-        catch (ex) {
-          reject(Error('Invalid JSON response'));
+        } catch (ex) {
+          reject(Error("Invalid JSON response"));
           return;
         }
         // Resolve the promise with the response text
         resolve(data);
-      }
-      else {
+      } else {
         // Otherwise reject with the status text
         // which will hopefully be a meaningful error
         reject(Error(req.statusText));
@@ -257,8 +360,7 @@ function domoHttp(method: RequestMethods, url: string, options: RequestOptions, 
         // body can no longer be JSON
         req.send(body as XMLHttpRequestBody);
       }
-    }
-    else {
+    } else {
       req.send();
     }
   });
@@ -269,8 +371,10 @@ function isSuccess(status: number) {
 }
 
 function isVerifiedOrigin(origin: string) {
-  const whitelisted = origin.match('^https?://([^/]+[.])?(domo|domotech|domorig)\.(com|io)?(/.*)?$');
-  const blacklisted = origin.match('(.*)\.(domoapps)\.(.*)');
+  const whitelisted = origin.match(
+    "^https?://([^/]+[.])?(domo|domotech|domorig).(com|io)?(/.*)?$"
+  );
+  const blacklisted = origin.match("(.*).(domoapps).(.*)");
   return !!whitelisted && !blacklisted;
 }
 
@@ -284,25 +388,31 @@ function getQueryParams(): QueryParams {
   return result;
 }
 
-function setFormatHeaders(req: XMLHttpRequest, url: string, options?: RequestOptions) {
-  if (url.indexOf('data/v1') === -1) { return; }
+function setFormatHeaders(
+  req: XMLHttpRequest,
+  url: string,
+  options?: RequestOptions
+) {
+  if (url.indexOf("data/v1") === -1) {
+    return;
+  }
   // set format
-  const requestFormat: DataFormats = (options.format !== undefined)
-    ? (domoFormatToRequestFormat(options.format))
-    : (DataFormats.DEFAULT);
+  const requestFormat: DataFormats =
+    options.format !== undefined
+      ? domoFormatToRequestFormat(options.format)
+      : DataFormats.DEFAULT;
 
-  req.setRequestHeader('Accept', requestFormat);
+  req.setRequestHeader("Accept", requestFormat);
 }
 
 function setContentHeaders(req: XMLHttpRequest, options?: RequestOptions) {
   if (options.contentType) {
     // set content type if user passed option
-    if (options.contentType !== 'multipart') {
-      req.setRequestHeader('Content-Type', options.contentType);
+    if (options.contentType !== "multipart") {
+      req.setRequestHeader("Content-Type", options.contentType);
     }
-  }
-  else {
-    req.setRequestHeader('Content-Type', DataFormats.JSON);
+  } else {
+    req.setRequestHeader("Content-Type", DataFormats.JSON);
   }
 }
 
