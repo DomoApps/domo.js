@@ -195,21 +195,25 @@ class domo {
       safari = /safari/.test(userAgent),
       ios = /iphone|ipod|ipad/.test(userAgent);
 
-    const getFilterArray = (f: Filter[] | null) =>
-      f && f.map((filter) => ({
+    const message = JSON.stringify({
+      event: "filter",
+      filter: filters && filters.map((filter) => ({
         columnName: filter.column,
         operator: filter.operator || (filter as any).operand, // Most filter code (including Phoenix) still uses "operand" instead of "operator"
         values: filter.values,
         dataType: filter.dataType,
-      }));
-
-    const message = JSON.stringify({
-      event: "filter",
-      filter: getFilterArray(filters),
+      })),
     });
 
     if (ios && !safari) {
-      (window as any).webkit.messageHandlers.domofilter.postMessage(getFilterArray(filters));
+      (window as any).webkit.messageHandlers.domofilter.postMessage(
+        filters && filters.map((filter) => ({
+          column: filter.column,
+          operand: filter.operator || (filter as any).operand,
+          values: filter.values,
+          dataType: filter.dataType,
+        }))
+      );
     } else {
       window.parent.postMessage(message, "*");
     }
