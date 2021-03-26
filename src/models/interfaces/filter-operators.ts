@@ -1,25 +1,23 @@
 /**
- * These are pulled directly from the backend code,
- * which is not consistent in naming styles
+ * Referenced from com/domo/api/content/client/views/model/Operator.java
  */
+export enum FilterOperatorsString {
+  IN = "IN",
+  NOT_IN = "NOT_IN",
+  CONTAINS = "CONTAINS",
+  NOT_CONTAINS = "NOT_CONTAINS",
+  STARTS_WITH = "STARTS_WITH",
+  NOT_STARTS_WITH = "NOT_STARTS_WITH",
+  ENDS_WITH = "ENDS_WITH",
+  NOT_ENDS_WITH = "NOT_ENDS_WITH",
+}
 
-export type FilterOperators = 'is'
-  | 'is not'
-  | 'IN'
-  | 'NOT_IN'
-  | 'is greater than'
-  | 'is above average'
-  | 'is greater than or equal to'
-  | 'is less than'
-  | 'is below average'
-  | 'is less than or equal to'
-  | 'is between'
-  | 'is not between'
-  | 'like'
-  | 'not like'
-  | 'contains'
-  | 'not contains'
-  | 'starts with'
-  | 'not starts with'
-  | 'ends with'
-  | 'not ends with';
+export enum FilterOperatorsNumeric {
+  GREATER_THAN = 'GREATER_THAN',
+  GREAT_THAN_EQUALS_TO = 'GREAT_THAN_EQUALS_TO',
+  LESS_THAN = 'LESS_THAN',
+  LESS_THAN_EQUALS_TO = 'LESS_THAN_EQUALS_TO',
+  BETWEEN = 'BETWEEN',
+  EQUALS = 'EQUALS',
+  NOT_EQUALS = 'NOT_EQUALS'
+}

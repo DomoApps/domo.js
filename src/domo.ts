@@ -5,8 +5,7 @@ import {
   ArrayRequestOptions,
   DataFormats,
   QueryParams,
-  FilterDataTypes,
-  FilterOperators,
+  Filter,
   RequestBody,
   XMLHttpRequestBody,
   ResponseBody,
@@ -191,43 +190,16 @@ class domo {
     window.parent.postMessage(message, "*");
   }
 
-  static filterContainer(
-    filters: (
-      | {
-          column: string;
-          operator: FilterOperators;
-          values: (string | number | Date)[];
-          dataType: FilterDataTypes;
-        }
-      | {
-          column: string;
-          operator: FilterOperators;
-          values: Date[];
-          dataType: "DATE" | "DATETIME";
-        }
-      | {
-          column: string;
-          operator: FilterOperators;
-          values: number[];
-          dataType: "NUMERIC";
-        }
-      | {
-          column: string;
-          operator: FilterOperators;
-          values: string[];
-          dataType: "STRING";
-        }
-    )[]
-  ): void {
+  static filterContainer(filters: Filter[] | null): void {
     const userAgent = window.navigator.userAgent.toLowerCase(),
       safari = /safari/.test(userAgent),
       ios = /iphone|ipod|ipad/.test(userAgent);
 
     const message = JSON.stringify({
       event: "filter",
-      filter: filters.map((filter) => ({
+      filter: filters && filters.map((filter) => ({
         columnName: filter.column,
-        operator: filter.operator,
+        operator: filter.operator || (filter as any).operand, // Most filter code (including Phoenix) still uses "operand" instead of "operator"
         values: filter.values,
         dataType: filter.dataType,
       })),
@@ -237,7 +209,7 @@ class domo {
       (window as any).webkit.messageHandlers.domofilter.postMessage(
         filters.map((filter) => ({
           column: filter.column,
-          operand: filter.operator,
+          operand: filter.operator || (filter as any).operand,
           values: filter.values,
           dataType: filter.dataType,
         }))
