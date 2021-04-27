@@ -115,7 +115,9 @@ class domo {
             event: "ack",
             alias: alias,
           });
-          if (event.source instanceof Window) {
+
+          // Only WindowProxy | Window have the postMessage method and the type of event.source varies between browsers
+          if (!(event.source instanceof MessagePort) && !(event.source instanceof ServiceWorker)) {
             event.source.postMessage(ack, event.origin);
           }
 
