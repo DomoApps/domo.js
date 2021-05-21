@@ -209,7 +209,7 @@ class domo {
 
     if (ios && !safari) {
       (window as any).webkit.messageHandlers.domofilter.postMessage(
-        filters.map((filter) => ({
+        filters && filters.map((filter) => ({
           column: filter.column,
           operand: filter.operator || (filter as any).operand,
           values: filter.values,
