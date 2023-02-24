@@ -117,7 +117,10 @@ class domo {
           });
 
           // Only WindowProxy | Window have the postMessage method and the type of event.source varies between browsers
-          if (!(event.source instanceof MessagePort) && !(event.source instanceof ServiceWorker)) {
+          if (
+            !(event.source instanceof MessagePort) &&
+            !(event.source instanceof ServiceWorker)
+          ) {
             event.source.postMessage(ack, event.origin);
           }
 
@@ -199,22 +202,25 @@ class domo {
 
     const message = JSON.stringify({
       event: "filter",
-      filter: filters && filters.map((filter) => ({
-        columnName: filter.column,
-        operator: filter.operator || (filter as any).operand, // Most filter code (including Phoenix) still uses "operand" instead of "operator"
-        values: filter.values,
-        dataType: filter.dataType,
-      })),
+      filter:
+        filters &&
+        filters.map((filter) => ({
+          columnName: filter.column,
+          operator: filter.operator || (filter as any).operand, // Most filter code (including Phoenix) still uses "operand" instead of "operator"
+          values: filter.values,
+          dataType: filter.dataType,
+        })),
     });
 
     if (ios && !safari) {
       (window as any).webkit.messageHandlers.domofilter.postMessage(
-        filters && filters.map((filter) => ({
-          column: filter.column,
-          operand: filter.operator || (filter as any).operand,
-          values: filter.values,
-          dataType: filter.dataType,
-        }))
+        filters &&
+          filters.map((filter) => ({
+            column: filter.column,
+            operand: filter.operator || (filter as any).operand,
+            values: filter.values,
+            dataType: filter.dataType,
+          }))
       );
     } else {
       window.parent.postMessage(message, "*");
@@ -231,7 +237,7 @@ class domo {
   };
 }
 
-const token = (window as any).__RYUU_AUTHENTICATION_TOKEN__;
+const token = (window as any).__RYUU_SID__;
 
 function domoHttp(
   method: RequestMethods,
@@ -392,10 +398,9 @@ function setContentHeaders(req: XMLHttpRequest, options?: RequestOptions) {
 
 function setAuthTokenHeader(req: XMLHttpRequest) {
   if (token) {
-    req.setRequestHeader('X-DOMO-Ryuu-Token', token);
+    req.setRequestHeader("X-DOMO-Ryuu-Session", token);
   }
 }
-
 
 function setResponseType(req: XMLHttpRequest, options?: RequestOptions) {
   //set response type if user passed option
@@ -404,37 +409,28 @@ function setResponseType(req: XMLHttpRequest, options?: RequestOptions) {
   }
 }
 
-function handleNode(node: HTMLElement){
-  if (node === document.body) {
+function handleNode(node: HTMLElement) {
+  if (node === document.body || node === document.head)
     return processBody(node);
-  }
-  let attr;
-  let url;
-  if (node.dataset && node.dataset.domoHref) {
-    attr = 'href';
-    url = node.dataset.domoHref;
-  } else if (node.dataset && node.dataset.domoSrc) {
-    attr = 'src';
-    url = node.dataset.domoSrc;
-  } else if (node.hasAttribute && node.hasAttribute('href')) {
-    attr = 'href';
-    url = node.getAttribute('href');
-  } else if (node.hasAttribute && node.hasAttribute('src')) {
-    attr = 'src';
-    url = node.getAttribute('src');
-  }
 
-  if (url && token) {
-    const newUrl = new URL(url, document.location.origin);
-    const isRelativeUrl = (newUrl).origin === document.location.origin;
-    if (isRelativeUrl) {
-      newUrl.searchParams.append('rpt', token);
-      node.setAttribute(attr, newUrl.href);
-    }
-  }
-};
+  const hrefAttribute =
+    (node.dataset && node.dataset.domoHref) || node.getAttribute("href");
+  const srcAttribute =
+    (node.dataset && node.dataset.domoSrc) || node.getAttribute("src");
+  const attr = hrefAttribute ? "href" : "src";
+  const url = hrefAttribute || srcAttribute;
 
-function processBody(node: Element) {
+  if (!url || !token) return;
+
+  const newUrl = new URL(url, document.location.origin);
+  const isRelativeUrl = newUrl.origin === document.location.origin;
+  if (isRelativeUrl) {
+    newUrl.searchParams.append("ryuu-sid", token);
+    node.setAttribute(attr, newUrl.href);
+  }
+}
+
+function processBody(node: any) {
   for (let i = 0; i < node.children.length; i++) {
     handleNode(<HTMLElement>node.children[i]);
   }
@@ -442,8 +438,9 @@ function processBody(node: Element) {
 
 const ob = new MutationObserver((mutations) => {
   for (const record of mutations) {
-    record.addedNodes.forEach(handleNode);
+    processBody(record.target);
   }
 });
-ob.observe(document.documentElement, { childList: true });
-ob.observe(document.head, { childList: true });
+
+ob.observe(document.body, { childList: true, subtree: true });
+ob.observe(document.head, { childList: true, subtree: true });
