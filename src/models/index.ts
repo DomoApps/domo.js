@@ -6,6 +6,6 @@ export { Filter } from './interfaces/filter';
 
 export { RequestOptions, ObjectRequestOptions, ArrayRequestOptions } from './interfaces/request-options';
 export { QueryParams } from './interfaces/query-params';
-export { RequestBody, XMLHttpRequestBody } from './interfaces/request-body';
+export { RequestBody } from './interfaces/request-body';
 export { ResponseBody, ObjectResponseBody, ArrayResponseBody } from './interfaces/response-body';
 export { Json } from './interfaces/json';

@@ -7,7 +7,6 @@ import {
   QueryParams,
   Filter,
   RequestBody,
-  XMLHttpRequestBody,
   ResponseBody,
   ObjectResponseBody,
   ArrayResponseBody,
@@ -338,7 +337,7 @@ function domoHttp(
         req.send(json);
       } else {
         // body can no longer be JSON
-        req.send(body as XMLHttpRequestBody);
+        req.send(body as Document | XMLHttpRequestBodyInit);
       }
     } else {
       req.send();
@@ -373,7 +372,7 @@ function setFormatHeaders(
   url: string,
   options?: RequestOptions
 ) {
-  if (url.indexOf("data/v1") === -1) {
+  if (url.indexOf("data/v") === -1) {
     return;
   }
   // set format
