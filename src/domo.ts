@@ -419,7 +419,7 @@ function handleNode(node: HTMLElement) {
   const attr = hrefAttribute ? "href" : "src";
   const url = hrefAttribute || srcAttribute;
 
-  if (!url || !token) return;
+  if (!url || !token || url.includes(token)) return;
 
   const newUrl = new URL(url, document.location.origin);
   const isRelativeUrl = newUrl.origin === document.location.origin;
