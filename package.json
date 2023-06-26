@@ -3,6 +3,7 @@
   "version": "4.4.0",
   "description": "Ryuu JavaScript Utility Library",
   "main": "dist/domo.js",
+  "license": "SEE LICENSE IN LICENSE",
   "dependencies": {},
   "devDependencies": {
     "http-server": "^14.0.0",
