@@ -424,7 +424,7 @@ function handleNode(node: HTMLElement) {
   const newUrl = new URL(url, document.location.origin);
   const isRelativeUrl = newUrl.origin === document.location.origin;
   if (isRelativeUrl) {
-    newUrl.searchParams.append("ryuu-sid", token);
+    newUrl.searchParams.append("ryuu_sid", token);
     node.setAttribute(attr, newUrl.href);
   }
 }
