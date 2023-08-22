@@ -145,24 +145,18 @@ class domo {
   static connected = false;
   static listeners: { [index: string]: Function[] } = {
     onFiltersUpdate: [],
+    onAppData: [],
   };
 
-  static connect = () => {
+  // skipFilters indicates that we should not immediately fetch the filters from the page
+  // if using connect() to subscribe to non-filter events, fetching filters immediately would cause a reload
+  static connect = (skipFilters = false) => {
     if (domo.connected) return;
     domo.connected = true;
     domo.channel = new MessageChannel();
-    window.parent.postMessage(JSON.stringify({ event: "subscribe" }), "*", [
+    window.parent.postMessage(JSON.stringify({ event: "subscribe" , skipFilters}), "*", [
       domo.channel.port2,
     ]);
-  };
-
-  /**
-   * Let the domoapp handle its own filter updates
-   */
-  static onFiltersUpdate = (callback: Function) => {
-    domo.connect();
-    const index = domo.listeners.onFiltersUpdate.push(callback) - 1;
-
     domo.channel.port1.onmessage = (e: MessageEvent) => {
       const [responsePort] = e.ports;
       if (responsePort === undefined) return;
@@ -173,12 +167,41 @@ class domo {
       ) {
         responsePort.postMessage({}); // Prevents the app from reloading. Says we've handled it
         domo.listeners.onFiltersUpdate.forEach((cb) => cb(e.data.filters)); // <- split out onFiltersUpdate so that you can handle each message differently here
+      } else if (
+        e.data.event === "appData" &&
+        domo.listeners.onAppData.length > 0
+      ) {
+        responsePort.postMessage({}); // Prevents the app from reloading. Says we've handled it
+        domo.listeners.onAppData.forEach((cb) => cb(e.data.appData));
       }
     };
+  };
+
+  /**
+   * Let the domoapp handle its own filter updates
+   */
+  static onFiltersUpdate = (callback: Function) => {
+    domo.connect();
+    domo.listeners.onFiltersUpdate.push(callback);
 
     // unregister
     return () => {
+      const index = domo.listeners.onFiltersUpdate.indexOf(callback);
       domo.listeners.onFiltersUpdate.splice(index, 1);
+    };
+  };
+
+  /**
+   * Receive arbitrary messages to an embedded domoapp
+   */
+  static onAppData = (callback: Function) => {
+    domo.connect(true);
+    domo.listeners.onAppData.push(callback);
+
+    // unregister
+    return () => {
+      const index = domo.listeners.onAppData.indexOf(callback);
+      domo.listeners.onAppData.splice(index, 1);
     };
   };
 
@@ -224,6 +247,15 @@ class domo {
     } else {
       window.parent.postMessage(message, "*");
     }
+  }
+
+  // Send arbitrary data up to an embedding site
+  static sendAppData(appData: string) {
+    const message = JSON.stringify({
+      event: "appData",
+      appData
+    });
+    window.parent.postMessage(message, "*");
   }
 
   static env = getQueryParams();
