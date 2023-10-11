@@ -1,6 +1,6 @@
 {
   "name": "ryuu.js",
-  "version": "4.4.0",
+  "version": "4.6.0-beta.0",
   "description": "Ryuu JavaScript Utility Library",
   "main": "dist/domo.js",
   "license": "SEE LICENSE IN LICENSE",

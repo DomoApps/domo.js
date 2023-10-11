@@ -146,6 +146,7 @@ class domo {
   static listeners: { [index: string]: Function[] } = {
     onFiltersUpdate: [],
     onAppData: [],
+    onVariablesUpdated: [],
   };
 
   // skipFilters indicates that we should not immediately fetch the filters from the page
@@ -154,9 +155,11 @@ class domo {
     if (domo.connected) return;
     domo.connected = true;
     domo.channel = new MessageChannel();
-    window.parent.postMessage(JSON.stringify({ event: "subscribe" , skipFilters}), "*", [
-      domo.channel.port2,
-    ]);
+    window.parent.postMessage(
+      JSON.stringify({ event: "subscribe", skipFilters }),
+      "*",
+      [domo.channel.port2]
+    );
     domo.channel.port1.onmessage = (e: MessageEvent) => {
       const [responsePort] = e.ports;
       if (responsePort === undefined) return;
@@ -173,6 +176,12 @@ class domo {
       ) {
         responsePort.postMessage({}); // Prevents the app from reloading. Says we've handled it
         domo.listeners.onAppData.forEach((cb) => cb(e.data.appData));
+      } else if (
+        e.data.event === "variablesUpdated" &&
+        domo.listeners.onVariablesUpdated.length > 0
+      ) {
+        responsePort.postMessage({}); // Prevents the app from reloading. Says we've handled it
+        domo.listeners.onVariablesUpdated.forEach((cb) => cb(e.data.variables));
       }
     };
   };
@@ -202,6 +211,20 @@ class domo {
     return () => {
       const index = domo.listeners.onAppData.indexOf(callback);
       domo.listeners.onAppData.splice(index, 1);
+    };
+  };
+
+  /**
+   * Allow domoapp to handle variable updates in embed
+   */
+  static onVariablesUpdated = (callback: Function) => {
+    domo.connect(true);
+    domo.listeners.onVariablesUpdated.push(callback);
+
+    // unregister
+    return () => {
+      const index = domo.listeners.onVariablesUpdated.indexOf(callback);
+      domo.listeners.onVariablesUpdated.splice(index, 1);
     };
   };
 
@@ -253,7 +276,15 @@ class domo {
   static sendAppData(appData: string) {
     const message = JSON.stringify({
       event: "appData",
-      appData
+      appData,
+    });
+    window.parent.postMessage(message, "*");
+  }
+
+  static sendVariables(variables: string) {
+    const message = JSON.stringify({
+      event: "variables",
+      variables,
     });
     window.parent.postMessage(message, "*");
   }
