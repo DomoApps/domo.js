@@ -483,7 +483,6 @@ function handleNode(node: HTMLElement) {
   const url = hrefAttribute || srcAttribute;
 
   if (!url || !token || url.includes(token)) return;
-
   const newUrl = new URL(url, document.location.origin);
   const isRelativeUrl = newUrl.origin === document.location.origin;
   if (isRelativeUrl) {
@@ -492,7 +491,7 @@ function handleNode(node: HTMLElement) {
   }
 }
 
-function processBody(node: any) {
+function processBody(node: Element) {
   for (let i = 0; i < node.children.length; i++) {
     handleNode(<HTMLElement>node.children[i]);
   }
@@ -500,9 +499,8 @@ function processBody(node: any) {
 
 const ob = new MutationObserver((mutations) => {
   for (const record of mutations) {
-    processBody(record.target);
+    record.addedNodes.forEach(handleNode);
   }
 });
-
-ob.observe(document.body, { childList: true, subtree: true });
-ob.observe(document.head, { childList: true, subtree: true });
+ob.observe(document.documentElement, { childList: true });
+ob.observe(document.head, { childList: true });
