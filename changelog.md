@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file. See [standa
 * changed to only append SID if it doesn't exist ([95fdbe2](https://github.com/DomoApps/domo.js/commit/95fdbe2fb36a76e8c2428a2cfcbe24beb422fda5))
 * **onFiltersUpdate:** call each callback on event ([0aba05f](https://github.com/DomoApps/domo.js/commit/0aba05f0f0de23d2cccdf6be928a294bbc0c57c5))
 
+
 ## [4.4.0](https://github.com/DomoApps/domo.js/compare/v2.5.8...v4.4.0) (2023-06-26)
 
 
