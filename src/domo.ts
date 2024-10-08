@@ -240,7 +240,7 @@ class domo {
     window.parent.postMessage(message, "*");
   }
 
-  static filterContainer(filters: Filter[] | null): void {
+  static filterContainer(filters: Filter[] | null, pageStateUpdate: boolean | null = null): void {
     const userAgent = window.navigator.userAgent.toLowerCase(),
       safari = /safari/.test(userAgent),
       ios = /iphone|ipod|ipad/.test(userAgent);
@@ -255,6 +255,7 @@ class domo {
           values: filter.values,
           dataType: filter.dataType,
         })),
+      pageStateUpdate
     });
 
     if (ios && !safari) {
