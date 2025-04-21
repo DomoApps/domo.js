@@ -1,5 +1,11 @@
 # Changelog
 
+Add mobile support for updateVariables
+
+## [4.7.1](https://github.com/DomoApps/domo.js/compare/v4.6.0-beta.0...v4.7.1) (2025-04-21)
+
+# Changelog
+
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
 ## [4.6.0-beta.0](https://github.com/DomoApps/domo.js/compare/v2.5.8...v4.6.0-beta.0) (2023-10-11)
