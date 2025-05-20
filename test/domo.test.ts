@@ -5,6 +5,15 @@ import domo from '../src/domo';
 import { FilterOperatorsString } from '../src/models/interfaces/filter-operators';
 import { FilterDataTypes } from '../src/models/interfaces/filter-data-types';
 
+declare global {
+  // eslint-disable-next-line no-var
+  var _originalXMLHttpRequest: any;
+  // eslint-disable-next-line no-var
+  var _openSpy: jest.Mock;
+  // eslint-disable-next-line no-var
+  var _xhrInstance: any;
+}
+
 // Mock browser APIs and global objects as needed
 beforeEach(() => {
   jest.resetAllMocks();
@@ -21,6 +30,28 @@ beforeEach(() => {
     port1 = { onmessage: null as ((event: any) => void) | null, postMessage: jest.fn(), close: jest.fn() };
     port2 = { onmessage: null as ((event: any) => void) | null, postMessage: jest.fn(), close: jest.fn() };
   };
+
+  // XMLHttpRequest mock for all HTTP verb tests
+  globalThis._originalXMLHttpRequest = (global as any).XMLHttpRequest;
+  globalThis._openSpy = jest.fn();
+  globalThis._xhrInstance = {
+    open: globalThis._openSpy,
+    setRequestHeader: jest.fn(),
+    send: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    onload: null,
+    onerror: null,
+    readyState: 4,
+    status: 200,
+    response: '{}',
+    getResponseHeader: jest.fn()
+  };
+  (global as any).XMLHttpRequest = jest.fn(() => globalThis._xhrInstance);
+});
+
+afterEach(() => {
+  (global as any).XMLHttpRequest = globalThis._originalXMLHttpRequest;
 });
 
 describe('domo.post', () => {
@@ -35,6 +66,14 @@ describe('domo.post', () => {
     spy.mockRejectedValue(new Error('fail'));
     await expect(domo.post('/fail')).rejects.toThrow('fail');
   });
+  it('sets method to POST', async () => {
+    globalThis._openSpy.mockImplementation(function(method: string) {
+      expect(method).toBe('POST');
+    });
+    const promise = domo.post('/test');
+    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
+    await promise;
+  });
 });
 
 describe('domo.put', () => {
@@ -42,6 +81,14 @@ describe('domo.put', () => {
     const spy = jest.spyOn(domo, 'put');
     spy.mockResolvedValue({});
     await expect(domo.put('/test')).resolves.toBeDefined();
+  });
+  it('sets method to PUT', async () => {
+    globalThis._openSpy.mockImplementation(function(method: string) {
+      expect(method).toBe('PUT');
+    });
+    const promise = domo.put('/test');
+    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
+    await promise;
   });
 });
 
@@ -61,6 +108,20 @@ describe('domo.get', () => {
     spy.mockResolvedValue({ foo: 'bar' });
     await expect(domo.get('/foo')).resolves.toEqual({ foo: 'bar' });
   });
+  it('sets method to GET', async () => {
+    globalThis._openSpy.mockImplementation(function(method: string) {
+      expect(method).toBe('GET');
+    });
+    const promise = domo.get('/test');
+    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
+    await promise;
+  });
+});
+
+describe('domo.patch', () => {
+  it('should have a patch method (not implemented)', () => {
+    expect(typeof (domo as any).patch).toBe('undefined');
+  });
 });
 
 describe('domo.delete', () => {
@@ -68,6 +129,14 @@ describe('domo.delete', () => {
     const spy = jest.spyOn(domo, 'delete');
     spy.mockResolvedValue({});
     await expect(domo.delete('/test')).resolves.toBeDefined();
+  });
+  it('sets method to DELETE', async () => {
+    globalThis._openSpy.mockImplementation(function(method: string) {
+      expect(method).toBe('DELETE');
+    });
+    const promise = domo.delete('/test');
+    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
+    await promise;
   });
 });
 
