@@ -224,8 +224,27 @@ describe('domo.onDataUpdate', () => {
   it('should register and unregister onDataUpdate', () => {
     const cb = jest.fn();
     const unregister = domo.onDataUpdate(cb);
-    expect(typeof unregister).toBe('function');
+    // Simulate message event, callback should be called
+    const alias = 'test-alias';
+    const message = JSON.stringify({ alias });
+    const fakeSource = { postMessage: jest.fn() };
+    const event = new MessageEvent('message', {
+      data: message,
+      origin: 'https://www.domo.com',
+    });
+    Object.defineProperty(event, 'source', { value: fakeSource });
+    window.dispatchEvent(event);
+    expect(cb).toHaveBeenCalledWith('test-alias');
     unregister();
+    
+    cb.mockClear();
+    const event2 = new MessageEvent('message', {
+      data: message,
+      origin: 'https://www.domo.com',
+    });
+    Object.defineProperty(event2, 'source', { value: fakeSource });
+    window.dispatchEvent(event2);
+    expect(cb).not.toHaveBeenCalled();
   });
 
   it('should handle invalid callback for onDataUpdate', () => {
