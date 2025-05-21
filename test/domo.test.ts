@@ -26,7 +26,7 @@ class MockMessagePort {
   port2 = new MockMessagePort();
 };
 // Mock ServiceWorker globally for Jest
-(global as any).ServiceWorker = class {};
+(global as any).ServiceWorker = class { dummy = true; };
 
 // Patch window.addEventListener and removeEventListener to track message listeners for test cleanup
 const realAddEventListener = window.addEventListener;
@@ -84,7 +84,7 @@ beforeEach(() => {
 afterEach(() => {
   (global as any).XMLHttpRequest = globalThis._originalXMLHttpRequest;
   // Remove all message event listeners to prevent test pollution
-  const listeners: EventListenerOrEventListenerObject[] = (window as any).eventListeners?.message || [];
+  const listeners: EventListenerOrEventListenerObject[] = (window as any).eventListeners?.message ?? [];
   listeners.forEach((listener: EventListenerOrEventListenerObject) => {
     realRemoveEventListener.call(window, 'message', listener);
   });
@@ -227,6 +227,7 @@ describe('domo.onDataUpdate', () => {
     expect(typeof unregister).toBe('function');
     unregister();
   });
+
   it('should handle invalid callback for onDataUpdate', () => {
     const unregister = domo.onDataUpdate(null as any);
     expect(typeof unregister).toBe('function');

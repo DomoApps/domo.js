@@ -97,10 +97,8 @@ class domo {
    * Let the domoapp optionally handle its own data updates.
    */
   static onDataUpdate(cb: (alias: string) => void) {
-    if (typeof cb !== 'function') {
-      // Register a no-op handler that does nothing
-      return () => {};
-    }
+    if (typeof cb !== 'function') return () => {};
+
     function innerCallback(event: MessageEvent) {
       if (!isVerifiedOrigin(event.origin)) return;
       if (typeof event.data === "string" && event.data.length > 0) {
