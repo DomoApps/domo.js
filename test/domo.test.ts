@@ -188,6 +188,27 @@ describe('domo.onDataUpdate', () => {
     expect(cb).toHaveBeenCalledWith('test-alias');
   });
 
+  it('should not prevent app refresh if callback is not registered', () => {
+    window.addEventListener = jest.fn((event, handler) => {
+      // Simulate a message event
+      if (event === 'message') {
+        const fakeSource = { postMessage: jest.fn() };
+        const alias = 'test-alias';
+        const message = JSON.stringify({ alias });
+        (handler as any)({
+          origin: 'https://www.domo.com',
+          data: message,
+          source: fakeSource
+        });
+        // Expect ack isn't sent; this is what prevents the app from refreshing
+        expect(fakeSource.postMessage).not.toHaveBeenCalledWith(
+          JSON.stringify({ event: 'ack', alias }),
+          'https://www.domo.com'
+        );
+      }
+    });
+  });
+
   it('should register and unregister onDataUpdate', () => {
     const cb = jest.fn();
     const unregister = domo.onDataUpdate(cb);
