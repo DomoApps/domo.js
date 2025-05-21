@@ -16,6 +16,33 @@ import { domoFormatToRequestFormat } from "./utils/data-helpers";
 export = domo;
 
 class domo {
+  private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
+  private static _onDataUpdateCallback: ((alias: string) => void) | null = null;
+
+  private static _sharedOnDataUpdateListener(event: MessageEvent) {
+    if (!isVerifiedOrigin(event.origin)) return;
+    if (typeof event.data === "string" && event.data.length > 0) {
+      try {
+        const message = JSON.parse(event.data);
+        if (!message.hasOwnProperty("alias")) {
+          return;
+        }
+        const alias = message.alias;
+        const ack = JSON.stringify({ event: "ack", alias });
+        if (event.source && typeof event.source.postMessage === 'function') {
+          (event.source as any).postMessage(ack, event.origin);
+        }
+        if (domo._onDataUpdateCallback) domo._onDataUpdateCallback(alias);
+      } catch (err) {
+        const info =
+          "There was an error in onDataUpdate! It may be that our event listener caught " +
+          "a message from another source and tried to parse it, so your update still may have worked. " +
+          "If you would like more info, here is the error: \n";
+        console.warn(info, err);
+      }
+    }
+  }
+
   static post(
     url: string,
     body?: RequestBody,
@@ -95,35 +122,22 @@ class domo {
 
   /**
    * Let the domoapp optionally handle its own data updates.
+   * Only one callback can be registered at a time.
    */
   static onDataUpdate(cb: (alias: string) => void) {
     if (typeof cb !== 'function') return () => {};
 
-    function innerCallback(event: MessageEvent) {
-      if (!isVerifiedOrigin(event.origin)) return;
-      if (typeof event.data === "string" && event.data.length > 0) {
-        try {
-          const message = JSON.parse(event.data);
-          if (!message.hasOwnProperty("alias")) {
-            return;
-          }
-          const alias = message.alias;
-          const ack = JSON.stringify({ event: "ack", alias });
-          if (event.source && typeof event.source.postMessage === 'function') {
-            (event.source as any).postMessage(ack, event.origin);
-          }
-          cb(alias);
-        } catch (err) {
-          const info =
-            "There was an error in onDataUpdate! It may be that our event listener caught " +
-            "a message from another source and tried to parse it, so your update still may have worked. " +
-            "If you would like more info, here is the error: \n";
-          console.warn(info, err);
-        }
-      }
-    }
-    window.addEventListener("message", innerCallback);
-    return () => window.removeEventListener("message", innerCallback);
+    if (domo._onDataUpdateListener)
+      window.removeEventListener('message', domo._onDataUpdateListener);
+
+    domo._onDataUpdateCallback = cb;
+    domo._onDataUpdateListener = domo._sharedOnDataUpdateListener;
+    window.addEventListener("message", domo._onDataUpdateListener);
+    return () => {
+      window.removeEventListener("message", domo._onDataUpdateListener!);
+      domo._onDataUpdateListener = null;
+      domo._onDataUpdateCallback = null;
+    };
   }
 
   /**

@@ -252,6 +252,25 @@ describe('domo.onDataUpdate', () => {
     unregister2();
   });
 
+  it('should enforce only one registration for onDataUpdate', () => {
+    const cb1 = jest.fn();
+    const cb2 = jest.fn();
+    domo.onDataUpdate(cb1);
+    domo.onDataUpdate(cb2); // should replace cb1
+    // Simulate event
+    const alias = 'test-alias';
+    const message = JSON.stringify({ alias });
+    const fakeSource = { postMessage: jest.fn() };
+    const event = new MessageEvent('message', {
+      data: message,
+      origin: 'https://www.domo.com',
+    });
+    Object.defineProperty(event, 'source', { value: fakeSource });
+    window.dispatchEvent(event);
+    expect(cb1).not.toHaveBeenCalled();
+    expect(cb2).toHaveBeenCalledWith(alias);
+  });
+
   it('should use MessageChannel for communication', () => {
     const cb = jest.fn();
     const unregister = domo.onDataUpdate(cb);
@@ -261,6 +280,31 @@ describe('domo.onDataUpdate', () => {
       expect(cb).toHaveBeenCalled();
     }
     unregister();
+  });
+
+  it('should handle invalid JSON in message event', () => {
+    const cb = jest.fn();
+    domo.onDataUpdate(cb);
+    const event = new MessageEvent('message', {
+      data: '{invalidJson',
+      origin: 'https://www.domo.com',
+    });
+    Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
+    // Should not throw, should not call cb
+    expect(() => window.dispatchEvent(event)).not.toThrow();
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('should handle message event missing alias property', () => {
+    const cb = jest.fn();
+    domo.onDataUpdate(cb);
+    const event = new MessageEvent('message', {
+      data: JSON.stringify({ notAlias: 'foo' }),
+      origin: 'https://www.domo.com',
+    });
+    Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
+    window.dispatchEvent(event);
+    expect(cb).not.toHaveBeenCalled();
   });
 });
 
