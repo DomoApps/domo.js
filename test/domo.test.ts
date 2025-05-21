@@ -14,6 +14,20 @@ declare global {
   var _xhrInstance: any;
 }
 
+// Mock MessagePort and MessageChannel globally for Jest
+class MockMessagePort {
+  onmessage: ((event: any) => void) | null = null;
+  postMessage = jest.fn();
+  close = jest.fn();
+}
+(global as any).MessagePort = MockMessagePort;
+(global as any).MessageChannel = class {
+  port1 = new MockMessagePort();
+  port2 = new MockMessagePort();
+};
+// Mock ServiceWorker globally for Jest
+(global as any).ServiceWorker = class {};
+
 // Mock browser APIs and global objects as needed
 beforeEach(() => {
   jest.resetAllMocks();
@@ -149,6 +163,31 @@ describe('domo.getAll', () => {
 });
 
 describe('domo.onDataUpdate', () => {
+  it('should prevent app refresh if callback is registered', () => {
+    const cb = jest.fn();
+    window.addEventListener = jest.fn((event, handler) => {
+      // Simulate a message event
+      if (event === 'message') {
+        const fakeSource = { postMessage: jest.fn() };
+        const alias = 'test-alias';
+        const message = JSON.stringify({ alias });
+        (handler as any)({
+          origin: 'https://www.domo.com',
+          data: message,
+          source: fakeSource
+        });
+        
+        // Expect ack sent; this is what prevents the app from refreshing
+        expect(fakeSource.postMessage).toHaveBeenCalledWith(
+          JSON.stringify({ event: 'ack', alias }),
+          'https://www.domo.com'
+        );
+      }
+    });
+    domo.onDataUpdate(cb);
+    expect(cb).toHaveBeenCalledWith('test-alias');
+  });
+
   it('should register and unregister onDataUpdate', () => {
     const cb = jest.fn();
     const unregister = domo.onDataUpdate(cb);
@@ -160,6 +199,7 @@ describe('domo.onDataUpdate', () => {
     expect(typeof unregister).toBe('function');
   });
   it('should allow double registration and unregistration', () => {
+    // @TODO: I don't think we should allow this, but it is currently allowed
     const cb = jest.fn();
     const unregister1 = domo.onDataUpdate(cb);
     const unregister2 = domo.onDataUpdate(cb);
