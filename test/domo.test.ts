@@ -28,13 +28,30 @@ class MockMessagePort {
 // Mock ServiceWorker globally for Jest
 (global as any).ServiceWorker = class {};
 
+// Patch window.addEventListener and removeEventListener to track message listeners for test cleanup
+const realAddEventListener = window.addEventListener;
+const realRemoveEventListener = window.removeEventListener;
+(window as any).eventListeners = { message: [] };
+window.addEventListener = function(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) {
+  if (type === 'message') {
+    (window as any).eventListeners.message.push(listener);
+  }
+  return realAddEventListener.call(this, type, listener, options);
+};
+window.removeEventListener = function(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) {
+  if (type === 'message') {
+    const arr = (window as any).eventListeners.message;
+    const idx = arr.indexOf(listener);
+    if (idx !== -1) arr.splice(idx, 1);
+  }
+  return realRemoveEventListener.call(this, type, listener, options);
+};
+
 // Mock browser APIs and global objects as needed
 beforeEach(() => {
   jest.resetAllMocks();
   (window as any)['__RYUU_SID__'] = 'test-token';
   window.parent.postMessage = jest.fn();
-  window.addEventListener = jest.fn();
-  window.removeEventListener = jest.fn();
   Object.defineProperty(window.navigator, 'userAgent', {
     value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
     configurable: true
@@ -66,6 +83,12 @@ beforeEach(() => {
 
 afterEach(() => {
   (global as any).XMLHttpRequest = globalThis._originalXMLHttpRequest;
+  // Remove all message event listeners to prevent test pollution
+  const listeners: EventListenerOrEventListenerObject[] = (window as any).eventListeners?.message || [];
+  listeners.forEach((listener: EventListenerOrEventListenerObject) => {
+    realRemoveEventListener.call(window, 'message', listener);
+  });
+  (window as any).eventListeners.message = [];
 });
 
 describe('domo.post', () => {
@@ -163,50 +186,39 @@ describe('domo.getAll', () => {
 });
 
 describe('domo.onDataUpdate', () => {
+  ///////////////////////////
+  // Helpers
+  ///////////////////////////
+  function simulateMessageEvent({ cb, expectAck, expectCbCall }: { cb?: jest.Mock, expectAck: boolean, expectCbCall?: boolean }) {
+    const alias = 'test-alias';
+    const message = JSON.stringify({ alias });
+    const fakeSource = { postMessage: jest.fn() };
+
+    if (cb) domo.onDataUpdate(cb);
+
+    const event = new MessageEvent('message', {
+      data: message,
+      origin: 'https://www.domo.com',
+    });
+    Object.defineProperty(event, 'source', { value: fakeSource });
+    window.dispatchEvent(event);
+
+    const expectedAck = JSON.stringify({ event: 'ack', alias });
+    if (expectAck) 
+      expect(fakeSource.postMessage).toHaveBeenCalledWith(expectedAck, 'https://www.domo.com');
+    else
+      expect(fakeSource.postMessage).not.toHaveBeenCalledWith(expectedAck, 'https://www.domo.com');
+    if (cb && expectCbCall) 
+      expect(cb).toHaveBeenCalledWith('test-alias');
+  }
+
   it('should prevent app refresh if callback is registered', () => {
     const cb = jest.fn();
-    window.addEventListener = jest.fn((event, handler) => {
-      // Simulate a message event
-      if (event === 'message') {
-        const fakeSource = { postMessage: jest.fn() };
-        const alias = 'test-alias';
-        const message = JSON.stringify({ alias });
-        (handler as any)({
-          origin: 'https://www.domo.com',
-          data: message,
-          source: fakeSource
-        });
-        
-        // Expect ack sent; this is what prevents the app from refreshing
-        expect(fakeSource.postMessage).toHaveBeenCalledWith(
-          JSON.stringify({ event: 'ack', alias }),
-          'https://www.domo.com'
-        );
-      }
-    });
-    domo.onDataUpdate(cb);
-    expect(cb).toHaveBeenCalledWith('test-alias');
+    simulateMessageEvent({ cb, expectAck: true, expectCbCall: true });
   });
 
   it('should not prevent app refresh if callback is not registered', () => {
-    window.addEventListener = jest.fn((event, handler) => {
-      // Simulate a message event
-      if (event === 'message') {
-        const fakeSource = { postMessage: jest.fn() };
-        const alias = 'test-alias';
-        const message = JSON.stringify({ alias });
-        (handler as any)({
-          origin: 'https://www.domo.com',
-          data: message,
-          source: fakeSource
-        });
-        // Expect ack isn't sent; this is what prevents the app from refreshing
-        expect(fakeSource.postMessage).not.toHaveBeenCalledWith(
-          JSON.stringify({ event: 'ack', alias }),
-          'https://www.domo.com'
-        );
-      }
-    });
+    simulateMessageEvent({ expectAck: false });
   });
 
   it('should register and unregister onDataUpdate', () => {

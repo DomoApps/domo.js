@@ -97,33 +97,23 @@ class domo {
    * Let the domoapp optionally handle its own data updates.
    */
   static onDataUpdate(cb: (alias: string) => void) {
+    if (typeof cb !== 'function') {
+      // Register a no-op handler that does nothing
+      return () => {};
+    }
     function innerCallback(event: MessageEvent) {
       if (!isVerifiedOrigin(event.origin)) return;
-
       if (typeof event.data === "string" && event.data.length > 0) {
         try {
           const message = JSON.parse(event.data);
           if (!message.hasOwnProperty("alias")) {
             return;
           }
-
           const alias = message.alias;
-
-          // send acknowledgement to prevent autorefresh
-          const ack = JSON.stringify({
-            event: "ack",
-            alias: alias,
-          });
-
-          // Only WindowProxy | Window have the postMessage method and the type of event.source varies between browsers
-          if (
-            !(event.source instanceof MessagePort) &&
-            !(event.source instanceof ServiceWorker)
-          ) {
-            event.source.postMessage(ack, event.origin);
+          const ack = JSON.stringify({ event: "ack", alias });
+          if (event.source && typeof event.source.postMessage === 'function') {
+            (event.source as any).postMessage(ack, event.origin);
           }
-
-          // inform domo app which alias has been updated
           cb(alias);
         } catch (err) {
           const info =
