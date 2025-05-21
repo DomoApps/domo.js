@@ -189,12 +189,14 @@ describe('domo.onDataUpdate', () => {
   ///////////////////////////
   // Helpers
   ///////////////////////////
-  function simulateMessageEvent({ cb, expectAck, expectCbCall }: { cb?: jest.Mock, expectAck: boolean, expectCbCall?: boolean }) {
+  function simulateMessageEvent({ cb, expectAck, expectCbCall, unregister }: { cb?: jest.Mock, expectAck: boolean, expectCbCall?: boolean, unregister?: boolean }) {
     const alias = 'test-alias';
     const message = JSON.stringify({ alias });
     const fakeSource = { postMessage: jest.fn() };
 
-    if (cb) domo.onDataUpdate(cb);
+    let localUnregister: (() => void) | undefined;
+    if (cb) localUnregister = domo.onDataUpdate(cb);
+    if (unregister && localUnregister) localUnregister();
 
     const event = new MessageEvent('message', {
       data: message,
@@ -208,8 +210,13 @@ describe('domo.onDataUpdate', () => {
       expect(fakeSource.postMessage).toHaveBeenCalledWith(expectedAck, 'https://www.domo.com');
     else
       expect(fakeSource.postMessage).not.toHaveBeenCalledWith(expectedAck, 'https://www.domo.com');
+
     if (cb && expectCbCall) 
       expect(cb).toHaveBeenCalledWith('test-alias');
+    else if (cb)
+      expect(cb).not.toHaveBeenCalled();
+
+    if (localUnregister) localUnregister();
   }
 
   it('should prevent app refresh if callback is registered', () => {
@@ -223,34 +230,17 @@ describe('domo.onDataUpdate', () => {
 
   it('should register and unregister onDataUpdate', () => {
     const cb = jest.fn();
-    const unregister = domo.onDataUpdate(cb);
-    // Simulate message event, callback should be called
-    const alias = 'test-alias';
-    const message = JSON.stringify({ alias });
-    const fakeSource = { postMessage: jest.fn() };
-    const event = new MessageEvent('message', {
-      data: message,
-      origin: 'https://www.domo.com',
-    });
-    Object.defineProperty(event, 'source', { value: fakeSource });
-    window.dispatchEvent(event);
-    expect(cb).toHaveBeenCalledWith('test-alias');
-    unregister();
-    
+    simulateMessageEvent({ cb, expectAck: true, expectCbCall: true, unregister: false });
     cb.mockClear();
-    const event2 = new MessageEvent('message', {
-      data: message,
-      origin: 'https://www.domo.com',
-    });
-    Object.defineProperty(event2, 'source', { value: fakeSource });
-    window.dispatchEvent(event2);
-    expect(cb).not.toHaveBeenCalled();
+    simulateMessageEvent({ cb, expectAck: false, expectCbCall: false, unregister: true });
   });
 
   it('should handle invalid callback for onDataUpdate', () => {
     const unregister = domo.onDataUpdate(null as any);
     expect(typeof unregister).toBe('function');
+    simulateMessageEvent({ cb: null, expectAck: false, expectCbCall: false });
   });
+
   it('should allow double registration and unregistration', () => {
     // @TODO: I don't think we should allow this, but it is currently allowed
     const cb = jest.fn();
@@ -261,6 +251,7 @@ describe('domo.onDataUpdate', () => {
     unregister1();
     unregister2();
   });
+
   it('should use MessageChannel for communication', () => {
     const cb = jest.fn();
     const unregister = domo.onDataUpdate(cb);
