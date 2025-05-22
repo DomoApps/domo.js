@@ -358,6 +358,11 @@ describe('domo navigation and data sending', () => {
       domo.filterContainer(filter as any, true);
       expect(postMessageMock).toHaveBeenCalled();
     });
+    it('should support legacy operand property in filter', () => {
+      const filter = [{ column: 'a', operand: FilterOperatorsString.IN, values: ['x'], dataType: FilterDataTypes.STRING }];
+      domo.filterContainer(filter as any, true);
+      expect(window.parent.postMessage).toHaveBeenCalled();
+    });
   });
 
   describe('sendAppData', () => {
@@ -513,4 +518,9 @@ describe('domoHttp edge cases', () => {
     await triggerOnloadAsync();
     await promise;
   });
+});
+
+it('should import FilterDataTypes from models/index', () => {
+  const { FilterDataTypes } = require('../src/models');
+  expect(FilterDataTypes).toBeDefined();
 });

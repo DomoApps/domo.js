@@ -76,4 +76,22 @@ describe('domoutils', () => {
       expect(() => handleNode(head, 'tok')).not.toThrow();
     });
   });
+
+  describe('domoFormatToRequestFormat', () => {
+    it('should return DataFormats.EXCEL for excel format', () => {
+      const { domoFormatToRequestFormat } = require('../src/utils/data-helpers');
+      const { DataFormats } = require('../src/models/enums/data-formats');
+      expect(domoFormatToRequestFormat('excel')).toBe(DataFormats.EXCEL);
+    });
+    it('should return DataFormats.CSV for csv format', () => {
+      const { domoFormatToRequestFormat } = require('../src/utils/data-helpers');
+      const { DataFormats } = require('../src/models/enums/data-formats');
+      expect(domoFormatToRequestFormat('csv')).toBe(DataFormats.CSV);
+    });
+    it('should return DataFormats.DEFAULT for unknown format', () => {
+      const { domoFormatToRequestFormat } = require('../src/utils/data-helpers');
+      const { DataFormats } = require('../src/models/enums/data-formats');
+      expect(domoFormatToRequestFormat('unknown')).toBe(DataFormats.DEFAULT);
+    });
+  });
 });
