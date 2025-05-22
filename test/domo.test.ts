@@ -97,92 +97,42 @@ afterEach(() => {
 });
 
 describe('domo HTTP methods', () => {
-  describe('post', () => {
-    it('should call post', async () => {
-      const spy = jest.spyOn(domo, 'post');
-      spy.mockResolvedValue({});
-      await expect(domo.post('/test')).resolves.toBeDefined();
+  const httpMethods = [
+    { name: 'get', method: 'GET', hasReject: true, hasReturn: true },
+    { name: 'post', method: 'POST', hasReject: true, hasReturn: false },
+    { name: 'put', method: 'PUT', hasReject: false, hasReturn: false },
+    { name: 'delete', method: 'DELETE', hasReject: false, hasReturn: false },
+  ] as const;
+
+  it.each(httpMethods)('$name should call and set method', async ({ name, method, hasReject, hasReturn }) => {
+    const spy = jest.spyOn(domo, name);
+    (spy as jest.Mock).mockResolvedValue({ foo: 'bar' });
+    await expect((domo as any)[name]('/test')).resolves.toBeDefined();
+    globalThis._openSpy.mockImplementation(function(m: string) {
+      expect(m).toBe(method);
     });
-    it('should reject post on error', async () => {
-      const spy = jest.spyOn(domo, 'post');
-      spy.mockRejectedValue(new Error('fail'));
-      await expect(domo.post('/fail')).rejects.toThrow('fail');
-    });
-    it('sets method to POST', async () => {
-      globalThis._openSpy.mockImplementation(function(method: string) {
-        expect(method).toBe('POST');
-      });
-      const promise = domo.post('/test');
-      if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
-      await promise;
-    });
-  });
-  describe('put', () => {
-    it('should call put', async () => {
-      const spy = jest.spyOn(domo, 'put');
-      spy.mockResolvedValue({});
-      await expect(domo.put('/test')).resolves.toBeDefined();
-    });
-    it('sets method to PUT', async () => {
-      globalThis._openSpy.mockImplementation(function(method: string) {
-        expect(method).toBe('PUT');
-      });
-      const promise = domo.put('/test');
-      if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
-      await promise;
-    });
-  });
-  describe('get', () => {
-    it('should call get', async () => {
-      const spy = jest.spyOn(domo, 'get');
-      spy.mockResolvedValue({});
-      await expect(domo.get('/test')).resolves.toBeDefined();
-    });
-    it('should reject get on error', async () => {
-      const spy = jest.spyOn(domo, 'get');
-      spy.mockRejectedValue(new Error('fail'));
-      await expect(domo.get('/fail')).rejects.toThrow('fail');
-    });
-    it('should return expected value from get', async () => {
-      const spy = jest.spyOn(domo, 'get');
-      spy.mockResolvedValue({ foo: 'bar' });
+    const promise = (domo as any)[name]('/test');
+    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
+    await promise;
+    if (hasReject) {
+      (spy as jest.Mock).mockRejectedValue(new Error('fail'));
+      await expect((domo as any)[name]('/fail')).rejects.toThrow('fail');
+    }
+    
+    if (hasReturn && name === 'get') {
+      (spy as jest.Mock).mockResolvedValue({ foo: 'bar' });
       await expect(domo.get('/foo')).resolves.toEqual({ foo: 'bar' });
-    });
-    it('sets method to GET', async () => {
-      globalThis._openSpy.mockImplementation(function(method: string) {
-        expect(method).toBe('GET');
-      });
-      const promise = domo.get('/test');
-      if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
-      await promise;
-    });
+    }
   });
-  describe('delete', () => {
-    it('should call delete', async () => {
-      const spy = jest.spyOn(domo, 'delete');
-      spy.mockResolvedValue({});
-      await expect(domo.delete('/test')).resolves.toBeDefined();
-    });
-    it('sets method to DELETE', async () => {
-      globalThis._openSpy.mockImplementation(function(method: string) {
-        expect(method).toBe('DELETE');
-      });
-      const promise = domo.delete('/test');
-      if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
-      await promise;
-    });
+
+  it('should have a patch method (not implemented)', () => {
+    expect(typeof (domo as any).patch).toBe('undefined');
   });
-  describe('patch', () => {
-    it('should have a patch method (not implemented)', () => {
-      expect(typeof (domo as any).patch).toBe('undefined');
-    });
-  });
-  describe('getAll', () => {
-    it('should call getAll', async () => {
-      const spy = jest.spyOn(domo, 'getAll');
-      spy.mockResolvedValue([{}]);
-      await expect(domo.getAll(['/test'])).resolves.toBeDefined();
-    });
+
+  it('should call getAll', async () => {
+    const spy = jest.spyOn(domo, 'getAll');
+    spy.mockResolvedValue([{}]);
+    await expect(domo.getAll(['/test'])).resolves.toBeDefined();
   });
 });
 
@@ -304,31 +254,17 @@ describe('domo event/callback APIs', () => {
     });
   });
 
-  describe('onFiltersUpdate', () => {
-    it('should register and unregister onFiltersUpdate', () => {
-      const cb = jest.fn();
-      const unregister = domo.onFiltersUpdate(cb);
-      expect(typeof unregister).toBe('function');
-      unregister();
-    });
-  });
+  const callbackApis = [
+    { api: 'onFiltersUpdate', desc: 'onFiltersUpdate' },
+    { api: 'onAppData', desc: 'onAppData' },
+    { api: 'onVariablesUpdated', desc: 'onVariablesUpdated' },
+  ];
 
-  describe('onAppData', () => {
-    it('should register and unregister onAppData', () => {
-      const cb = jest.fn();
-      const unregister = domo.onAppData(cb);
-      expect(typeof unregister).toBe('function');
-      unregister();
-    });
-  });
-
-  describe('onVariablesUpdated', () => {
-    it('should register and unregister onVariablesUpdated', () => {
-      const cb = jest.fn();
-      const unregister = domo.onVariablesUpdated(cb);
-      expect(typeof unregister).toBe('function');
-      unregister();
-    });
+  it.each(callbackApis)('should register and unregister $desc', ({ api }) => {
+    const cb = jest.fn();
+    const unregister = (domo as any)[api](cb);
+    expect(typeof unregister).toBe('function');
+    unregister();
   });
 });
 
