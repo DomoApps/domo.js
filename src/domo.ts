@@ -14,8 +14,6 @@ import {
 import { domoFormatToRequestFormat } from "./utils/data-helpers";
 import { setContentHeaders, setAuthTokenHeader, setResponseType, handleNode, processBody } from './utils/domoutils';
 
-export = domo;
-
 class domo {
   private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
   private static _onDataUpdateCallback: ((alias: string) => void) | null = null;
@@ -459,12 +457,18 @@ function setFormatHeaders(
   req.setRequestHeader("Accept", requestFormat);
 }
 
-const ob = new MutationObserver((mutations) => {
+const __mutationObserverCallback = (mutations: any) => {
+  const token = (window as any).__RYUU_SID__;
   for (const record of mutations) {
-    record.addedNodes.forEach((node) => {
+    record.addedNodes.forEach((node: any) => {
       if (node instanceof HTMLElement) handleNode(node, token);
     });
   }
-});
+};
+
+const ob = new MutationObserver(__mutationObserverCallback);
 ob.observe(document.documentElement, { childList: true });
 ob.observe(document.head, { childList: true });
+
+export default domo;
+export { __mutationObserverCallback };

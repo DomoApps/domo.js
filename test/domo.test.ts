@@ -6,7 +6,7 @@ if (typeof global.URL === 'undefined') {
 // Mock global location before importing domo
 (global as any).location = { search: '' };
 
-import domo from '../src/domo';
+import domo, { __mutationObserverCallback } from '../src/domo';
 import { FilterOperatorsString } from '../src/models/interfaces/filter-operators';
 import { FilterDataTypes } from '../src/models/interfaces/filter-data-types';
 
@@ -517,6 +517,19 @@ describe('domoHttp edge cases', () => {
     expect(globalThis._xhrInstance.send).toHaveBeenCalledWith('raw-body');
     await triggerOnloadAsync();
     await promise;
+  });
+});
+
+describe('MutationObserver integration', () => {
+  it('should call handleNode when a new element is added to the DOM', () => {
+    const handleNodeSpy = jest.spyOn(require('../src/utils/domoutils'), 'handleNode');
+    const el = document.createElement('a');
+    // Directly invoke the observer callback
+    __mutationObserverCallback([
+      { addedNodes: [el] }
+    ]);
+    expect(handleNodeSpy).toHaveBeenCalledWith(el, 'test-token');
+    handleNodeSpy.mockRestore();
   });
 });
 
