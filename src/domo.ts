@@ -39,7 +39,8 @@ class domo {
           "There was an error in onDataUpdate! It may be that our event listener caught " +
           "a message from another source and tried to parse it, so your update still may have worked. " +
           "If you would like more info, here is the error: \n";
-        console.warn(info, err);
+        if (process?.env?.NODE_ENV !== 'test')
+          console.warn(info, err);
       }
     }
   }
