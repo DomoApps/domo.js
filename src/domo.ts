@@ -12,6 +12,7 @@ import {
   ArrayResponseBody,
 } from "./models";
 import { domoFormatToRequestFormat } from "./utils/data-helpers";
+import { setContentHeaders, setAuthTokenHeader, setResponseType, handleNode, processBody } from './utils/domoutils';
 
 export = domo;
 
@@ -361,7 +362,7 @@ function domoHttp(
     }
     setFormatHeaders(req, url, options);
     setContentHeaders(req, options);
-    setAuthTokenHeader(req);
+    setAuthTokenHeader(req, token);
     setResponseType(req, options);
 
     req.onload = function () {
@@ -381,19 +382,13 @@ function domoHttp(
 
         let responseStr = req.response;
         try {
-          // if(!responseStr) {
-          //   responseStr = "{}";
-          // }
           data = JSON.parse(responseStr);
         } catch (ex) {
           reject(Error("Invalid JSON response"));
           return;
         }
-        // Resolve the promise with the response text
         resolve(data);
       } else {
-        // Otherwise reject with the status text
-        // which will hopefully be a meaningful error
         reject(Error(req.statusText));
       }
     };
@@ -463,59 +458,11 @@ function setFormatHeaders(
   req.setRequestHeader("Accept", requestFormat);
 }
 
-function setContentHeaders(req: XMLHttpRequest, options?: RequestOptions) {
-  if (options.contentType) {
-    // set content type if user passed option
-    if (options.contentType !== "multipart") {
-      req.setRequestHeader("Content-Type", options.contentType);
-    }
-  } else {
-    req.setRequestHeader("Content-Type", DataFormats.JSON);
-  }
-}
-
-function setAuthTokenHeader(req: XMLHttpRequest) {
-  if (token) {
-    req.setRequestHeader("X-DOMO-Ryuu-Session", token);
-  }
-}
-
-function setResponseType(req: XMLHttpRequest, options?: RequestOptions) {
-  //set response type if user passed option
-  if (options.responseType !== undefined) {
-    req.responseType = options.responseType;
-  }
-}
-
-function handleNode(node: HTMLElement) {
-  if (node === document.body || node === document.head)
-    return processBody(node);
-
-  const hrefAttribute =
-    (node.dataset && node.dataset.domoHref) || node.getAttribute("href");
-  const srcAttribute =
-    (node.dataset && node.dataset.domoSrc) || node.getAttribute("src");
-  const attr = hrefAttribute ? "href" : "src";
-  const url = hrefAttribute || srcAttribute;
-
-  if (!url || !token || url.includes(token)) return;
-  const newUrl = new URL(url, document.location.origin);
-  const isRelativeUrl = newUrl.origin === document.location.origin;
-  if (isRelativeUrl) {
-    newUrl.searchParams.append("ryuu_sid", token);
-    node.setAttribute(attr, newUrl.href);
-  }
-}
-
-function processBody(node: Element) {
-  for (let i = 0; i < node.children.length; i++) {
-    handleNode(<HTMLElement>node.children[i]);
-  }
-}
-
 const ob = new MutationObserver((mutations) => {
   for (const record of mutations) {
-    record.addedNodes.forEach(handleNode);
+    record.addedNodes.forEach((node) => {
+      if (node instanceof HTMLElement) handleNode(node, token);
+    });
   }
 });
 ob.observe(document.documentElement, { childList: true });
