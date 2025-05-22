@@ -272,7 +272,7 @@ describe('domo event/callback APIs', () => {
       unregister2();
     });
 
-    it('should enforce only one registration for onDataUpdate', () => {
+    it('should allow multiple registrations for onDataUpdate', () => {
       const cb1 = jest.fn();
       const cb2 = jest.fn();
       domo.onDataUpdate(cb1);
@@ -286,7 +286,7 @@ describe('domo event/callback APIs', () => {
       });
       Object.defineProperty(event, 'source', { value: fakeSource });
       window.dispatchEvent(event);
-      expect(cb1).not.toHaveBeenCalled();
+      expect(cb1).toHaveBeenCalledWith(alias);
       expect(cb2).toHaveBeenCalledWith(alias);
     });
 

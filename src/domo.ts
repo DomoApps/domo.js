@@ -16,7 +16,12 @@ import { setContentHeaders, setAuthTokenHeader, setResponseType, handleNode, pro
 
 class domo {
   private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
-  private static _onDataUpdateCallback: ((alias: string) => void) | null = null;
+  static listeners: { [index: string]: Function[] } = {
+    onDataUpdate: [],
+    onFiltersUpdate: [],
+    onAppData: [],
+    onVariablesUpdated: [],
+  };
 
   private static _sharedOnDataUpdateListener(event: MessageEvent) {
     if (!isVerifiedOrigin(event.origin)) return;
@@ -31,7 +36,7 @@ class domo {
         if (event.source && typeof event.source.postMessage === 'function') {
           (event.source as any).postMessage(ack, event.origin);
         }
-        if (domo._onDataUpdateCallback) domo._onDataUpdateCallback(alias);
+        domo.listeners.onDataUpdate.forEach(cb => cb(alias));
       } catch (err) {
         const info =
           "There was an error in onDataUpdate! It may be that our event listener caught " +
@@ -122,21 +127,23 @@ class domo {
 
   /**
    * Let the domoapp optionally handle its own data updates.
-   * Only one callback can be registered at a time.
+   * Multiple callbacks can be registered.
    */
   static onDataUpdate(cb: (alias: string) => void) {
     if (typeof cb !== 'function') return () => {};
-
-    if (domo._onDataUpdateListener)
-      window.removeEventListener('message', domo._onDataUpdateListener);
-
-    domo._onDataUpdateCallback = cb;
-    domo._onDataUpdateListener = domo._sharedOnDataUpdateListener;
-    window.addEventListener("message", domo._onDataUpdateListener);
+    if (!domo._onDataUpdateListener) {
+      domo._onDataUpdateListener = domo._sharedOnDataUpdateListener;
+      window.addEventListener("message", domo._onDataUpdateListener);
+    }
+    domo.listeners.onDataUpdate.push(cb);
     return () => {
-      window.removeEventListener("message", domo._onDataUpdateListener!);
-      domo._onDataUpdateListener = null;
-      domo._onDataUpdateCallback = null;
+      const arr = domo.listeners.onDataUpdate;
+      const idx = arr.indexOf(cb);
+      if (idx !== -1) arr.splice(idx, 1);
+      if (arr.length === 0 && domo._onDataUpdateListener) {
+        window.removeEventListener("message", domo._onDataUpdateListener);
+        domo._onDataUpdateListener = null;
+      }
     };
   }
 
@@ -145,11 +152,6 @@ class domo {
    */
   static channel?: MessageChannel;
   static connected = false;
-  static listeners: { [index: string]: Function[] } = {
-    onFiltersUpdate: [],
-    onAppData: [],
-    onVariablesUpdated: [],
-  };
 
   // skipFilters indicates that we should not immediately fetch the filters from the page
   // if using connect() to subscribe to non-filter events, fetching filters immediately would cause a reload
