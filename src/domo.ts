@@ -12,10 +12,42 @@ import {
   ArrayResponseBody,
 } from "./models";
 import { domoFormatToRequestFormat } from "./utils/data-helpers";
-
-export = domo;
+import { setContentHeaders, setAuthTokenHeader, setResponseType, handleNode, processBody } from './utils/domoutils';
 
 class domo {
+  private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
+  static listeners: { [index: string]: Function[] } = {
+    onDataUpdate: [],
+    onFiltersUpdate: [],
+    onAppData: [],
+    onVariablesUpdated: [],
+  };
+
+  private static _sharedOnDataUpdateListener(event: MessageEvent) {
+    if (!isVerifiedOrigin(event.origin)) return;
+    if (typeof event.data === "string" && event.data.length > 0) {
+      try {
+        const message = JSON.parse(event.data);
+        if (!message.hasOwnProperty("alias")) {
+          return;
+        }
+        const alias = message.alias;
+        const ack = JSON.stringify({ event: "ack", alias });
+        if (event.source && typeof event.source.postMessage === 'function') {
+          (event.source as any).postMessage(ack, event.origin);
+        }
+        domo.listeners.onDataUpdate.forEach(cb => cb(alias));
+      } catch (err) {
+        const info =
+          "There was an error in onDataUpdate! It may be that our event listener caught " +
+          "a message from another source and tried to parse it, so your update still may have worked. " +
+          "If you would like more info, here is the error: \n";
+        if (process?.env?.NODE_ENV !== 'test')
+          console.warn(info, err);
+      }
+    }
+  }
+
   static post(
     url: string,
     body?: RequestBody,
@@ -95,47 +127,24 @@ class domo {
 
   /**
    * Let the domoapp optionally handle its own data updates.
+   * Multiple callbacks can be registered.
    */
   static onDataUpdate(cb: (alias: string) => void) {
-    function innerCallback(event: MessageEvent) {
-      if (!isVerifiedOrigin(event.origin)) return;
-
-      if (typeof event.data === "string" && event.data.length > 0) {
-        try {
-          const message = JSON.parse(event.data);
-          if (!message.hasOwnProperty("alias")) {
-            return;
-          }
-
-          const alias = message.alias;
-
-          // send acknowledgement to prevent autorefresh
-          const ack = JSON.stringify({
-            event: "ack",
-            alias: alias,
-          });
-
-          // Only WindowProxy | Window have the postMessage method and the type of event.source varies between browsers
-          if (
-            !(event.source instanceof MessagePort) &&
-            !(event.source instanceof ServiceWorker)
-          ) {
-            event.source.postMessage(ack, event.origin);
-          }
-
-          // inform domo app which alias has been updated
-          cb(alias);
-        } catch (err) {
-          const info =
-            "There was an error in onDataUpdate! It may be that our event listener caught " +
-            "a message from another source and tried to parse it, so your update still may have worked. " +
-            "If you would like more info, here is the error: \n";
-          console.warn(info, err);
-        }
-      }
+    if (typeof cb !== 'function') return () => {};
+    if (!domo._onDataUpdateListener) {
+      domo._onDataUpdateListener = domo._sharedOnDataUpdateListener;
+      window.addEventListener("message", domo._onDataUpdateListener);
     }
-    window.addEventListener("message", innerCallback);
-    return () => window.removeEventListener("message", innerCallback);
+    domo.listeners.onDataUpdate.push(cb);
+    return () => {
+      const arr = domo.listeners.onDataUpdate;
+      const idx = arr.indexOf(cb);
+      if (idx !== -1) arr.splice(idx, 1);
+      if (arr.length === 0 && domo._onDataUpdateListener) {
+        window.removeEventListener("message", domo._onDataUpdateListener);
+        domo._onDataUpdateListener = null;
+      }
+    };
   }
 
   /**
@@ -143,11 +152,6 @@ class domo {
    */
   static channel?: MessageChannel;
   static connected = false;
-  static listeners: { [index: string]: Function[] } = {
-    onFiltersUpdate: [],
-    onAppData: [],
-    onVariablesUpdated: [],
-  };
 
   // skipFilters indicates that we should not immediately fetch the filters from the page
   // if using connect() to subscribe to non-filter events, fetching filters immediately would cause a reload
@@ -359,7 +363,7 @@ function domoHttp(
     }
     setFormatHeaders(req, url, options);
     setContentHeaders(req, options);
-    setAuthTokenHeader(req);
+    setAuthTokenHeader(req, token);
     setResponseType(req, options);
 
     req.onload = function () {
@@ -379,19 +383,13 @@ function domoHttp(
 
         let responseStr = req.response;
         try {
-          // if(!responseStr) {
-          //   responseStr = "{}";
-          // }
           data = JSON.parse(responseStr);
         } catch (ex) {
           reject(Error("Invalid JSON response"));
           return;
         }
-        // Resolve the promise with the response text
         resolve(data);
       } else {
-        // Otherwise reject with the status text
-        // which will hopefully be a meaningful error
         reject(Error(req.statusText));
       }
     };
@@ -421,12 +419,17 @@ function isSuccess(status: number) {
   return status >= 200 && status < 300;
 }
 
-function isVerifiedOrigin(origin: string) {
-  const whitelisted = origin.match(
-    "^https?://([^/]+[.])?(domo|domotech|domorig).(com|io)?(/.*)?$"
-  );
-  const blacklisted = origin.match("(.*).(domoapps).(.*)");
-  return !!whitelisted && !blacklisted;
+const HOST_WHITELIST = /^(?:[\w-]+\.)*(domo|domotech|domorig)\.(com|io)$/i;
+const HOST_BLACKLIST = /domoapps/i;
+function isVerifiedOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== 'https:') return false;
+    const host = url.hostname;
+    return HOST_WHITELIST.test(host) && !HOST_BLACKLIST.test(host);
+  } catch {
+    return false;
+  }
 }
 
 function getQueryParams(): QueryParams {
@@ -456,60 +459,18 @@ function setFormatHeaders(
   req.setRequestHeader("Accept", requestFormat);
 }
 
-function setContentHeaders(req: XMLHttpRequest, options?: RequestOptions) {
-  if (options.contentType) {
-    // set content type if user passed option
-    if (options.contentType !== "multipart") {
-      req.setRequestHeader("Content-Type", options.contentType);
-    }
-  } else {
-    req.setRequestHeader("Content-Type", DataFormats.JSON);
-  }
-}
-
-function setAuthTokenHeader(req: XMLHttpRequest) {
-  if (token) {
-    req.setRequestHeader("X-DOMO-Ryuu-Session", token);
-  }
-}
-
-function setResponseType(req: XMLHttpRequest, options?: RequestOptions) {
-  //set response type if user passed option
-  if (options.responseType !== undefined) {
-    req.responseType = options.responseType;
-  }
-}
-
-function handleNode(node: HTMLElement) {
-  if (node === document.body || node === document.head)
-    return processBody(node);
-
-  const hrefAttribute =
-    (node.dataset && node.dataset.domoHref) || node.getAttribute("href");
-  const srcAttribute =
-    (node.dataset && node.dataset.domoSrc) || node.getAttribute("src");
-  const attr = hrefAttribute ? "href" : "src";
-  const url = hrefAttribute || srcAttribute;
-
-  if (!url || !token || url.includes(token)) return;
-  const newUrl = new URL(url, document.location.origin);
-  const isRelativeUrl = newUrl.origin === document.location.origin;
-  if (isRelativeUrl) {
-    newUrl.searchParams.append("ryuu_sid", token);
-    node.setAttribute(attr, newUrl.href);
-  }
-}
-
-function processBody(node: Element) {
-  for (let i = 0; i < node.children.length; i++) {
-    handleNode(<HTMLElement>node.children[i]);
-  }
-}
-
-const ob = new MutationObserver((mutations) => {
+const __mutationObserverCallback = (mutations: any) => {
+  const token = (window as any).__RYUU_SID__;
   for (const record of mutations) {
-    record.addedNodes.forEach(handleNode);
+    record.addedNodes.forEach((node: any) => {
+      if (node instanceof HTMLElement) handleNode(node, token);
+    });
   }
-});
+};
+
+const ob = new MutationObserver(__mutationObserverCallback);
 ob.observe(document.documentElement, { childList: true });
 ob.observe(document.head, { childList: true });
+
+export default domo;
+export { __mutationObserverCallback };
