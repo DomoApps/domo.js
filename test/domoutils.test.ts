@@ -69,5 +69,11 @@ describe('domoutils', () => {
       body.appendChild(child);
       expect(() => handleNode(body, 'tok')).not.toThrow();
     });
+    it('handleNode recurses for head', () => {
+      const head = document.createElement('head');
+      const child = document.createElement('meta');
+      head.appendChild(child);
+      expect(() => handleNode(head, 'tok')).not.toThrow();
+    });
   });
 });

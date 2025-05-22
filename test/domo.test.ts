@@ -455,3 +455,80 @@ describe('domo global', () => {
     expect(domo.__util).toBeDefined();
   });
 });
+
+describe('domoHttp edge cases', () => {
+  beforeEach(() => {
+    jest.restoreAllMocks(); // Remove any spies/mocks
+  });
+
+  function flushMicrotasks() {
+    return Promise.resolve().then(() => {});
+  }
+  async function triggerOnloadAsync() {
+    await flushMicrotasks();
+    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
+  }
+  async function triggerOnerrorAsync() {
+    await flushMicrotasks();
+    if (globalThis._xhrInstance.onerror) globalThis._xhrInstance.onerror();
+  }
+
+  it('should resolve with raw response for csv/excel format', async () => {
+    globalThis._xhrInstance.status = 200;
+    globalThis._xhrInstance.response = 'csvdata';
+    const promise = domo.get('/test', { format: 'csv' } as any);
+    await triggerOnloadAsync();
+    await expect(promise).resolves.toBe('csvdata');
+  });
+
+  it('should resolve with raw response if response is falsy', async () => {
+    globalThis._xhrInstance.status = 200;
+    globalThis._xhrInstance.response = '';
+    const promise = domo.get('/test', { format: 'array-of-objects' } as any);
+    await triggerOnloadAsync();
+    await expect(promise).resolves.toBe('');
+  });
+
+  it('should resolve with Blob if responseType is blob', async () => {
+    globalThis._xhrInstance.status = 200;
+    globalThis._xhrInstance.response = 'blobdata';
+    globalThis._xhrInstance.getResponseHeader.mockReturnValue('application/octet-stream');
+    const promise = domo.get('/test', { responseType: 'blob' } as any);
+    await triggerOnloadAsync();
+    await expect(promise).resolves.toEqual(expect.any(Blob));
+  });
+
+  it('should reject with "Invalid JSON response" if response is not valid JSON', async () => {
+    globalThis._xhrInstance.status = 200;
+    globalThis._xhrInstance.response = 'not-json';
+    const promise = domo.get('/test');
+    await triggerOnloadAsync();
+    await expect(promise).rejects.toThrow('Invalid JSON response');
+  });
+
+  it('should reject with statusText if status is not 2xx', async () => {
+    globalThis._xhrInstance.status = 404;
+    globalThis._xhrInstance.statusText = 'Not Found';
+    globalThis._xhrInstance.response = '{}';
+    const promise = domo.get('/test');
+    await triggerOnloadAsync();
+    await expect(promise).rejects.toThrow('Not Found');
+  });
+
+  it('should reject with "Network Error" on network error', async () => {
+    globalThis._xhrInstance.status = 0;
+    const promise = domo.get('/test');
+    await triggerOnerrorAsync();
+    await expect(promise).rejects.toThrow('Network Error');
+  });
+
+  it('should send raw body if contentType is not JSON', async () => {
+    globalThis._xhrInstance.status = 200;
+    globalThis._xhrInstance.response = '{}';
+    const promise = domo.post('/test', 'raw-body', { contentType: 'text/plain' } as any);
+    await flushMicrotasks();
+    expect(globalThis._xhrInstance.send).toHaveBeenCalledWith('raw-body');
+    await triggerOnloadAsync();
+    await promise;
+  });
+});
