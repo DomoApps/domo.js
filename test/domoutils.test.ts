@@ -12,6 +12,12 @@ describe('domoutils', () => {
       req.setRequestHeader.mockClear();
       setContentHeaders(req as any, {});
       expect(req.setRequestHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
+      req.setRequestHeader.mockClear();
+      setContentHeaders(req as any);
+      expect(req.setRequestHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
+      req.setRequestHeader.mockClear();
+      setContentHeaders(req as any, null);
+      expect(req.setRequestHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
     });
   });
 
