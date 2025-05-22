@@ -131,6 +131,83 @@ describe('domo HTTP methods', () => {
   });
 });
 
+describe('domo HTTP edge cases', () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function flushMicrotasks() {
+    return Promise.resolve().then(() => {});
+  }
+  async function triggerOnloadAsync() {
+    await flushMicrotasks();
+    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
+  }
+  async function triggerOnerrorAsync() {
+    await flushMicrotasks();
+    if (globalThis._xhrInstance.onerror) globalThis._xhrInstance.onerror();
+  }
+
+  it('should resolve with raw response for csv/excel format', async () => {
+    globalThis._xhrInstance.status = 200;
+    globalThis._xhrInstance.response = 'csvdata';
+    const promise = domo.get('/test', { format: 'csv' } as any);
+    await triggerOnloadAsync();
+    await expect(promise).resolves.toBe('csvdata');
+  });
+
+  it('should resolve with raw response if response is falsy', async () => {
+    globalThis._xhrInstance.status = 200;
+    globalThis._xhrInstance.response = '';
+    const promise = domo.get('/test', { format: 'array-of-objects' } as any);
+    await triggerOnloadAsync();
+    await expect(promise).resolves.toBe('');
+  });
+
+  it('should resolve with Blob if responseType is blob', async () => {
+    globalThis._xhrInstance.status = 200;
+    globalThis._xhrInstance.response = 'blobdata';
+    globalThis._xhrInstance.getResponseHeader.mockReturnValue('application/octet-stream');
+    const promise = domo.get('/test', { responseType: 'blob' } as any);
+    await triggerOnloadAsync();
+    await expect(promise).resolves.toEqual(expect.any(Blob));
+  });
+
+  it('should reject with "Invalid JSON response" if response is not valid JSON', async () => {
+    globalThis._xhrInstance.status = 200;
+    globalThis._xhrInstance.response = 'not-json';
+    const promise = domo.get('/test');
+    await triggerOnloadAsync();
+    await expect(promise).rejects.toThrow('Invalid JSON response');
+  });
+
+  it('should reject with statusText if status is not 2xx', async () => {
+    globalThis._xhrInstance.status = 404;
+    globalThis._xhrInstance.statusText = 'Not Found';
+    globalThis._xhrInstance.response = '{}';
+    const promise = domo.get('/test');
+    await triggerOnloadAsync();
+    await expect(promise).rejects.toThrow('Not Found');
+  });
+
+  it('should reject with "Network Error" on network error', async () => {
+    globalThis._xhrInstance.status = 0;
+    const promise = domo.get('/test');
+    await triggerOnerrorAsync();
+    await expect(promise).rejects.toThrow('Network Error');
+  });
+
+  it('should send raw body if contentType is not JSON', async () => {
+    globalThis._xhrInstance.status = 200;
+    globalThis._xhrInstance.response = '{}';
+    const promise = domo.post('/test', 'raw-body', { contentType: 'text/plain' } as any);
+    await flushMicrotasks();
+    expect(globalThis._xhrInstance.send).toHaveBeenCalledWith('raw-body');
+    await triggerOnloadAsync();
+    await promise;
+  });
+});
+
 describe('domo event/callback APIs', () => {
   describe('onDataUpdate', () => {
     function simulateMessageEvent({ cb, expectAck, expectCbCall, unregister }: { cb?: jest.Mock, expectAck: boolean, expectCbCall?: boolean, unregister?: boolean }) {
@@ -261,6 +338,58 @@ describe('domo event/callback APIs', () => {
     expect(typeof unregister).toBe('function');
     unregister();
   });
+
+  describe('connect/MessageChannel', () => {
+    function makeMockPort() {
+      return {
+        postMessage: jest.fn(),
+        onmessage: null as any,
+        onmessageerror: null as any,
+        close: jest.fn(),
+        start: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      };
+    }
+    function makeMessageEvent(data: any, ports: any[] = []) {
+      return { data, ports } as any;
+    }
+    it('should handle filtersUpdated event', () => {
+      const cb = jest.fn();
+      domo.onFiltersUpdate(cb);
+      domo.connect();
+      const port = makeMockPort();
+      const filters = [{ foo: 'bar' }];
+      domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
+      expect(port.postMessage).toHaveBeenCalled();
+      expect(cb).toHaveBeenCalledWith(filters);
+    });
+    it('should handle appData event', () => {
+      const cb = jest.fn();
+      domo.onAppData(cb);
+      domo.connect();
+      const port = makeMockPort();
+      const appData = { foo: 'bar' };
+      domo.channel.port1.onmessage(makeMessageEvent({ event: 'appData', appData }, [port]));
+      expect(port.postMessage).toHaveBeenCalled();
+      expect(cb).toHaveBeenCalledWith(appData);
+    });
+    it('should handle variablesUpdated event', () => {
+      const cb = jest.fn();
+      domo.onVariablesUpdated(cb);
+      domo.connect();
+      const port = makeMockPort();
+      const variables = { foo: 'bar' };
+      domo.channel.port1.onmessage(makeMessageEvent({ event: 'variablesUpdated', variables }, [port]));
+      expect(port.postMessage).toHaveBeenCalled();
+      expect(cb).toHaveBeenCalledWith(variables);
+    });
+    it('should early return if responsePort is undefined', () => {
+      domo.connect();
+      expect(() => domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters: [] }, []))).not.toThrow();
+    });
+  });
 });
 
 describe('domo navigation and data sending', () => {
@@ -360,94 +489,15 @@ describe('domo.__util (internal utilities)', () => {
   });
 });
 
-describe('domo.env', () => {
+describe('domo.env and global exposure', () => {
   it('should have env properties with expected types', () => {
     expect(typeof domo.env).toBe('object');
     expect(typeof domo.env.userId).toBeDefined();
   });
-});
 
-describe('domo global', () => {
   it('should expose env and __util', () => {
     expect(domo.env).toBeDefined();
     expect(domo.__util).toBeDefined();
-  });
-});
-
-describe('domoHttp edge cases', () => {
-  beforeEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  function flushMicrotasks() {
-    return Promise.resolve().then(() => {});
-  }
-  async function triggerOnloadAsync() {
-    await flushMicrotasks();
-    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
-  }
-  async function triggerOnerrorAsync() {
-    await flushMicrotasks();
-    if (globalThis._xhrInstance.onerror) globalThis._xhrInstance.onerror();
-  }
-
-  it('should resolve with raw response for csv/excel format', async () => {
-    globalThis._xhrInstance.status = 200;
-    globalThis._xhrInstance.response = 'csvdata';
-    const promise = domo.get('/test', { format: 'csv' } as any);
-    await triggerOnloadAsync();
-    await expect(promise).resolves.toBe('csvdata');
-  });
-
-  it('should resolve with raw response if response is falsy', async () => {
-    globalThis._xhrInstance.status = 200;
-    globalThis._xhrInstance.response = '';
-    const promise = domo.get('/test', { format: 'array-of-objects' } as any);
-    await triggerOnloadAsync();
-    await expect(promise).resolves.toBe('');
-  });
-
-  it('should resolve with Blob if responseType is blob', async () => {
-    globalThis._xhrInstance.status = 200;
-    globalThis._xhrInstance.response = 'blobdata';
-    globalThis._xhrInstance.getResponseHeader.mockReturnValue('application/octet-stream');
-    const promise = domo.get('/test', { responseType: 'blob' } as any);
-    await triggerOnloadAsync();
-    await expect(promise).resolves.toEqual(expect.any(Blob));
-  });
-
-  it('should reject with "Invalid JSON response" if response is not valid JSON', async () => {
-    globalThis._xhrInstance.status = 200;
-    globalThis._xhrInstance.response = 'not-json';
-    const promise = domo.get('/test');
-    await triggerOnloadAsync();
-    await expect(promise).rejects.toThrow('Invalid JSON response');
-  });
-
-  it('should reject with statusText if status is not 2xx', async () => {
-    globalThis._xhrInstance.status = 404;
-    globalThis._xhrInstance.statusText = 'Not Found';
-    globalThis._xhrInstance.response = '{}';
-    const promise = domo.get('/test');
-    await triggerOnloadAsync();
-    await expect(promise).rejects.toThrow('Not Found');
-  });
-
-  it('should reject with "Network Error" on network error', async () => {
-    globalThis._xhrInstance.status = 0;
-    const promise = domo.get('/test');
-    await triggerOnerrorAsync();
-    await expect(promise).rejects.toThrow('Network Error');
-  });
-
-  it('should send raw body if contentType is not JSON', async () => {
-    globalThis._xhrInstance.status = 200;
-    globalThis._xhrInstance.response = '{}';
-    const promise = domo.post('/test', 'raw-body', { contentType: 'text/plain' } as any);
-    await flushMicrotasks();
-    expect(globalThis._xhrInstance.send).toHaveBeenCalledWith('raw-body');
-    await triggerOnloadAsync();
-    await promise;
   });
 });
 
@@ -464,59 +514,7 @@ describe('MutationObserver integration', () => {
   });
 });
 
-describe('domo.connect MessageChannel event handler', () => {
-  function makeMockPort() {
-    return {
-      postMessage: jest.fn(),
-      onmessage: null as any,
-      onmessageerror: null as any,
-      close: jest.fn(),
-      start: jest.fn(),
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(),
-    };
-  }
-  function makeMessageEvent(data: any, ports: any[] = []) {
-    return { data, ports } as any;
-  }
-  it('should handle filtersUpdated event', () => {
-    const cb = jest.fn();
-    domo.onFiltersUpdate(cb);
-    domo.connect();
-    const port = makeMockPort();
-    const filters = [{ foo: 'bar' }];
-    domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
-    expect(port.postMessage).toHaveBeenCalled();
-    expect(cb).toHaveBeenCalledWith(filters);
-  });
-  it('should handle appData event', () => {
-    const cb = jest.fn();
-    domo.onAppData(cb);
-    domo.connect();
-    const port = makeMockPort();
-    const appData = { foo: 'bar' };
-    domo.channel.port1.onmessage(makeMessageEvent({ event: 'appData', appData }, [port]));
-    expect(port.postMessage).toHaveBeenCalled();
-    expect(cb).toHaveBeenCalledWith(appData);
-  });
-  it('should handle variablesUpdated event', () => {
-    const cb = jest.fn();
-    domo.onVariablesUpdated(cb);
-    domo.connect();
-    const port = makeMockPort();
-    const variables = { foo: 'bar' };
-    domo.channel.port1.onmessage(makeMessageEvent({ event: 'variablesUpdated', variables }, [port]));
-    expect(port.postMessage).toHaveBeenCalled();
-    expect(cb).toHaveBeenCalledWith(variables);
-  });
-  it('should early return if responsePort is undefined', () => {
-    domo.connect();
-    expect(() => domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters: [] }, []))).not.toThrow();
-  });
-});
-
-describe('domo uncovered branches', () => {
+describe('domo uncovered/miscellaneous branches', () => {
   it('should use webkit.messageHandlers.domovariable in sendVariables for iOS', () => {
     Object.defineProperty(window.navigator, 'userAgent', {
       value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
@@ -553,9 +551,7 @@ describe('domo uncovered branches', () => {
     expect(typeof unregister).toBe('function');
     expect(unregister()).toBeUndefined();
   });
-});
 
-describe('domo uncovered implementation branches', () => {
   it('should call put<T> and resolve', async () => {
     const spy = jest.spyOn(global as any, 'XMLHttpRequest');
     globalThis._xhrInstance.status = 200;
@@ -611,9 +607,7 @@ describe('domo uncovered implementation branches', () => {
     domo.filterContainer(filter as any, true);
     expect((window as any).webkit.messageHandlers.domofilter.postMessage).toHaveBeenCalled();
   });
-});
 
-describe('domo uncovered branch details', () => {
   it('should return early if event.origin is not verified in _sharedOnDataUpdateListener', () => {
     const cb = jest.fn();
     domo.onDataUpdate(cb);
@@ -656,9 +650,9 @@ describe('domo uncovered branch details', () => {
       { column: 'a', operand: 'IN', values: ['x'], dataType: 'STRING' }
     ]);
   });
-});
 
-it('should import FilterDataTypes from models/index', () => {
-  const { FilterDataTypes } = require('../src/models');
-  expect(FilterDataTypes).toBeDefined();
+  it('should import FilterDataTypes from models/index', () => {
+    const { FilterDataTypes } = require('../src/models');
+    expect(FilterDataTypes).toBeDefined();
+  });
 });
