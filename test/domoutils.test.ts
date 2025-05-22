@@ -2,60 +2,71 @@ import { setContentHeaders, setAuthTokenHeader, setResponseType, handleNode, pro
 
 describe('domoutils', () => {
   describe('setContentHeaders', () => {
-    it('sets Content-Type if not multipart', () => {
+    it('sets Content-Type appropriately', () => {
       const req: { setRequestHeader: jest.Mock } = { setRequestHeader: jest.fn() };
       setContentHeaders(req as any, { contentType: 'application/json' });
       expect(req.setRequestHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
-    });
-    it('does not set Content-Type if multipart', () => {
-      const req: { setRequestHeader: jest.Mock } = { setRequestHeader: jest.fn() };
+      req.setRequestHeader.mockClear();
       setContentHeaders(req as any, { contentType: 'multipart' });
       expect(req.setRequestHeader).not.toHaveBeenCalledWith('Content-Type', 'multipart');
-    });
-    it('sets Content-Type to application/json if not provided', () => {
-      const req: { setRequestHeader: jest.Mock } = { setRequestHeader: jest.fn() };
+      req.setRequestHeader.mockClear();
       setContentHeaders(req as any, {});
       expect(req.setRequestHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
     });
   });
 
   describe('setAuthTokenHeader', () => {
-    it('sets header if token is present', () => {
+    it('sets or skips header based on token presence', () => {
       const req: { setRequestHeader: jest.Mock } = { setRequestHeader: jest.fn() };
       setAuthTokenHeader(req as any, 'tok');
       expect(req.setRequestHeader).toHaveBeenCalledWith('X-DOMO-Ryuu-Session', 'tok');
-    });
-    it('does not set header if token is falsy', () => {
-      const req: { setRequestHeader: jest.Mock } = { setRequestHeader: jest.fn() };
+      req.setRequestHeader.mockClear();
       setAuthTokenHeader(req as any, '');
       expect(req.setRequestHeader).not.toHaveBeenCalled();
     });
   });
 
   describe('setResponseType', () => {
-    it('sets responseType if provided', () => {
+    it('sets responseType if provided, leaves undefined if not', () => {
       const req: { responseType?: any } = { responseType: undefined };
       setResponseType(req as any, { responseType: 'blob' });
       expect(req.responseType).toBe('blob');
-    });
-    it('does not set responseType if not provided', () => {
-      const req: { responseType?: any } = { responseType: undefined };
-      setResponseType(req as any, {});
-      expect(req.responseType).toBeUndefined();
+      const req2: { responseType?: any } = { responseType: undefined };
+      setResponseType(req2 as any, {});
+      expect(req2.responseType).toBeUndefined();
     });
   });
 
   describe('handleNode and processBody', () => {
-    it('handleNode sets attribute if relative url and token', () => {
+    it('handles href/src/dataset and token logic', () => {
       const el = document.createElement('a');
       el.setAttribute('href', '/foo');
       handleNode(el, 'tok');
       expect(el.getAttribute('href')).toContain('ryuu_sid=tok');
-    });
-    it('handleNode does nothing if no url or token', () => {
-      const el = document.createElement('a');
-      handleNode(el, '');
-      expect(el.getAttribute('href')).toBeNull();
+
+      const el2 = document.createElement('a');
+      handleNode(el2, '');
+      expect(el2.getAttribute('href')).toBeNull();
+
+      const el3 = document.createElement('a');
+      el3.setAttribute('href', '/foo?ryuu_sid=tok');
+      handleNode(el3, 'tok');
+      expect(el3.getAttribute('href')).toBe('/foo?ryuu_sid=tok');
+
+      const el4 = document.createElement('a');
+      el4.setAttribute('href', 'https://external.com/foo');
+      handleNode(el4, 'tok');
+      expect(el4.getAttribute('href')).toBe('https://external.com/foo');
+
+      const el5 = document.createElement('a');
+      el5.dataset.domoHref = '/bar';
+      handleNode(el5, 'tok');
+      expect(el5.getAttribute('href')).toContain('ryuu_sid=tok');
+
+      const el6 = document.createElement('img');
+      el6.dataset.domoSrc = '/img';
+      handleNode(el6, 'tok');
+      expect(el6.getAttribute('src')).toContain('ryuu_sid=tok');
     });
     it('processBody calls handleNode for each child', () => {
       const parent = document.createElement('div');
@@ -68,11 +79,9 @@ describe('domoutils', () => {
       const child = document.createElement('div');
       body.appendChild(child);
       expect(() => handleNode(body, 'tok')).not.toThrow();
-    });
-    it('handleNode recurses for head', () => {
       const head = document.createElement('head');
-      const child = document.createElement('meta');
-      head.appendChild(child);
+      const meta = document.createElement('meta');
+      head.appendChild(meta);
       expect(() => handleNode(head, 'tok')).not.toThrow();
     });
   });
