@@ -423,12 +423,17 @@ function isSuccess(status: number) {
   return status >= 200 && status < 300;
 }
 
-function isVerifiedOrigin(origin: string) {
-  const whitelisted = origin.match(
-    "^https?://([^/]+[.])?(domo|domotech|domorig).(com|io)?(/.*)?$"
-  );
-  const blacklisted = origin.match("(.*).(domoapps).(.*)");
-  return !!whitelisted && !blacklisted;
+const HOST_WHITELIST = /^(?:[\w-]+\.)*(domo|domotech|domorig)\.(com|io)$/i;
+const HOST_BLACKLIST = /domoapps/i;
+function isVerifiedOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== 'https:') return false;
+    const host = url.hostname;
+    return HOST_WHITELIST.test(host) && !HOST_BLACKLIST.test(host);
+  } catch {
+    return false;
+  }
 }
 
 function getQueryParams(): QueryParams {

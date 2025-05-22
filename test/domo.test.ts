@@ -1,3 +1,8 @@
+// Patch global.URL for Node/Jest environment before importing domo
+if (typeof global.URL === 'undefined') {
+  global.URL = require('url').URL;
+}
+
 // Mock global location before importing domo
 (global as any).location = { search: '' };
 
@@ -93,7 +98,6 @@ afterEach(() => {
 
 describe('domo.post', () => {
   it('should call post', async () => {
-    domo.__util.isVerifiedOrigin = jest.fn(() => true);
     const spy = jest.spyOn(domo, 'post');
     spy.mockResolvedValue({});
     await expect(domo.post('/test')).resolves.toBeDefined();
@@ -389,9 +393,52 @@ describe('domo.sendVariables', () => {
   });
 });
 
-describe('domo.__util', () => {
-  it('should have isVerifiedOrigin as a function', () => {
+describe('domo.__util (internal utilities)', () => {
+  it('should expose the expected private functions', () => {
     expect(typeof domo.__util.isVerifiedOrigin).toBe('function');
+    expect(typeof domo.__util.isSuccess).toBe('function');
+    expect(typeof domo.__util.getQueryParams).toBe('function');
+    expect(typeof domo.__util.setFormatHeaders).toBe('function');
+  });
+
+  it('isSuccess returns true for 2xx, false otherwise', () => {
+    expect(domo.__util.isSuccess(200)).toBe(true);
+    expect(domo.__util.isSuccess(299)).toBe(true);
+    expect(domo.__util.isSuccess(199)).toBe(false);
+    expect(domo.__util.isSuccess(300)).toBe(false);
+    expect(domo.__util.isSuccess(null)).toBe(false);
+    expect(domo.__util.isSuccess(undefined)).toBe(false);
+  });
+
+  it('isVerifiedOrigin honors whitelisting and blacklisting', () => {
+    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.domo.com'))).toBe(true);
+    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.domotech.io'))).toBe(true);
+    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.domorig.io'))).toBe(true);
+    expect(Boolean(domo.__util.isVerifiedOrigin('https://domo.demo.domo.com'))).toBe(true);
+    expect(Boolean(domo.__util.isVerifiedOrigin('https://qa2staging.fastage1.domotech.io/auth/index'))).toBe(true);
+    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.domoapps-test.domo.com'))).toBe(false);
+    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.test-domoapps.domo.com'))).toBe(false);
+    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.somethingk.com'))).toBe(false);
+    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.domo.com.bad.io'))).toBe(false);
+    expect(Boolean(domo.__util.isVerifiedOrigin('http://www.domo.com'))).toBe(false);
+  });
+
+  it('getQueryParams parses query string', () => {
+    Object.defineProperty(global, 'location', {
+      value: { search: '?foo=bar&baz=qux' },
+      configurable: true
+    });
+    const params = domo.__util.getQueryParams();
+    expect('foo' in params).toBe(true);
+    expect('baz' in params).toBe(true);
+    expect((params as any)['foo']).toBe('bar');
+    expect((params as any)['baz']).toBe('qux');
+  });
+
+  it('setFormatHeaders sets Accept header for data/v URLs', () => {
+    const req = { setRequestHeader: jest.fn() };
+    domo.__util.setFormatHeaders(req as any, 'https://domo.com/data/v1', { format: 'array-of-objects' });
+    expect(req.setRequestHeader).toHaveBeenCalledWith('Accept', expect.any(String));
   });
 });
 
