@@ -1,8 +1,3 @@
-// Patch global.URL for Node/Jest environment before importing domo
-if (typeof global.URL === 'undefined') {
-  global.URL = require('url').URL;
-}
-
 // Mock global location before importing domo
 (global as any).location = { search: '' };
 
@@ -118,7 +113,7 @@ describe('domo HTTP methods', () => {
       (spy as jest.Mock).mockRejectedValue(new Error('fail'));
       await expect((domo as any)[name]('/fail')).rejects.toThrow('fail');
     }
-    
+
     if (hasReturn && name === 'get') {
       (spy as jest.Mock).mockResolvedValue({ foo: 'bar' });
       await expect(domo.get('/foo')).resolves.toEqual({ foo: 'bar' });
