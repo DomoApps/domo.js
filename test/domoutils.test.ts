@@ -86,6 +86,26 @@ describe('domoutils', () => {
     });
   });
 
+  describe('handleNode processBody branch', () => {
+    afterEach(() => {
+      while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
+      while (document.head.firstChild) document.head.removeChild(document.head.firstChild);
+    });
+    it('processes children of document.body and document.head', () => {
+      const bodyChild = document.createElement('a');
+      bodyChild.setAttribute('href', '/foo');
+      document.body.appendChild(bodyChild);
+      handleNode(document.body, 'tok');
+      expect(bodyChild.getAttribute('href')).toContain('ryuu_sid=tok');
+      
+      const headChild = document.createElement('a');
+      headChild.setAttribute('href', '/bar');
+      document.head.appendChild(headChild);
+      handleNode(document.head, 'tok');
+      expect(headChild.getAttribute('href')).toContain('ryuu_sid=tok');
+    });
+  });
+
   describe('domoFormatToRequestFormat', () => {
     it('should return the format for supported formats', () => {
       const { domoFormatToRequestFormat } = require('../src/utils/data-helpers');
