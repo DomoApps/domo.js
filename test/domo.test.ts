@@ -324,6 +324,15 @@ describe('domo event/callback APIs', () => {
       window.dispatchEvent(event);
       expect(cb).not.toHaveBeenCalled();
     });
+
+    it('should return early if message does not have alias property', () => {
+      const event = new MessageEvent('message', {
+        data: JSON.stringify({ foo: 'bar' }),
+        origin: 'https://www.domo.com',
+      });
+      (domo as any)._sharedOnDataUpdateListener(event);
+      expect(window.parent.postMessage).not.toHaveBeenCalled();
+    });
   });
 
   const callbackApis = [
