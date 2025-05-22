@@ -90,6 +90,20 @@ describe('domoutils', () => {
       head.appendChild(meta);
       expect(() => handleNode(head, 'tok')).not.toThrow();
     });
+    it('should use getAttribute("href") if dataset is undefined', () => {
+      const el = document.createElement('a');
+      Object.defineProperty(el, 'dataset', { value: undefined });
+      el.setAttribute('href', '/foo');
+      handleNode(el, 'tok');
+      expect(el.getAttribute('href')).toContain('ryuu_sid=tok');
+    });
+    it('should use getAttribute("src") if dataset is undefined and no href', () => {
+      const el = document.createElement('img');
+      Object.defineProperty(el, 'dataset', { value: undefined });
+      el.setAttribute('src', '/img');
+      handleNode(el, 'tok');
+      expect(el.getAttribute('src')).toContain('ryuu_sid=tok');
+    });
   });
 
   describe('handleNode processBody branch', () => {
