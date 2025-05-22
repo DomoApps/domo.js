@@ -96,300 +96,282 @@ afterEach(() => {
   (window as any).eventListeners.message = [];
 });
 
-describe('domo.post', () => {
-  it('should call post', async () => {
-    const spy = jest.spyOn(domo, 'post');
-    spy.mockResolvedValue({});
-    await expect(domo.post('/test')).resolves.toBeDefined();
-  });
-  it('should reject post on error', async () => {
-    const spy = jest.spyOn(domo, 'post');
-    spy.mockRejectedValue(new Error('fail'));
-    await expect(domo.post('/fail')).rejects.toThrow('fail');
-  });
-  it('sets method to POST', async () => {
-    globalThis._openSpy.mockImplementation(function(method: string) {
-      expect(method).toBe('POST');
+describe('domo HTTP methods', () => {
+  describe('post', () => {
+    it('should call post', async () => {
+      const spy = jest.spyOn(domo, 'post');
+      spy.mockResolvedValue({});
+      await expect(domo.post('/test')).resolves.toBeDefined();
     });
-    const promise = domo.post('/test');
-    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
-    await promise;
+    it('should reject post on error', async () => {
+      const spy = jest.spyOn(domo, 'post');
+      spy.mockRejectedValue(new Error('fail'));
+      await expect(domo.post('/fail')).rejects.toThrow('fail');
+    });
+    it('sets method to POST', async () => {
+      globalThis._openSpy.mockImplementation(function(method: string) {
+        expect(method).toBe('POST');
+      });
+      const promise = domo.post('/test');
+      if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
+      await promise;
+    });
+  });
+  describe('put', () => {
+    it('should call put', async () => {
+      const spy = jest.spyOn(domo, 'put');
+      spy.mockResolvedValue({});
+      await expect(domo.put('/test')).resolves.toBeDefined();
+    });
+    it('sets method to PUT', async () => {
+      globalThis._openSpy.mockImplementation(function(method: string) {
+        expect(method).toBe('PUT');
+      });
+      const promise = domo.put('/test');
+      if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
+      await promise;
+    });
+  });
+  describe('get', () => {
+    it('should call get', async () => {
+      const spy = jest.spyOn(domo, 'get');
+      spy.mockResolvedValue({});
+      await expect(domo.get('/test')).resolves.toBeDefined();
+    });
+    it('should reject get on error', async () => {
+      const spy = jest.spyOn(domo, 'get');
+      spy.mockRejectedValue(new Error('fail'));
+      await expect(domo.get('/fail')).rejects.toThrow('fail');
+    });
+    it('should return expected value from get', async () => {
+      const spy = jest.spyOn(domo, 'get');
+      spy.mockResolvedValue({ foo: 'bar' });
+      await expect(domo.get('/foo')).resolves.toEqual({ foo: 'bar' });
+    });
+    it('sets method to GET', async () => {
+      globalThis._openSpy.mockImplementation(function(method: string) {
+        expect(method).toBe('GET');
+      });
+      const promise = domo.get('/test');
+      if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
+      await promise;
+    });
+  });
+  describe('delete', () => {
+    it('should call delete', async () => {
+      const spy = jest.spyOn(domo, 'delete');
+      spy.mockResolvedValue({});
+      await expect(domo.delete('/test')).resolves.toBeDefined();
+    });
+    it('sets method to DELETE', async () => {
+      globalThis._openSpy.mockImplementation(function(method: string) {
+        expect(method).toBe('DELETE');
+      });
+      const promise = domo.delete('/test');
+      if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
+      await promise;
+    });
+  });
+  describe('patch', () => {
+    it('should have a patch method (not implemented)', () => {
+      expect(typeof (domo as any).patch).toBe('undefined');
+    });
+  });
+  describe('getAll', () => {
+    it('should call getAll', async () => {
+      const spy = jest.spyOn(domo, 'getAll');
+      spy.mockResolvedValue([{}]);
+      await expect(domo.getAll(['/test'])).resolves.toBeDefined();
+    });
   });
 });
 
-describe('domo.put', () => {
-  it('should call put', async () => {
-    const spy = jest.spyOn(domo, 'put');
-    spy.mockResolvedValue({});
-    await expect(domo.put('/test')).resolves.toBeDefined();
-  });
-  it('sets method to PUT', async () => {
-    globalThis._openSpy.mockImplementation(function(method: string) {
-      expect(method).toBe('PUT');
-    });
-    const promise = domo.put('/test');
-    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
-    await promise;
-  });
-});
+describe('domo event/callback APIs', () => {
+  describe('onDataUpdate', () => {
+    function simulateMessageEvent({ cb, expectAck, expectCbCall, unregister }: { cb?: jest.Mock, expectAck: boolean, expectCbCall?: boolean, unregister?: boolean }) {
+      const alias = 'test-alias';
+      const message = JSON.stringify({ alias });
+      const fakeSource = { postMessage: jest.fn() };
 
-describe('domo.get', () => {
-  it('should call get', async () => {
-    const spy = jest.spyOn(domo, 'get');
-    spy.mockResolvedValue({});
-    await expect(domo.get('/test')).resolves.toBeDefined();
-  });
-  it('should reject get on error', async () => {
-    const spy = jest.spyOn(domo, 'get');
-    spy.mockRejectedValue(new Error('fail'));
-    await expect(domo.get('/fail')).rejects.toThrow('fail');
-  });
-  it('should return expected value from get', async () => {
-    const spy = jest.spyOn(domo, 'get');
-    spy.mockResolvedValue({ foo: 'bar' });
-    await expect(domo.get('/foo')).resolves.toEqual({ foo: 'bar' });
-  });
-  it('sets method to GET', async () => {
-    globalThis._openSpy.mockImplementation(function(method: string) {
-      expect(method).toBe('GET');
-    });
-    const promise = domo.get('/test');
-    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
-    await promise;
-  });
-});
+      let localUnregister: (() => void) | undefined;
+      if (cb) localUnregister = domo.onDataUpdate(cb);
+      if (unregister && localUnregister) localUnregister();
 
-describe('domo.patch', () => {
-  it('should have a patch method (not implemented)', () => {
-    expect(typeof (domo as any).patch).toBe('undefined');
-  });
-});
+      const event = new MessageEvent('message', {
+        data: message,
+        origin: 'https://www.domo.com',
+      });
+      Object.defineProperty(event, 'source', { value: fakeSource });
+      window.dispatchEvent(event);
 
-describe('domo.delete', () => {
-  it('should call delete', async () => {
-    const spy = jest.spyOn(domo, 'delete');
-    spy.mockResolvedValue({});
-    await expect(domo.delete('/test')).resolves.toBeDefined();
-  });
-  it('sets method to DELETE', async () => {
-    globalThis._openSpy.mockImplementation(function(method: string) {
-      expect(method).toBe('DELETE');
-    });
-    const promise = domo.delete('/test');
-    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
-    await promise;
-  });
-});
+      const expectedAck = JSON.stringify({ event: 'ack', alias });
+      if (expectAck) 
+        expect(fakeSource.postMessage).toHaveBeenCalledWith(expectedAck, 'https://www.domo.com');
+      else
+        expect(fakeSource.postMessage).not.toHaveBeenCalledWith(expectedAck, 'https://www.domo.com');
 
-describe('domo.getAll', () => {
-  it('should call getAll', async () => {
-    const spy = jest.spyOn(domo, 'getAll');
-    spy.mockResolvedValue([{}]);
-    await expect(domo.getAll(['/test'])).resolves.toBeDefined();
-  });
-});
+      if (cb && expectCbCall) 
+        expect(cb).toHaveBeenCalledWith('test-alias');
+      else if (cb)
+        expect(cb).not.toHaveBeenCalled();
 
-describe('domo.onDataUpdate', () => {
-  ///////////////////////////
-  // Helpers
-  ///////////////////////////
-  function simulateMessageEvent({ cb, expectAck, expectCbCall, unregister }: { cb?: jest.Mock, expectAck: boolean, expectCbCall?: boolean, unregister?: boolean }) {
-    const alias = 'test-alias';
-    const message = JSON.stringify({ alias });
-    const fakeSource = { postMessage: jest.fn() };
-
-    let localUnregister: (() => void) | undefined;
-    if (cb) localUnregister = domo.onDataUpdate(cb);
-    if (unregister && localUnregister) localUnregister();
-
-    const event = new MessageEvent('message', {
-      data: message,
-      origin: 'https://www.domo.com',
-    });
-    Object.defineProperty(event, 'source', { value: fakeSource });
-    window.dispatchEvent(event);
-
-    const expectedAck = JSON.stringify({ event: 'ack', alias });
-    if (expectAck) 
-      expect(fakeSource.postMessage).toHaveBeenCalledWith(expectedAck, 'https://www.domo.com');
-    else
-      expect(fakeSource.postMessage).not.toHaveBeenCalledWith(expectedAck, 'https://www.domo.com');
-
-    if (cb && expectCbCall) 
-      expect(cb).toHaveBeenCalledWith('test-alias');
-    else if (cb)
-      expect(cb).not.toHaveBeenCalled();
-
-    if (localUnregister) localUnregister();
-  }
-
-  it('should prevent app refresh if callback is registered', () => {
-    const cb = jest.fn();
-    simulateMessageEvent({ cb, expectAck: true, expectCbCall: true });
-  });
-
-  it('should not prevent app refresh if callback is not registered', () => {
-    simulateMessageEvent({ expectAck: false });
-  });
-
-  it('should register and unregister onDataUpdate', () => {
-    const cb = jest.fn();
-    simulateMessageEvent({ cb, expectAck: true, expectCbCall: true, unregister: false });
-    cb.mockClear();
-    simulateMessageEvent({ cb, expectAck: false, expectCbCall: false, unregister: true });
-  });
-
-  it('should handle invalid callback for onDataUpdate', () => {
-    const unregister = domo.onDataUpdate(null as any);
-    expect(typeof unregister).toBe('function');
-    simulateMessageEvent({ cb: null, expectAck: false, expectCbCall: false });
-  });
-
-  it('should allow double registration and unregistration', () => {
-    // @TODO: I don't think we should allow this, but it is currently allowed
-    const cb = jest.fn();
-    const unregister1 = domo.onDataUpdate(cb);
-    const unregister2 = domo.onDataUpdate(cb);
-    expect(typeof unregister1).toBe('function');
-    expect(typeof unregister2).toBe('function');
-    unregister1();
-    unregister2();
-  });
-
-  it('should enforce only one registration for onDataUpdate', () => {
-    const cb1 = jest.fn();
-    const cb2 = jest.fn();
-    domo.onDataUpdate(cb1);
-    domo.onDataUpdate(cb2); // should replace cb1
-    // Simulate event
-    const alias = 'test-alias';
-    const message = JSON.stringify({ alias });
-    const fakeSource = { postMessage: jest.fn() };
-    const event = new MessageEvent('message', {
-      data: message,
-      origin: 'https://www.domo.com',
-    });
-    Object.defineProperty(event, 'source', { value: fakeSource });
-    window.dispatchEvent(event);
-    expect(cb1).not.toHaveBeenCalled();
-    expect(cb2).toHaveBeenCalledWith(alias);
-  });
-
-  it('should use MessageChannel for communication', () => {
-    const cb = jest.fn();
-    const unregister = domo.onDataUpdate(cb);
-    const channel = new (global as any).MessageChannel();
-    if (channel.port1.onmessage) {
-      channel.port1.onmessage({ data: 'test' });
-      expect(cb).toHaveBeenCalled();
+      if (localUnregister) localUnregister();
     }
-    unregister();
-  });
 
-  it('should handle invalid JSON in message event', () => {
-    const cb = jest.fn();
-    domo.onDataUpdate(cb);
-    const event = new MessageEvent('message', {
-      data: '{invalidJson',
-      origin: 'https://www.domo.com',
+    it('should prevent app refresh if callback is registered', () => {
+      const cb = jest.fn();
+      simulateMessageEvent({ cb, expectAck: true, expectCbCall: true });
     });
-    Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
-    // Should not throw, should not call cb
-    expect(() => window.dispatchEvent(event)).not.toThrow();
-    expect(cb).not.toHaveBeenCalled();
-  });
 
-  it('should handle message event missing alias property', () => {
-    const cb = jest.fn();
-    domo.onDataUpdate(cb);
-    const event = new MessageEvent('message', {
-      data: JSON.stringify({ notAlias: 'foo' }),
-      origin: 'https://www.domo.com',
+    it('should not prevent app refresh if callback is not registered', () => {
+      simulateMessageEvent({ expectAck: false });
     });
-    Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
-    window.dispatchEvent(event);
-    expect(cb).not.toHaveBeenCalled();
-  });
-});
 
-describe('domo.connect', () => {
-  it('should connect and handle events', () => {
-    domo.connected = false;
-    domo.connect();
-    expect(domo.connected).toBe(true);
-  });
-  it('should set connected to true after connect', () => {
-    domo.connected = false;
-    domo.connect();
-    expect(domo.connected).toBe(true);
-  });
-});
-
-describe('domo.onFiltersUpdate', () => {
-  it('should register and unregister onFiltersUpdate', () => {
-    const cb = jest.fn();
-    const unregister = domo.onFiltersUpdate(cb);
-    expect(typeof unregister).toBe('function');
-    unregister();
-  });
-});
-
-describe('domo.onAppData', () => {
-  it('should register and unregister onAppData', () => {
-    const cb = jest.fn();
-    const unregister = domo.onAppData(cb);
-    expect(typeof unregister).toBe('function');
-    unregister();
-  });
-});
-
-describe('domo.onVariablesUpdated', () => {
-  it('should register and unregister onVariablesUpdated', () => {
-    const cb = jest.fn();
-    const unregister = domo.onVariablesUpdated(cb);
-    expect(typeof unregister).toBe('function');
-    unregister();
-  });
-});
-
-describe('domo.navigate', () => {
-  it('should call navigate', () => {
-    domo.navigate('/test', true);
-    expect(window.parent.postMessage).toHaveBeenCalled();
-  });
-});
-
-describe('domo.filterContainer', () => {
-  it('should call filterContainer', () => {
-    domo.filterContainer([
-      { column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: FilterDataTypes.STRING }
-    ], true);
-    expect(window.parent.postMessage).toHaveBeenCalled();
-  });
-  it('should detect webkit and call messageHandlers', () => {
-    Object.defineProperty(window.navigator, 'userAgent', {
-      value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
-      configurable: true
+    it('should register and unregister onDataUpdate', () => {
+      const cb = jest.fn();
+      simulateMessageEvent({ cb, expectAck: true, expectCbCall: true, unregister: false });
+      cb.mockClear();
+      simulateMessageEvent({ cb, expectAck: false, expectCbCall: false, unregister: true });
     });
-    const filter = [{ column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: 'STRING' }];
-    const postMessageMock = jest.fn();
-    (window as any).webkit = { messageHandlers: { domofilter: { postMessage: postMessageMock }, domovariable: { postMessage: jest.fn() } } };
-    domo.filterContainer(filter as any, true);
-    expect(postMessageMock).toHaveBeenCalled();
+
+    it('should handle invalid callback for onDataUpdate', () => {
+      const unregister = domo.onDataUpdate(null as any);
+      expect(typeof unregister).toBe('function');
+      simulateMessageEvent({ cb: null, expectAck: false, expectCbCall: false });
+    });
+
+    it('should allow double registration and unregistration', () => {
+      const cb = jest.fn();
+      const unregister1 = domo.onDataUpdate(cb);
+      const unregister2 = domo.onDataUpdate(cb);
+      expect(typeof unregister1).toBe('function');
+      expect(typeof unregister2).toBe('function');
+      unregister1();
+      unregister2();
+    });
+
+    it('should enforce only one registration for onDataUpdate', () => {
+      const cb1 = jest.fn();
+      const cb2 = jest.fn();
+      domo.onDataUpdate(cb1);
+      domo.onDataUpdate(cb2);
+      const alias = 'test-alias';
+      const message = JSON.stringify({ alias });
+      const fakeSource = { postMessage: jest.fn() };
+      const event = new MessageEvent('message', {
+        data: message,
+        origin: 'https://www.domo.com',
+      });
+      Object.defineProperty(event, 'source', { value: fakeSource });
+      window.dispatchEvent(event);
+      expect(cb1).not.toHaveBeenCalled();
+      expect(cb2).toHaveBeenCalledWith(alias);
+    });
+
+    it('should use MessageChannel for communication', () => {
+      const cb = jest.fn();
+      const unregister = domo.onDataUpdate(cb);
+      const channel = new (global as any).MessageChannel();
+      if (channel.port1.onmessage) {
+        channel.port1.onmessage({ data: 'test' });
+        expect(cb).toHaveBeenCalled();
+      }
+      unregister();
+    });
+
+    it('should handle invalid JSON in message event', () => {
+      const cb = jest.fn();
+      domo.onDataUpdate(cb);
+      const event = new MessageEvent('message', {
+        data: '{invalidJson',
+        origin: 'https://www.domo.com',
+      });
+      Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
+      expect(() => window.dispatchEvent(event)).not.toThrow();
+      expect(cb).not.toHaveBeenCalled();
+    });
+
+    it('should handle message event missing alias property', () => {
+      const cb = jest.fn();
+      domo.onDataUpdate(cb);
+      const event = new MessageEvent('message', {
+        data: JSON.stringify({ notAlias: 'foo' }),
+        origin: 'https://www.domo.com',
+      });
+      Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
+      window.dispatchEvent(event);
+      expect(cb).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('onFiltersUpdate', () => {
+    it('should register and unregister onFiltersUpdate', () => {
+      const cb = jest.fn();
+      const unregister = domo.onFiltersUpdate(cb);
+      expect(typeof unregister).toBe('function');
+      unregister();
+    });
+  });
+
+  describe('onAppData', () => {
+    it('should register and unregister onAppData', () => {
+      const cb = jest.fn();
+      const unregister = domo.onAppData(cb);
+      expect(typeof unregister).toBe('function');
+      unregister();
+    });
+  });
+
+  describe('onVariablesUpdated', () => {
+    it('should register and unregister onVariablesUpdated', () => {
+      const cb = jest.fn();
+      const unregister = domo.onVariablesUpdated(cb);
+      expect(typeof unregister).toBe('function');
+      unregister();
+    });
   });
 });
 
-describe('domo.sendAppData', () => {
-  it('should call sendAppData', () => {
-    domo.sendAppData('data');
-    expect(window.parent.postMessage).toHaveBeenCalled();
+describe('domo navigation and data sending', () => {
+  describe('navigate', () => {
+    it('should call navigate', () => {
+      domo.navigate('/test', true);
+      expect(window.parent.postMessage).toHaveBeenCalled();
+    });
   });
-});
 
-describe('domo.sendVariables', () => {
-  it('should call sendVariables', () => {
-    domo.sendVariables('vars');
-    expect(window.parent.postMessage).toHaveBeenCalled();
+  describe('filterContainer', () => {
+    it('should call filterContainer', () => {
+      domo.filterContainer([
+        { column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: FilterDataTypes.STRING }
+      ], true);
+      expect(window.parent.postMessage).toHaveBeenCalled();
+    });
+    it('should detect webkit and call messageHandlers', () => {
+      Object.defineProperty(window.navigator, 'userAgent', {
+        value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+        configurable: true
+      });
+      const filter = [{ column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: 'STRING' }];
+      const postMessageMock = jest.fn();
+      (window as any).webkit = { messageHandlers: { domofilter: { postMessage: postMessageMock }, domovariable: { postMessage: jest.fn() } } };
+      domo.filterContainer(filter as any, true);
+      expect(postMessageMock).toHaveBeenCalled();
+    });
+  });
+
+  describe('sendAppData', () => {
+    it('should call sendAppData', () => {
+      domo.sendAppData('data');
+      expect(window.parent.postMessage).toHaveBeenCalled();
+    });
+  });
+
+  describe('sendVariables', () => {
+    it('should call sendVariables', () => {
+      domo.sendVariables('vars');
+      expect(window.parent.postMessage).toHaveBeenCalled();
+    });
   });
 });
 
@@ -458,7 +440,7 @@ describe('domo global', () => {
 
 describe('domoHttp edge cases', () => {
   beforeEach(() => {
-    jest.restoreAllMocks(); // Remove any spies/mocks
+    jest.restoreAllMocks();
   });
 
   function flushMicrotasks() {
