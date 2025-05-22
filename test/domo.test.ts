@@ -533,6 +533,97 @@ describe('MutationObserver integration', () => {
   });
 });
 
+describe('domo.connect MessageChannel event handler', () => {
+  function makeMockPort() {
+    return {
+      postMessage: jest.fn(),
+      onmessage: null as any,
+      onmessageerror: null as any,
+      close: jest.fn(),
+      start: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    };
+  }
+  function makeMessageEvent(data: any, ports: any[] = []) {
+    return { data, ports } as any;
+  }
+  it('should handle filtersUpdated event', () => {
+    const cb = jest.fn();
+    domo.onFiltersUpdate(cb);
+    domo.connect();
+    const port = makeMockPort();
+    const filters = [{ foo: 'bar' }];
+    domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
+    expect(port.postMessage).toHaveBeenCalled();
+    expect(cb).toHaveBeenCalledWith(filters);
+  });
+  it('should handle appData event', () => {
+    const cb = jest.fn();
+    domo.onAppData(cb);
+    domo.connect();
+    const port = makeMockPort();
+    const appData = { foo: 'bar' };
+    domo.channel.port1.onmessage(makeMessageEvent({ event: 'appData', appData }, [port]));
+    expect(port.postMessage).toHaveBeenCalled();
+    expect(cb).toHaveBeenCalledWith(appData);
+  });
+  it('should handle variablesUpdated event', () => {
+    const cb = jest.fn();
+    domo.onVariablesUpdated(cb);
+    domo.connect();
+    const port = makeMockPort();
+    const variables = { foo: 'bar' };
+    domo.channel.port1.onmessage(makeMessageEvent({ event: 'variablesUpdated', variables }, [port]));
+    expect(port.postMessage).toHaveBeenCalled();
+    expect(cb).toHaveBeenCalledWith(variables);
+  });
+  it('should early return if responsePort is undefined', () => {
+    domo.connect();
+    expect(() => domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters: [] }, []))).not.toThrow();
+  });
+});
+
+describe('domo uncovered branches', () => {
+  it('should use webkit.messageHandlers.domovariable in sendVariables for iOS', () => {
+    Object.defineProperty(window.navigator, 'userAgent', {
+      value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+      configurable: true
+    });
+    (window as any).webkit = { messageHandlers: { domovariable: { postMessage: jest.fn() } } };
+    domo.sendVariables('vars-ios');
+    expect((window as any).webkit.messageHandlers.domovariable.postMessage).toHaveBeenCalledWith('vars-ios');
+  });
+
+  it('should handle catch branch in isVerifiedOrigin', () => {
+    expect(domo.__util.isVerifiedOrigin('not a url')).toBe(false);
+  });
+
+  it('should use DataFormats.DEFAULT in setFormatHeaders', () => {
+    const req = { setRequestHeader: jest.fn() };
+    domo.__util.setFormatHeaders(req as any, 'https://domo.com/data/v1', {});
+    expect(req.setRequestHeader).toHaveBeenCalledWith('Accept', expect.anything());
+  });
+
+  it('should send JSON body if contentType is not set or is JSON', async () => {
+    globalThis._xhrInstance.status = 200;
+    globalThis._xhrInstance.response = '{}';
+    const spy = jest.spyOn(globalThis._xhrInstance, 'send');
+    const promise = domo.post('/test', { foo: 'bar' });
+    if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
+    await promise;
+    expect(spy).toHaveBeenCalledWith(JSON.stringify({ foo: 'bar' }));
+    spy.mockRestore();
+  });
+
+  it('should return noop unregister if cb is not a function in onDataUpdate', () => {
+    const unregister = domo.onDataUpdate(undefined as any);
+    expect(typeof unregister).toBe('function');
+    expect(unregister()).toBeUndefined();
+  });
+});
+
 it('should import FilterDataTypes from models/index', () => {
   const { FilterDataTypes } = require('../src/models');
   expect(FilterDataTypes).toBeDefined();
