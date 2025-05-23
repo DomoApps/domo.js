@@ -1,6 +1,6 @@
 import { handleNode } from './utils/domoutils';
 import { sharedOnDataUpdateListener, onDataUpdate } from "./models/services/dataset";
-import { filterContainer, onFiltersUpdate } from "./models/services/filters";
+import { filterContainer, onFiltersUpdated } from "./models/services/filters";
 import { onVariablesUpdated, sendVariables } from "./models/services/variables";
 import { onAppData, sendAppData } from "./models/services/appdata";
 import { navigate } from "./models/services/navigation";
@@ -11,11 +11,11 @@ import { ArrayRequestOptions, ObjectRequestOptions, RequestOptions } from './mod
 import { ArrayResponseBody, ObjectResponseBody, ResponseBody } from './models/interfaces/response-body';
 
 class Domo {
-  static channel?: MessageChannel;
-  static connected = false;
-  static listeners: { [index: string]: Function[] } = {
+  public static channel?: MessageChannel;
+  public static connected = false;
+  public static listeners: { [index: string]: Function[] } = {
     onDataUpdate: [],
-    onFiltersUpdate: [],
+    onFiltersUpdated: [],
     onAppData: [],
     onVariablesUpdated: [],
   };
@@ -43,7 +43,7 @@ class Domo {
   //////////////////////////////////////////
   static readonly onAppData = onAppData;
   static readonly onDataUpdate = onDataUpdate;
-  static readonly onFiltersUpdate = onFiltersUpdate
+  static readonly onFiltersUpdated = onFiltersUpdated
   static readonly onVariablesUpdated = onVariablesUpdated
 
   private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
@@ -72,38 +72,38 @@ class Domo {
     isSuccess,
   };
 
-  // if using connect() to subscribe to non-filter events, fetching filters immediately would cause a reload
   static readonly connect = (skipFilters = false) => {
-    if (Domo.connected) return;
-    Domo.connected = true;
-    Domo.channel = new MessageChannel();
+    if (this.connected) return;
+    this.connected = true;
+    this.channel = new MessageChannel();
     window.parent.postMessage(
       JSON.stringify({ event: "subscribe", skipFilters }),
-      "*",
-      [Domo.channel.port2]
+      window.origin, // Originally "*" possibly for embed? It should be the parent window's origin
+      [this.channel.port2]
     );
-    Domo.channel.port1.onmessage = (e: MessageEvent) => {
-      const [responsePort] = e.ports;
-      if (responsePort === undefined) return;
 
-      if (
-        e.data.event === "filtersUpdated" &&
-        Domo.listeners.onFiltersUpdate.length > 0
-      ) {
-        responsePort.postMessage({}); // Prevents the app from reloading. Says we've handled it
-        Domo.listeners.onFiltersUpdate.forEach((cb) => cb(e.data.filters)); // <- split out onFiltersUpdate so that you can handle each message differently here
-      } else if (
-        e.data.event === "appData" &&
-        Domo.listeners.onAppData.length > 0
-      ) {
-        responsePort.postMessage({}); // Prevents the app from reloading. Says we've handled it
-        Domo.listeners.onAppData.forEach((cb) => cb(e.data.appData));
-      } else if (
-        e.data.event === "variablesUpdated" &&
-        Domo.listeners.onVariablesUpdated.length > 0
-      ) {
-        responsePort.postMessage({}); // Prevents the app from reloading. Says we've handled it
-        Domo.listeners.onVariablesUpdated.forEach((cb) => cb(e.data.variables));
+    const eventHandlers: { [event: string]: (data: any, responsePort: MessagePort) => void } = {
+      filtersUpdated: (data, responsePort) => {
+        responsePort.postMessage({});
+        this.listeners.onFiltersUpdated.forEach(cb => cb(data.filters));
+      },
+      appData: (data, responsePort) => {
+        responsePort.postMessage({});
+        this.listeners.onAppData.forEach(cb => cb(data.appData));
+      },
+      variablesUpdated: (data, responsePort) => {
+        responsePort.postMessage({});
+        this.listeners.onVariablesUpdated.forEach(cb => cb(data.variables));
+      }
+    };
+
+    this.channel.port1.onmessage = (e: MessageEvent) => {
+      const [responsePort] = e.ports;
+      if (!responsePort) return;
+
+      const handler = eventHandlers[e.data.event];
+      if (handler && this.listeners[`on${e.data.event.charAt(0).toUpperCase() + e.data.event.slice(1)}`]?.length > 0) {
+        handler(e.data, responsePort);
       }
     };
   };

@@ -46,12 +46,12 @@ export function filterContainer(
  * @param callback - The function to call when filters are updated.
  * @returns A function to unregister the callback.
  */
-export function onFiltersUpdate(callback: Function) {
+export function onFiltersUpdated(callback: Function) {
   this.connect();
-  this.listeners.onFiltersUpdate.push(callback);
+  this.listeners.onFiltersUpdated.push(callback);
 
   return () => {
-    const index = this.listeners.onFiltersUpdate.indexOf(callback);
-    this.listeners.onFiltersUpdate.splice(index, 1);
+    const index = this.listeners.onFiltersUpdated.indexOf(callback);
+    this.listeners.onFiltersUpdated.splice(index, 1);
   };
 };

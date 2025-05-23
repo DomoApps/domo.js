@@ -95,18 +95,17 @@ describe('Filters Service', () => {
     });
   });
 
-  describe('onFiltersUpdate', () => {
-    it('should register and unregister onFiltersUpdate', () => {
+  describe('onFiltersUpdated', () => {
+    it('should register and unregister onFiltersUpdated', () => {
       const cb = jest.fn();
-      const unregister = (Domo as any).onFiltersUpdate(cb);
+      const unregister = (Domo as any).onFiltersUpdated(cb);
       expect(typeof unregister).toBe('function');
       unregister();
     });
 
     it('should handle filtersUpdated event', () => {
       const cb = jest.fn();
-      Domo.onFiltersUpdate(cb);
-      Domo.connect();
+      Domo.onFiltersUpdated(cb);
       const port = makeMockPort();
       const filters = [{ foo: 'bar' }];
       Domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
