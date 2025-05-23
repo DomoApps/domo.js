@@ -1,6 +1,4 @@
-// Handles dataset change logic (onDataUpdate)
-
-function sharedOnDataUpdateListener(listeners: Function[], isVerifiedOrigin: (origin: string) => boolean) {
+export function sharedOnDataUpdateListener(listeners: Function[], isVerifiedOrigin: (origin: string) => boolean) {
   return function(event: MessageEvent) {
     if (!isVerifiedOrigin(event.origin)) return;
     if (typeof event.data === "string" && event.data.length > 0) {
@@ -26,5 +24,3 @@ function sharedOnDataUpdateListener(listeners: Function[], isVerifiedOrigin: (or
     }
   }
 }
-
-export { sharedOnDataUpdateListener };
