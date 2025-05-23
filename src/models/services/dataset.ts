@@ -1,4 +1,11 @@
-
+/**
+ * Creates a message event listener for data update events, verifying the origin and parsing the message.
+ * Calls all provided listeners with the alias from the message and sends an acknowledgement back to the source.
+ *
+ * @param {Function[]} listeners - Array of callback functions to be called with the alias when a valid message is received.
+ * @param {(origin: string) => boolean} isVerifiedOrigin - Function to verify the origin of the message event.
+ * @returns {(event: MessageEvent) => void} - The event listener function to be used with window.addEventListener.
+ */
 export function sharedOnDataUpdateListener(listeners: Function[], isVerifiedOrigin: (origin: string) => boolean) {
   return function(event: MessageEvent) {
     if (!isVerifiedOrigin(event.origin)) return;
@@ -26,6 +33,14 @@ export function sharedOnDataUpdateListener(listeners: Function[], isVerifiedOrig
   }
 }
 
+/**
+ * Registers a callback to be invoked when a data update message is received.
+ * Adds the callback to the listeners array and manages the message event listener lifecycle.
+ * NOTE: this references the Domo class, so it should be called in the context of that class.
+ *
+ * @param {(alias: string) => void} cb - Callback function to be called with the alias when a data update event occurs.
+ * @returns {() => void} - Function to remove the registered callback.
+ */
 export function onDataUpdate(cb: (alias: string) => void) {
   if (typeof cb !== 'function') return () => {};
   if (!this._onDataUpdateListener) {
