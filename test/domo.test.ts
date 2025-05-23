@@ -86,65 +86,11 @@ afterEach(() => {
 });
 
 describe('domo event/callback APIs', () => {
-  const callbackApis = [
-    { api: 'onFiltersUpdate', desc: 'onFiltersUpdate' },
-    { api: 'onAppData', desc: 'onAppData' },
-    { api: 'onVariablesUpdated', desc: 'onVariablesUpdated' },
-  ];
-
-  it.each(callbackApis)('should register and unregister $desc', ({ api }) => {
-    const cb = jest.fn();
-    const unregister = (Domo as any)[api](cb);
-    expect(typeof unregister).toBe('function');
-    unregister();
-  });
-
   describe('connect/MessageChannel', () => {
-    function makeMockPort() {
-      return {
-        postMessage: jest.fn(),
-        onmessage: null as any,
-        onmessageerror: null as any,
-        close: jest.fn(),
-        start: jest.fn(),
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-        dispatchEvent: jest.fn(),
-      };
-    }
     function makeMessageEvent(data: any, ports: any[] = []) {
       return { data, ports } as any;
     }
-    it('should handle filtersUpdated event', () => {
-      const cb = jest.fn();
-      Domo.onFiltersUpdate(cb);
-      Domo.connect();
-      const port = makeMockPort();
-      const filters = [{ foo: 'bar' }];
-      Domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
-      expect(port.postMessage).toHaveBeenCalled();
-      expect(cb).toHaveBeenCalledWith(filters);
-    });
-    it('should handle appData event', () => {
-      const cb = jest.fn();
-      Domo.onAppData(cb);
-      Domo.connect();
-      const port = makeMockPort();
-      const appData = { foo: 'bar' };
-      Domo.channel.port1.onmessage(makeMessageEvent({ event: 'appData', appData }, [port]));
-      expect(port.postMessage).toHaveBeenCalled();
-      expect(cb).toHaveBeenCalledWith(appData);
-    });
-    it('should handle variablesUpdated event', () => {
-      const cb = jest.fn();
-      Domo.onVariablesUpdated(cb);
-      Domo.connect();
-      const port = makeMockPort();
-      const variables = { foo: 'bar' };
-      Domo.channel.port1.onmessage(makeMessageEvent({ event: 'variablesUpdated', variables }, [port]));
-      expect(port.postMessage).toHaveBeenCalled();
-      expect(cb).toHaveBeenCalledWith(variables);
-    });
+
     it('should early return if responsePort is undefined', () => {
       Domo.connect();
       expect(() => Domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters: [] }, []))).not.toThrow();

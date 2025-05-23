@@ -1,8 +1,8 @@
 import { handleNode } from './utils/domoutils';
 import { sharedOnDataUpdateListener, onDataUpdate } from "./models/services/dataset";
-import { filterContainer } from "./models/services/filters";
-import { sendVariables } from "./models/services/variables";
-import { sendAppData } from "./models/services/appdata";
+import { filterContainer, onFiltersUpdate } from "./models/services/filters";
+import { onVariablesUpdated, sendVariables } from "./models/services/variables";
+import { onAppData, sendAppData } from "./models/services/appdata";
 import { navigate } from "./models/services/navigation";
 import { get, post, put, delete as del, domoHttp } from "./models/services/http";
 import { isSuccess, isVerifiedOrigin, getQueryParams, setFormatHeaders } from './utils/general';
@@ -42,6 +42,9 @@ class Domo {
   // Event Listeners
   //////////////////////////////////////////
   static readonly onDataUpdate = onDataUpdate;
+  static readonly onFiltersUpdate = onFiltersUpdate
+  static readonly onAppData = onAppData;
+  static readonly onVariablesUpdated = onVariablesUpdated
 
   private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
   private static _sharedOnDataUpdateListener(event: MessageEvent) {
@@ -54,7 +57,7 @@ class Domo {
   /////////////////////////////////////////
 
   // if using connect() to subscribe to non-filter events, fetching filters immediately would cause a reload
-  static connect = (skipFilters = false) => {
+  static readonly connect = (skipFilters = false) => {
     if (Domo.connected) return;
     Domo.connected = true;
     Domo.channel = new MessageChannel();
@@ -86,48 +89,6 @@ class Domo {
         responsePort.postMessage({}); // Prevents the app from reloading. Says we've handled it
         Domo.listeners.onVariablesUpdated.forEach((cb) => cb(e.data.variables));
       }
-    };
-  };
-
-  /**
-   * Let the domoapp handle its own filter updates
-   */
-  static onFiltersUpdate = (callback: Function) => {
-    Domo.connect();
-    Domo.listeners.onFiltersUpdate.push(callback);
-
-    // unregister
-    return () => {
-      const index = Domo.listeners.onFiltersUpdate.indexOf(callback);
-      Domo.listeners.onFiltersUpdate.splice(index, 1);
-    };
-  };
-
-  /**
-   * Receive arbitrary messages to an embedded domoapp
-   */
-  static onAppData = (callback: Function) => {
-    Domo.connect(true);
-    Domo.listeners.onAppData.push(callback);
-
-    // unregister
-    return () => {
-      const index = Domo.listeners.onAppData.indexOf(callback);
-      Domo.listeners.onAppData.splice(index, 1);
-    };
-  };
-
-  /**
-   * Allow domoapp to handle variable updates in embed
-   */
-  static onVariablesUpdated = (callback: Function) => {
-    Domo.connect(true);
-    Domo.listeners.onVariablesUpdated.push(callback);
-
-    // unregister
-    return () => {
-      const index = Domo.listeners.onVariablesUpdated.indexOf(callback);
-      Domo.listeners.onVariablesUpdated.splice(index, 1);
     };
   };
 

@@ -1,5 +1,11 @@
 import { Filter } from "../interfaces/filter";
 
+/**
+ * Sends filter data to the parent window or to the iOS webkit message handler.
+ *
+ * @param filters - An array of Filter objects or null.
+ * @param pageStateUpdate - Optional boolean indicating if the page state should be updated.
+ */
 export function filterContainer(
   filters: Filter[] | null,
   pageStateUpdate: boolean | null = null
@@ -32,3 +38,20 @@ export function filterContainer(
     window.parent.postMessage(message, "*");
   }
 }
+
+/**
+ * Registers a callback to be invoked when filters are updated.
+ * NOTE: this references the Domo object, so it should be called in the context of Domo.
+ *
+ * @param callback - The function to call when filters are updated.
+ * @returns A function to unregister the callback.
+ */
+export function onFiltersUpdate(callback: Function) {
+  this.connect();
+  this.listeners.onFiltersUpdate.push(callback);
+
+  return () => {
+    const index = this.listeners.onFiltersUpdate.indexOf(callback);
+    this.listeners.onFiltersUpdate.splice(index, 1);
+  };
+};
