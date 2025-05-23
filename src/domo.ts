@@ -41,9 +41,9 @@ class Domo {
   ////////////////////////////////////////////
   // Event Listeners
   //////////////////////////////////////////
+  static readonly onAppData = onAppData;
   static readonly onDataUpdate = onDataUpdate;
   static readonly onFiltersUpdate = onFiltersUpdate
-  static readonly onAppData = onAppData;
   static readonly onVariablesUpdated = onVariablesUpdated
 
   private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
@@ -52,9 +52,25 @@ class Domo {
   }
 
 
+  /////////////////////////////////////////////
+  // Emitters
+  ///////////////////////////////////////////
+  static readonly filterContainer = filterContainer;
+  static readonly sendVariables = sendVariables;
+  static readonly sendAppData = sendAppData;
+  static readonly navigate = navigate;
+
+
   ///////////////////////////////////////////
   // General
   /////////////////////////////////////////
+  static readonly env = getQueryParams();
+  static readonly __util = {
+    isVerifiedOrigin,
+    getQueryParams,
+    setFormatHeaders,
+    isSuccess,
+  };
 
   // if using connect() to subscribe to non-filter events, fetching filters immediately would cause a reload
   static readonly connect = (skipFilters = false) => {
@@ -90,27 +106,6 @@ class Domo {
         Domo.listeners.onVariablesUpdated.forEach((cb) => cb(e.data.variables));
       }
     };
-  };
-
-  /**
-   * Request a navigation change
-   */
-  static navigate = navigate;
-
-  static filterContainer = filterContainer;
-
-  // Send arbitrary data up to an embedding site
-  static sendAppData = sendAppData;
-
-  static sendVariables = sendVariables;
-
-  static env = getQueryParams();
-
-  static __util = {
-    isVerifiedOrigin,
-    getQueryParams,
-    setFormatHeaders,
-    isSuccess,
   };
 }
 
