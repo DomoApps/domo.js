@@ -23,8 +23,6 @@ class MockMessagePort {
   port1 = new MockMessagePort();
   port2 = new MockMessagePort();
 };
-// Mock ServiceWorker globally for Jest
-(global as any).ServiceWorker = class { dummy = true; };
 
 // Patch window.addEventListener and removeEventListener to track message listeners for test cleanup
 const realAddEventListener = window.addEventListener;
@@ -55,10 +53,8 @@ beforeEach(() => {
     configurable: true
   });
   (window as any)['webkit'] = { messageHandlers: { domofilter: { postMessage: jest.fn() }, domovariable: { postMessage: jest.fn() } } };
-  (global as any).MessageChannel = class {
-    port1 = { onmessage: null as ((event: any) => void) | null, postMessage: jest.fn(), close: jest.fn() };
-    port2 = { onmessage: null as ((event: any) => void) | null, postMessage: jest.fn(), close: jest.fn() };
-  };
+  // Only redefine MessageChannel if needed for test isolation
+  (global as any).MessageChannel = (global as any).MessageChannel;
 
   // XMLHttpRequest mock for all HTTP verb tests
   globalThis._originalXMLHttpRequest = (global as any).XMLHttpRequest;
