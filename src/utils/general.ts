@@ -1,5 +1,6 @@
-// General utility functions for domo
-import { DataFormats, RequestOptions, QueryParams } from '../models';
+import { DataFormats } from '../models/enums/data-formats';
+import { QueryParams } from '../models/interfaces/query-params';
+import { RequestOptions } from '../models/interfaces/request-options';
 import { domoFormatToRequestFormat } from './data-helpers';
 
 const HOST_WHITELIST = /^(?:[\w-]+\.)*(domo|domotech|domorig)\.(com|io)$/i;

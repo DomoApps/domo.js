@@ -1,4 +1,5 @@
-import { DomoDataFormats, DataFormats } from '../models';
+import { DataFormats } from "../models/enums/data-formats";
+import { DomoDataFormats } from "../models/interfaces/domo-data-formats";
 
 export function domoFormatToRequestFormat(format: DomoDataFormats): DataFormats {
   switch (format) {

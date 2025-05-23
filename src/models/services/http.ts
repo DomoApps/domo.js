@@ -1,12 +1,11 @@
-import { 
-    RequestMethods, RequestOptions, RequestBody, 
-    ResponseBody, ObjectRequestOptions, ObjectResponseBody, 
-    ArrayRequestOptions, ArrayResponseBody, 
-    DataFormats
-} from "..";
 import { getToken } from "../constants/general";
 import { setAuthTokenHeader, setContentHeaders, setResponseType } from "../../utils/domoutils";
 import { isSuccess, setFormatHeaders } from "../../utils/general";
+import { DataFormats } from "../enums/data-formats";
+import { RequestMethods } from "../enums/request-methods";
+import { RequestBody } from "../interfaces/request-body";
+import { ObjectRequestOptions, ArrayRequestOptions, RequestOptions } from "../interfaces/request-options";
+import { ObjectResponseBody, ArrayResponseBody, ResponseBody } from "../interfaces/response-body";
 
 function domoHttp(method: RequestMethods, url: string, options: ObjectRequestOptions, async?: boolean, body?: RequestBody): Promise<ObjectResponseBody[]>;
 function domoHttp(method: RequestMethods, url: string, options: ArrayRequestOptions, async?: boolean, body?: RequestBody): Promise<ArrayResponseBody>;
