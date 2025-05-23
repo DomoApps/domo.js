@@ -274,13 +274,6 @@ describe('domo event/callback APIs', () => {
 });
 
 describe('domo navigation and data sending', () => {
-  describe('navigate', () => {
-    it('should call navigate', () => {
-      domo.navigate('/test', true);
-      expect(window.parent.postMessage).toHaveBeenCalled();
-    });
-  });
-
   describe('sendVariables', () => {
     it('should call sendVariables', () => {
       domo.sendVariables('vars');

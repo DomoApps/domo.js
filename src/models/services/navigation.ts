@@ -1,6 +1,4 @@
-// Handles navigation logic
-
-function navigate(url: string, isNewWindow: boolean) {
+export function navigate(url: string, isNewWindow: boolean) {
   const message = JSON.stringify({
     event: "navigate",
     url: url,
@@ -8,5 +6,3 @@ function navigate(url: string, isNewWindow: boolean) {
   });
   window.parent.postMessage(message, "*");
 }
-
-export { navigate };
