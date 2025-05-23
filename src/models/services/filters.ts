@@ -1,5 +1,5 @@
 // Handles filter management logic
-import { Filter } from "./models";
+import { Filter } from "..";
 
 function filterContainer(filters: Filter[] | null, pageStateUpdate: boolean | null = null): void {
   const userAgent = window.navigator.userAgent.toLowerCase(),

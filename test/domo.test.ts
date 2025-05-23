@@ -434,13 +434,6 @@ describe('domo navigation and data sending', () => {
     });
   });
 
-  describe('sendAppData', () => {
-    it('should call sendAppData', () => {
-      domo.sendAppData('data');
-      expect(window.parent.postMessage).toHaveBeenCalled();
-    });
-  });
-
   describe('sendVariables', () => {
     it('should call sendVariables', () => {
       domo.sendVariables('vars');

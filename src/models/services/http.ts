@@ -3,10 +3,10 @@ import {
     ResponseBody, ObjectRequestOptions, ObjectResponseBody, 
     ArrayRequestOptions, ArrayResponseBody, 
     DataFormats
-} from "./models";
-import { getToken } from "./models/constants/general";
-import { setAuthTokenHeader, setContentHeaders, setResponseType } from "./utils/domoutils";
-import { isSuccess, setFormatHeaders } from "./utils/general";
+} from "..";
+import { getToken } from "../constants/general";
+import { setAuthTokenHeader, setContentHeaders, setResponseType } from "../../utils/domoutils";
+import { isSuccess, setFormatHeaders } from "../../utils/general";
 
 function domoHttp(method: RequestMethods, url: string, options: ObjectRequestOptions, async?: boolean, body?: RequestBody): Promise<ObjectResponseBody[]>;
 function domoHttp(method: RequestMethods, url: string, options: ArrayRequestOptions, async?: boolean, body?: RequestBody): Promise<ArrayResponseBody>;

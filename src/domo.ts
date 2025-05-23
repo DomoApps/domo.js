@@ -1,10 +1,10 @@
 import { handleNode } from './utils/domoutils';
-import { sharedOnDataUpdateListener } from "./dataset";
-import { filterContainer } from "./filters";
-import { sendVariables } from "./variables";
-import { sendAppData } from "./appdata";
-import { navigate } from "./navigation";
-import { get, post, put, delete as del, domoHttp } from "./http";
+import { sharedOnDataUpdateListener } from "./models/services/dataset";
+import { filterContainer } from "./models/services/filters";
+import { sendVariables } from "./models/services/variables";
+import { sendAppData } from "./models/services/appdata";
+import { navigate } from "./models/services/navigation";
+import { get, post, put, delete as del, domoHttp } from "./models/services/http";
 import { isSuccess, isVerifiedOrigin, getQueryParams, setFormatHeaders } from './utils/general';
 import { getToken } from './models/constants/general';
 import { ArrayRequestOptions, ObjectRequestOptions, RequestOptions } from './models/interfaces/request-options';
