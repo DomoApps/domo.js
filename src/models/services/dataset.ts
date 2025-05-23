@@ -1,3 +1,4 @@
+
 export function sharedOnDataUpdateListener(listeners: Function[], isVerifiedOrigin: (origin: string) => boolean) {
   return function(event: MessageEvent) {
     if (!isVerifiedOrigin(event.origin)) return;
@@ -23,4 +24,23 @@ export function sharedOnDataUpdateListener(listeners: Function[], isVerifiedOrig
       }
     }
   }
+}
+
+export function onDataUpdate(cb: (alias: string) => void) {
+  if (typeof cb !== 'function') return () => {};
+  if (!this._onDataUpdateListener) {
+    this._onDataUpdateListener = this._sharedOnDataUpdateListener;
+    window.addEventListener("message", this._onDataUpdateListener);
+  }
+
+  this.listeners.onDataUpdate.push(cb);
+  return () => {
+    const arr = this.listeners.onDataUpdate;
+    const idx = arr.indexOf(cb);
+    if (idx !== -1) arr.splice(idx, 1);
+    if (arr.length === 0 && this._onDataUpdateListener) {
+      window.removeEventListener("message", this._onDataUpdateListener);
+      this._onDataUpdateListener = null;
+    }
+  };
 }

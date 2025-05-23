@@ -1,4 +1,4 @@
-import domo from '../../domo';
+import Domo from '../../domo';
 
 describe('sendAppData', () => {
   beforeEach(() => {
@@ -6,7 +6,7 @@ describe('sendAppData', () => {
   });
 
   it('should send app data successfully', () => {
-    domo.sendAppData('value');
+    Domo.sendAppData('value');
     expect(window.parent.postMessage).toHaveBeenCalled();
   });
 });

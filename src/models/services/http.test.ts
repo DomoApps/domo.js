@@ -1,4 +1,4 @@
-import domo from "../../domo";
+import Domo from "../../domo";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -49,36 +49,36 @@ describe("domo HTTP methods", () => {
   it.each(httpMethods)(
     "$name should call and set method",
     async ({ name, method, hasReject, hasReturn }) => {
-      const spy = jest.spyOn(domo, name);
+      const spy = jest.spyOn(Domo, name);
       (spy as jest.Mock).mockResolvedValue({ foo: "bar" });
-      await expect((domo as any)[name]("/test")).resolves.toBeDefined();
+      await expect((Domo as any)[name]("/test")).resolves.toBeDefined();
       globalThis._openSpy.mockImplementation(function (m: string) {
         expect(m).toBe(method);
       });
-      const promise = (domo as any)[name]("/test");
+      const promise = (Domo as any)[name]("/test");
       if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
       await promise;
       if (hasReject) {
         (spy as jest.Mock).mockRejectedValue(new Error("fail"));
-        await expect((domo as any)[name]("/fail")).rejects.toThrow("fail");
+        await expect((Domo as any)[name]("/fail")).rejects.toThrow("fail");
       }
 
       if (hasReturn && name === "get") {
         (spy as jest.Mock).mockResolvedValue({ foo: "bar" });
-        await expect(domo.get("/foo")).resolves.toEqual({ foo: "bar" });
+        await expect(Domo.get("/foo")).resolves.toEqual({ foo: "bar" });
       }
     }
   );
 
   it("should have a patch method (not implemented)", () => {
-    expect(typeof (domo as any).patch).toBe("undefined");
+    expect(typeof (Domo as any).patch).toBe("undefined");
   });
 
   it('should send JSON body if contentType is not set or is JSON', async () => {
     globalThis._xhrInstance.status = 200;
     globalThis._xhrInstance.response = '{}';
     const spy = jest.spyOn(globalThis._xhrInstance, 'send');
-    const promise = domo.post('/test', { foo: 'bar' });
+    const promise = Domo.post('/test', { foo: 'bar' });
     if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
     await promise;
     expect(spy).toHaveBeenCalledWith(JSON.stringify({ foo: 'bar' }));
@@ -89,7 +89,7 @@ describe("domo HTTP methods", () => {
     const spy = jest.spyOn(global as any, 'XMLHttpRequest');
     globalThis._xhrInstance.status = 200;
     globalThis._xhrInstance.response = '{}';
-    const promise = domo.put<{foo: string}>('/test', {foo: 'bar'});
+    const promise = Domo.put<{foo: string}>('/test', {foo: 'bar'});
     if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
     await expect(promise).resolves.toBeDefined();
     spy.mockRestore();
@@ -99,23 +99,23 @@ describe("domo HTTP methods", () => {
     const spy = jest.spyOn(global as any, 'XMLHttpRequest');
     globalThis._xhrInstance.status = 200;
     globalThis._xhrInstance.response = '{}';
-    const promise = domo.delete<{foo: string}>('/test');
+    const promise = Domo.delete<{foo: string}>('/test');
     if (globalThis._xhrInstance.onload) globalThis._xhrInstance.onload();
     await expect(promise).resolves.toBeDefined();
     spy.mockRestore();
   });
 
   it("should call getAll", async () => {
-    const spy = jest.spyOn(domo, "getAll");
+    const spy = jest.spyOn(Domo, "getAll");
     spy.mockResolvedValue([{}]);
-    await expect(domo.getAll(["/test"])).resolves.toBeDefined();
+    await expect(Domo.getAll(["/test"])).resolves.toBeDefined();
     spy.mockRestore();
   });
 
   it("should call getAll<T> and resolve", async () => {
-    const spy = jest.spyOn(domo, "get");
+    const spy = jest.spyOn(Domo, "get");
     spy.mockResolvedValue({ foo: "bar" });
-    const promise = domo.getAll<{ foo: string }>(["/test1", "/test2"]);
+    const promise = Domo.getAll<{ foo: string }>(["/test1", "/test2"]);
     await expect(promise).resolves.toEqual([{ foo: "bar" }, { foo: "bar" }]);
     spy.mockRestore();
   });
@@ -141,7 +141,7 @@ describe("domo HTTP edge cases", () => {
   it("should resolve with raw response for csv/excel format", async () => {
     globalThis._xhrInstance.status = 200;
     globalThis._xhrInstance.response = "csvdata";
-    const promise = domo.get("/test", { format: "csv" } as any);
+    const promise = Domo.get("/test", { format: "csv" } as any);
     await triggerOnloadAsync();
     await expect(promise).resolves.toBe("csvdata");
   });
@@ -149,7 +149,7 @@ describe("domo HTTP edge cases", () => {
   it("should resolve with raw response if response is falsy", async () => {
     globalThis._xhrInstance.status = 200;
     globalThis._xhrInstance.response = "";
-    const promise = domo.get("/test", { format: "array-of-objects" } as any);
+    const promise = Domo.get("/test", { format: "array-of-objects" } as any);
     await triggerOnloadAsync();
     await expect(promise).resolves.toBe("");
   });
@@ -160,7 +160,7 @@ describe("domo HTTP edge cases", () => {
     globalThis._xhrInstance.getResponseHeader.mockReturnValue(
       "application/octet-stream"
     );
-    const promise = domo.get("/test", { responseType: "blob" } as any);
+    const promise = Domo.get("/test", { responseType: "blob" } as any);
     await triggerOnloadAsync();
     await expect(promise).resolves.toEqual(expect.any(Blob));
   });
@@ -168,7 +168,7 @@ describe("domo HTTP edge cases", () => {
   it('should reject with "Invalid JSON response" if response is not valid JSON', async () => {
     globalThis._xhrInstance.status = 200;
     globalThis._xhrInstance.response = "not-json";
-    const promise = domo.get("/test");
+    const promise = Domo.get("/test");
     await triggerOnloadAsync();
     await expect(promise).rejects.toThrow("Invalid JSON response");
   });
@@ -177,14 +177,14 @@ describe("domo HTTP edge cases", () => {
     globalThis._xhrInstance.status = 404;
     globalThis._xhrInstance.statusText = "Not Found";
     globalThis._xhrInstance.response = "{}";
-    const promise = domo.get("/test");
+    const promise = Domo.get("/test");
     await triggerOnloadAsync();
     await expect(promise).rejects.toThrow("Not Found");
   });
 
   it('should reject with "Network Error" on network error', async () => {
     globalThis._xhrInstance.status = 0;
-    const promise = domo.get("/test");
+    const promise = Domo.get("/test");
     await triggerOnerrorAsync();
     await expect(promise).rejects.toThrow("Network Error");
   });
@@ -192,7 +192,7 @@ describe("domo HTTP edge cases", () => {
   it("should send raw body if contentType is not JSON", async () => {
     globalThis._xhrInstance.status = 200;
     globalThis._xhrInstance.response = "{}";
-    const promise = domo.post("/test", "raw-body", {
+    const promise = Domo.post("/test", "raw-body", {
       contentType: "text/plain",
     } as any);
     await flushMicrotasks();

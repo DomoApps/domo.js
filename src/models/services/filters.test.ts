@@ -1,4 +1,4 @@
-import domo from '../../domo';
+import Domo from '../../domo';
 import { FilterOperatorsString } from '../interfaces/filter-operators';
 import { FilterDataTypes } from '../interfaces/filter-data-types';
 
@@ -14,7 +14,7 @@ describe('Filters Service', () => {
   });
 
   it('should call filterContainer', () => {
-    domo.filterContainer([
+    Domo.filterContainer([
       { column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: FilterDataTypes.STRING }
     ], true);
     expect(window.parent.postMessage).toHaveBeenCalled();
@@ -28,13 +28,13 @@ describe('Filters Service', () => {
     const filter = [{ column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: 'STRING' }];
     const postMessageMock = jest.fn();
     (window as any).webkit = { messageHandlers: { domofilter: { postMessage: postMessageMock }, domovariable: { postMessage: jest.fn() } } };
-    domo.filterContainer(filter as any, true);
+    Domo.filterContainer(filter as any, true);
     expect(postMessageMock).toHaveBeenCalled();
   });
 
   it('should support legacy operand property in filter', () => {
     const filter = [{ column: 'a', operand: FilterOperatorsString.IN, values: ['x'], dataType: FilterDataTypes.STRING }];
-    domo.filterContainer(filter as any, true);
+    Domo.filterContainer(filter as any, true);
     expect(window.parent.postMessage).toHaveBeenCalled();
   });
 
@@ -46,7 +46,7 @@ describe('Filters Service', () => {
     (window as any).webkit = { messageHandlers: { domofilter: { postMessage: jest.fn() } } };
     // Remove 'Safari' from userAgent to ensure !safari
     const filter = [{ column: 'a', operator: 'IN', values: ['x'], dataType: 'STRING' }];
-    domo.filterContainer(filter as any, true);
+    Domo.filterContainer(filter as any, true);
     expect((window as any).webkit.messageHandlers.domofilter.postMessage).toHaveBeenCalled();
   });
 
@@ -59,7 +59,7 @@ describe('Filters Service', () => {
     (window as any).webkit = { messageHandlers: { domofilter: { postMessage: postMessageMock } } };
     // Only operand, no operator
     const filter = [{ column: 'a', operand: 'IN', values: ['x'], dataType: 'STRING' }];
-    domo.filterContainer(filter as any, true);
+    Domo.filterContainer(filter as any, true);
     expect(postMessageMock).toHaveBeenCalledWith([
       { column: 'a', operand: 'IN', values: ['x'], dataType: 'STRING' }
     ]);

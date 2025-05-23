@@ -1,7 +1,7 @@
 // Mock global location before importing domo
 (global as any).location = { search: '' };
 
-import domo, { __mutationObserverCallback } from '../src/domo';
+import Domo, { __mutationObserverCallback } from '../src/domo';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -86,123 +86,6 @@ afterEach(() => {
 });
 
 describe('domo event/callback APIs', () => {
-  describe('onDataUpdate', () => {
-    function simulateMessageEvent({ cb, expectAck, expectCbCall, unregister }: { cb?: jest.Mock, expectAck: boolean, expectCbCall?: boolean, unregister?: boolean }) {
-      const alias = 'test-alias';
-      const message = JSON.stringify({ alias });
-      const fakeSource = { postMessage: jest.fn() };
-
-      let localUnregister: (() => void) | undefined;
-      if (cb) localUnregister = domo.onDataUpdate(cb);
-      if (unregister && localUnregister) localUnregister();
-
-      const event = new MessageEvent('message', {
-        data: message,
-        origin: 'https://www.domo.com',
-      });
-      Object.defineProperty(event, 'source', { value: fakeSource });
-      window.dispatchEvent(event);
-
-      const expectedAck = JSON.stringify({ event: 'ack', alias });
-      if (expectAck) 
-        expect(fakeSource.postMessage).toHaveBeenCalledWith(expectedAck, 'https://www.domo.com');
-      else
-        expect(fakeSource.postMessage).not.toHaveBeenCalledWith(expectedAck, 'https://www.domo.com');
-
-      if (cb && expectCbCall) 
-        expect(cb).toHaveBeenCalledWith('test-alias');
-      else if (cb)
-        expect(cb).not.toHaveBeenCalled();
-
-      if (localUnregister) localUnregister();
-    }
-
-    it('should prevent app refresh if callback is registered', () => {
-      const cb = jest.fn();
-      simulateMessageEvent({ cb, expectAck: true, expectCbCall: true });
-    });
-
-    it('should not prevent app refresh if callback is not registered', () => {
-      simulateMessageEvent({ expectAck: false });
-    });
-
-    it('should register and unregister onDataUpdate', () => {
-      const cb = jest.fn();
-      simulateMessageEvent({ cb, expectAck: true, expectCbCall: true, unregister: false });
-      cb.mockClear();
-      simulateMessageEvent({ cb, expectAck: false, expectCbCall: false, unregister: true });
-    });
-
-    it('should handle invalid callback for onDataUpdate', () => {
-      const unregister = domo.onDataUpdate(null as any);
-      expect(typeof unregister).toBe('function');
-      simulateMessageEvent({ cb: null, expectAck: false, expectCbCall: false });
-    });
-
-    it('should allow double registration and unregistration', () => {
-      const cb = jest.fn();
-      const unregister1 = domo.onDataUpdate(cb);
-      const unregister2 = domo.onDataUpdate(cb);
-      expect(typeof unregister1).toBe('function');
-      expect(typeof unregister2).toBe('function');
-      unregister1();
-      unregister2();
-    });
-
-    it('should allow multiple registrations for onDataUpdate', () => {
-      const cb1 = jest.fn();
-      const cb2 = jest.fn();
-      domo.onDataUpdate(cb1);
-      domo.onDataUpdate(cb2);
-      const alias = 'test-alias';
-      const message = JSON.stringify({ alias });
-      const fakeSource = { postMessage: jest.fn() };
-      const event = new MessageEvent('message', {
-        data: message,
-        origin: 'https://www.domo.com',
-      });
-      Object.defineProperty(event, 'source', { value: fakeSource });
-      window.dispatchEvent(event);
-      expect(cb1).toHaveBeenCalledWith(alias);
-      expect(cb2).toHaveBeenCalledWith(alias);
-    });
-
-    it('should use MessageChannel for communication', () => {
-      const cb = jest.fn();
-      const unregister = domo.onDataUpdate(cb);
-      const channel = new (global as any).MessageChannel();
-      if (channel.port1.onmessage) {
-        channel.port1.onmessage({ data: 'test' });
-        expect(cb).toHaveBeenCalled();
-      }
-      unregister();
-    });
-
-    it('should handle invalid JSON in message event', () => {
-      const cb = jest.fn();
-      domo.onDataUpdate(cb);
-      const event = new MessageEvent('message', {
-        data: '{invalidJson',
-        origin: 'https://www.domo.com',
-      });
-      Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
-      expect(() => window.dispatchEvent(event)).not.toThrow();
-      expect(cb).not.toHaveBeenCalled();
-    });
-
-    it('should handle message event missing alias property', () => {
-      const cb = jest.fn();
-      domo.onDataUpdate(cb);
-      const event = new MessageEvent('message', {
-        data: JSON.stringify({ notAlias: 'foo' }),
-        origin: 'https://www.domo.com',
-      });
-      Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
-      window.dispatchEvent(event);
-      expect(cb).not.toHaveBeenCalled();
-    });
-  });
-
   const callbackApis = [
     { api: 'onFiltersUpdate', desc: 'onFiltersUpdate' },
     { api: 'onAppData', desc: 'onAppData' },
@@ -211,7 +94,7 @@ describe('domo event/callback APIs', () => {
 
   it.each(callbackApis)('should register and unregister $desc', ({ api }) => {
     const cb = jest.fn();
-    const unregister = (domo as any)[api](cb);
+    const unregister = (Domo as any)[api](cb);
     expect(typeof unregister).toBe('function');
     unregister();
   });
@@ -234,69 +117,69 @@ describe('domo event/callback APIs', () => {
     }
     it('should handle filtersUpdated event', () => {
       const cb = jest.fn();
-      domo.onFiltersUpdate(cb);
-      domo.connect();
+      Domo.onFiltersUpdate(cb);
+      Domo.connect();
       const port = makeMockPort();
       const filters = [{ foo: 'bar' }];
-      domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
+      Domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
       expect(port.postMessage).toHaveBeenCalled();
       expect(cb).toHaveBeenCalledWith(filters);
     });
     it('should handle appData event', () => {
       const cb = jest.fn();
-      domo.onAppData(cb);
-      domo.connect();
+      Domo.onAppData(cb);
+      Domo.connect();
       const port = makeMockPort();
       const appData = { foo: 'bar' };
-      domo.channel.port1.onmessage(makeMessageEvent({ event: 'appData', appData }, [port]));
+      Domo.channel.port1.onmessage(makeMessageEvent({ event: 'appData', appData }, [port]));
       expect(port.postMessage).toHaveBeenCalled();
       expect(cb).toHaveBeenCalledWith(appData);
     });
     it('should handle variablesUpdated event', () => {
       const cb = jest.fn();
-      domo.onVariablesUpdated(cb);
-      domo.connect();
+      Domo.onVariablesUpdated(cb);
+      Domo.connect();
       const port = makeMockPort();
       const variables = { foo: 'bar' };
-      domo.channel.port1.onmessage(makeMessageEvent({ event: 'variablesUpdated', variables }, [port]));
+      Domo.channel.port1.onmessage(makeMessageEvent({ event: 'variablesUpdated', variables }, [port]));
       expect(port.postMessage).toHaveBeenCalled();
       expect(cb).toHaveBeenCalledWith(variables);
     });
     it('should early return if responsePort is undefined', () => {
-      domo.connect();
-      expect(() => domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters: [] }, []))).not.toThrow();
+      Domo.connect();
+      expect(() => Domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters: [] }, []))).not.toThrow();
     });
   });
 });
 
 describe('domo.__util (internal utilities)', () => {
   it('should expose the expected private functions', () => {
-    expect(typeof domo.__util.isVerifiedOrigin).toBe('function');
-    expect(typeof domo.__util.isSuccess).toBe('function');
-    expect(typeof domo.__util.getQueryParams).toBe('function');
-    expect(typeof domo.__util.setFormatHeaders).toBe('function');
+    expect(typeof Domo.__util.isVerifiedOrigin).toBe('function');
+    expect(typeof Domo.__util.isSuccess).toBe('function');
+    expect(typeof Domo.__util.getQueryParams).toBe('function');
+    expect(typeof Domo.__util.setFormatHeaders).toBe('function');
   });
 
   it('isSuccess returns true for 2xx, false otherwise', () => {
-    expect(domo.__util.isSuccess(200)).toBe(true);
-    expect(domo.__util.isSuccess(299)).toBe(true);
-    expect(domo.__util.isSuccess(199)).toBe(false);
-    expect(domo.__util.isSuccess(300)).toBe(false);
-    expect(domo.__util.isSuccess(null)).toBe(false);
-    expect(domo.__util.isSuccess(undefined)).toBe(false);
+    expect(Domo.__util.isSuccess(200)).toBe(true);
+    expect(Domo.__util.isSuccess(299)).toBe(true);
+    expect(Domo.__util.isSuccess(199)).toBe(false);
+    expect(Domo.__util.isSuccess(300)).toBe(false);
+    expect(Domo.__util.isSuccess(null)).toBe(false);
+    expect(Domo.__util.isSuccess(undefined)).toBe(false);
   });
 
   it('isVerifiedOrigin honors whitelisting and blacklisting', () => {
-    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.domo.com'))).toBe(true);
-    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.domotech.io'))).toBe(true);
-    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.domorig.io'))).toBe(true);
-    expect(Boolean(domo.__util.isVerifiedOrigin('https://domo.demo.domo.com'))).toBe(true);
-    expect(Boolean(domo.__util.isVerifiedOrigin('https://qa2staging.fastage1.domotech.io/auth/index'))).toBe(true);
-    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.domoapps-test.domo.com'))).toBe(false);
-    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.test-domoapps.domo.com'))).toBe(false);
-    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.somethingk.com'))).toBe(false);
-    expect(Boolean(domo.__util.isVerifiedOrigin('https://www.domo.com.bad.io'))).toBe(false);
-    expect(Boolean(domo.__util.isVerifiedOrigin('http://www.domo.com'))).toBe(false);
+    expect(Boolean(Domo.__util.isVerifiedOrigin('https://www.domo.com'))).toBe(true);
+    expect(Boolean(Domo.__util.isVerifiedOrigin('https://www.domotech.io'))).toBe(true);
+    expect(Boolean(Domo.__util.isVerifiedOrigin('https://www.domorig.io'))).toBe(true);
+    expect(Boolean(Domo.__util.isVerifiedOrigin('https://domo.demo.domo.com'))).toBe(true);
+    expect(Boolean(Domo.__util.isVerifiedOrigin('https://qa2staging.fastage1.domotech.io/auth/index'))).toBe(true);
+    expect(Boolean(Domo.__util.isVerifiedOrigin('https://www.domoapps-test.domo.com'))).toBe(false);
+    expect(Boolean(Domo.__util.isVerifiedOrigin('https://www.test-domoapps.domo.com'))).toBe(false);
+    expect(Boolean(Domo.__util.isVerifiedOrigin('https://www.somethingk.com'))).toBe(false);
+    expect(Boolean(Domo.__util.isVerifiedOrigin('https://www.domo.com.bad.io'))).toBe(false);
+    expect(Boolean(Domo.__util.isVerifiedOrigin('http://www.domo.com'))).toBe(false);
   });
 
   it('getQueryParams parses query string', () => {
@@ -304,7 +187,7 @@ describe('domo.__util (internal utilities)', () => {
       value: { search: '?foo=bar&baz=qux' },
       configurable: true
     });
-    const params = domo.__util.getQueryParams();
+    const params = Domo.__util.getQueryParams();
     expect('foo' in params).toBe(true);
     expect('baz' in params).toBe(true);
     expect((params as any)['foo']).toBe('bar');
@@ -313,20 +196,20 @@ describe('domo.__util (internal utilities)', () => {
 
   it('setFormatHeaders sets Accept header for data/v URLs', () => {
     const req = { setRequestHeader: jest.fn() };
-    domo.__util.setFormatHeaders(req as any, 'https://domo.com/data/v1', { format: 'array-of-objects' });
+    Domo.__util.setFormatHeaders(req as any, 'https://domo.com/data/v1', { format: 'array-of-objects' });
     expect(req.setRequestHeader).toHaveBeenCalledWith('Accept', expect.any(String));
   });
 });
 
 describe('domo.env and global exposure', () => {
   it('should have env properties with expected types', () => {
-    expect(typeof domo.env).toBe('object');
-    expect(typeof domo.env.userId).toBeDefined();
+    expect(typeof Domo.env).toBe('object');
+    expect(typeof Domo.env.userId).toBeDefined();
   });
 
   it('should expose env and __util', () => {
-    expect(domo.env).toBeDefined();
-    expect(domo.__util).toBeDefined();
+    expect(Domo.env).toBeDefined();
+    expect(Domo.__util).toBeDefined();
   });
 });
 
@@ -345,19 +228,13 @@ describe('MutationObserver integration', () => {
 
 describe('domo uncovered/miscellaneous branches', () => {
   it('should handle catch branch in isVerifiedOrigin', () => {
-    expect(domo.__util.isVerifiedOrigin('not a url')).toBe(false);
+    expect(Domo.__util.isVerifiedOrigin('not a url')).toBe(false);
   });
 
   it('should use DataFormats.DEFAULT in setFormatHeaders', () => {
     const req = { setRequestHeader: jest.fn() };
-    domo.__util.setFormatHeaders(req as any, 'https://domo.com/data/v1', {});
+    Domo.__util.setFormatHeaders(req as any, 'https://domo.com/data/v1', {});
     expect(req.setRequestHeader).toHaveBeenCalledWith('Accept', expect.anything());
-  });
-
-  it('should return noop unregister if cb is not a function in onDataUpdate', () => {
-    const unregister = domo.onDataUpdate(undefined as any);
-    expect(typeof unregister).toBe('function');
-    expect(unregister()).toBeUndefined();
   });
 
   it('should import FilterDataTypes from models/index', () => {

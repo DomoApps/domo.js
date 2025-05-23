@@ -1,4 +1,4 @@
-import domo from '../../domo';
+import Domo from '../../domo';
 
 describe('sendVariables', () => {
   beforeEach(() => {
@@ -11,7 +11,7 @@ describe('sendVariables', () => {
   });
 
   it('should call sendVariables', () => {
-    domo.sendVariables('vars');
+    Domo.sendVariables('vars');
     expect(window.parent.postMessage).toHaveBeenCalled();
   });
 
@@ -21,7 +21,7 @@ describe('sendVariables', () => {
       configurable: true
     });
     (window as any).webkit = { messageHandlers: { domovariable: { postMessage: jest.fn() } } };
-    domo.sendVariables('vars-ios');
+    Domo.sendVariables('vars-ios');
     expect((window as any).webkit.messageHandlers.domovariable.postMessage).toHaveBeenCalledWith('vars-ios');
   });
 });
