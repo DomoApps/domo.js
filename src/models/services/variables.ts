@@ -1,6 +1,4 @@
-// Handles variable management logic
-
-function sendVariables(variables: string) {
+export function sendVariables(variables: string) {
   const userAgent = window.navigator.userAgent.toLowerCase(),
     safari = /safari/.test(userAgent),
     ios = /iphone|ipod|ipad/.test(userAgent);
@@ -15,5 +13,3 @@ function sendVariables(variables: string) {
     window.parent.postMessage(message, "*");
   }
 }
-
-export { sendVariables };

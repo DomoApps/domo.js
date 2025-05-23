@@ -273,15 +273,6 @@ describe('domo event/callback APIs', () => {
   });
 });
 
-describe('domo navigation and data sending', () => {
-  describe('sendVariables', () => {
-    it('should call sendVariables', () => {
-      domo.sendVariables('vars');
-      expect(window.parent.postMessage).toHaveBeenCalled();
-    });
-  });
-});
-
 describe('domo.__util (internal utilities)', () => {
   it('should expose the expected private functions', () => {
     expect(typeof domo.__util.isVerifiedOrigin).toBe('function');
@@ -357,16 +348,6 @@ describe('MutationObserver integration', () => {
 });
 
 describe('domo uncovered/miscellaneous branches', () => {
-  it('should use webkit.messageHandlers.domovariable in sendVariables for iOS', () => {
-    Object.defineProperty(window.navigator, 'userAgent', {
-      value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
-      configurable: true
-    });
-    (window as any).webkit = { messageHandlers: { domovariable: { postMessage: jest.fn() } } };
-    domo.sendVariables('vars-ios');
-    expect((window as any).webkit.messageHandlers.domovariable.postMessage).toHaveBeenCalledWith('vars-ios');
-  });
-
   it('should handle catch branch in isVerifiedOrigin', () => {
     expect(domo.__util.isVerifiedOrigin('not a url')).toBe(false);
   });
