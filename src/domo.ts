@@ -39,11 +39,11 @@ class Domo {
   ////////////////////////////////////
   // DOMO API
   //////////////////////////////////
-  static readonly get: typeof get = get;
-  static readonly post: typeof post = post;
-  static readonly put: typeof put = put;
-  static readonly delete: typeof del = del;
-  static readonly domoHttp: typeof domoHttp = domoHttp;
+  static get: typeof get = get;
+  static post: typeof post = post;
+  static put: typeof put = put;
+  static delete: typeof del = del;
+  static domoHttp: typeof domoHttp = domoHttp;
   
   static getAll(urls: string[], options: ObjectRequestOptions): Promise<ObjectResponseBody[][]>;
   static getAll(urls: string[], options: ArrayRequestOptions): Promise<ArrayResponseBody[]>;

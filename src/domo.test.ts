@@ -2,6 +2,13 @@
 (global as any).location = { search: '' };
 
 import Domo, { __mutationObserverCallback } from './domo';
+import { RequestMethods } from './models/enums/request-methods';
+
+const originalDomoHttp = Domo.domoHttp;
+const originalGet = Domo.get;
+const originalPost = Domo.post;
+const originalPut = Domo.put;
+const originalDelete = Domo.delete;
 
 declare global {
   // eslint-disable-next-line no-var
@@ -73,6 +80,12 @@ beforeEach(() => {
     getResponseHeader: jest.fn()
   };
   (global as any).XMLHttpRequest = jest.fn(() => globalThis._xhrInstance);
+
+  Domo.domoHttp = originalDomoHttp;
+  Domo.get = originalGet;
+  Domo.post = originalPost;
+  Domo.put = originalPut;
+  Domo.delete = originalDelete;
 });
 
 afterEach(() => {
@@ -191,6 +204,11 @@ describe('domo uncovered/miscellaneous branches', () => {
 });
 
 describe('Domo.extend', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
+  });
+
   it('should override a static method and call the new implementation', async () => {
     const mockGet = jest.fn().mockResolvedValue('mocked');
     Domo.extend({ get: mockGet });
@@ -212,4 +230,33 @@ describe('Domo.extend', () => {
     expect(await Domo.get('/foo')).toBe('mocked-get');
     expect(await Domo.post('/bar')).toBe('mocked-post');
   });
+
+  it('should properly override the domoHttp method', async () => {
+    const mockHttp = jest.fn().mockResolvedValue('mocked-http');
+    Domo.extend({ domoHttp: mockHttp });
+    const result = await Domo.domoHttp(RequestMethods.GET, '/baz');
+    expect(mockHttp).toHaveBeenCalledWith('GET', '/baz');
+    expect(result).toBe('mocked-http');
+    mockHttp.mockClear();
+    
+    const getResult = await Domo.get('/qux');
+    expect(mockHttp).toHaveBeenCalled();
+    expect(getResult).toBe('mocked-http');
+    mockHttp.mockClear();
+
+    const postResult = await Domo.post('/quux', { body: {} });
+    expect(mockHttp).toHaveBeenCalledWith('POST', '/quux', undefined, { body: {} });
+    expect(postResult).toBe('mocked-http');
+    mockHttp.mockClear();
+
+    const putResult = await Domo.put('/corge', { body: {} });
+    expect(mockHttp).toHaveBeenCalledWith('PUT', '/corge', undefined, { body: {} });
+    expect(putResult).toBe('mocked-http');
+    mockHttp.mockClear();
+
+    const deleteResult = await Domo.delete('/grault');
+    expect(mockHttp).toHaveBeenCalledWith('DELETE', '/grault', undefined);
+    expect(deleteResult).toBe('mocked-http');
+  });
+  
 });
