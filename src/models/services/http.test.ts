@@ -1,4 +1,5 @@
 import Domo from "../../domo";
+import { RequestMethods } from "../enums/request-methods";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -143,6 +144,34 @@ describe("domo HTTP edge cases", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
     global.fetch = jest.fn();
+  });
+
+  it("should apply the response headers to the error headers", async () => {
+    const response = {
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      headers: new Headers({
+        "Content-Type": "application/json",
+        "X-Custom-Header": "CustomValue",
+      }),
+      text: async () => "Different Internal Server Error Message",
+    };
+
+    (global.fetch as jest.Mock).mockResolvedValue(response);
+    try {
+      await Domo.get("/test");
+    } catch (error: any) {
+      expect(error).toBeInstanceOf(Error);
+      expect(error.message).toBe("HTTP error 500: Different Internal Server Error Message");
+      expect(error.status).toBe(500);
+      expect(error.statusText).toBe("Internal Server Error");
+      expect(error.body).toBe("Different Internal Server Error Message");
+      expect(error.headers).toEqual({
+        "content-type": "application/json",
+        "x-custom-header": "CustomValue",
+      });
+    }
   });
 
   it("should resolve with raw response for csv/excel format", async () => {

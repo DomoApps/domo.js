@@ -7,20 +7,16 @@ import { RequestBody } from "../interfaces/request-body";
 import { ObjectRequestOptions, ArrayRequestOptions, RequestOptions } from "../interfaces/request-options";
 import { ObjectResponseBody, ArrayResponseBody, ResponseBody } from "../interfaces/response-body";
 
-function domoHttp(method: RequestMethods, url: string, options: ObjectRequestOptions, async?: boolean, body?: RequestBody): Promise<ObjectResponseBody[]>;
-function domoHttp(method: RequestMethods, url: string, options: ArrayRequestOptions, async?: boolean, body?: RequestBody): Promise<ArrayResponseBody>;
-function domoHttp(method: RequestMethods, url: string, options?: RequestOptions, async?: boolean, body?: RequestBody): Promise<ResponseBody>;
-function domoHttp<T>(method: RequestMethods, url: string, options?: RequestOptions, async?: boolean, body?: RequestBody): Promise<T>;
-async function domoHttp<T>(method: RequestMethods, url: string, options: RequestOptions = {}, asyncFlag?: boolean, body?: RequestBody): Promise<T> {
-    options = options || {};
+function domoHttp(method: RequestMethods, url: string, options: ObjectRequestOptions, body?: RequestBody): Promise<ObjectResponseBody[]>;
+function domoHttp(method: RequestMethods, url: string, options: ArrayRequestOptions, body?: RequestBody): Promise<ArrayResponseBody>;
+function domoHttp(method: RequestMethods, url: string, options?: RequestOptions, body?: RequestBody): Promise<ResponseBody>;
+function domoHttp<T>(method: RequestMethods, url: string, options?: RequestOptions, body?: RequestBody): Promise<T>;
+async function domoHttp<T>(method: RequestMethods, url: string, options: RequestOptions = {}, body?: RequestBody): Promise<T> {
     const customFetch = (options as any).fetch as typeof fetch | undefined;
     const headers: Record<string, string> = {};
     setFormatHeaders(headers as any, url, options);
     setContentHeaders(headers as any, options);
     setAuthTokenHeader(headers as any, getToken());
-
-    if (asyncFlag === false)
-      throw new Error("Synchronous requests are not supported in fetch. Use async requests.");
 
     const fetchOptions: RequestInit = {
       method,
@@ -68,13 +64,13 @@ function get<T>(url: string, options?: RequestOptions): Promise<T> {
 function post(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
 function post<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T>;
 function post<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
-  return domoHttp<T>(RequestMethods.POST, url, options, true, body);
+  return domoHttp<T>(RequestMethods.POST, url, options, body);
 }
 
 function put(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
 function put<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T>;
 function put<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
-  return domoHttp<T>(RequestMethods.PUT, url, options, true, body);
+  return domoHttp<T>(RequestMethods.PUT, url, options, body);
 }
 
 function trash(url: string, options?: RequestOptions): Promise<ResponseBody>;
@@ -108,15 +104,12 @@ function buildError(response: Response | undefined, errorText: string, errorBody
 }
 
 function parseResponse<T>(response: Response, options: RequestOptions): Promise<T> {
-  if (["csv", "excel"].includes(options.format)) {
-    if (options.responseType === "blob") {
-      return response.blob() as any as Promise<T>;
-    }
+  if (options.responseType !== "blob" && ["csv", "excel"].includes(options.format))
     return response.text() as any as Promise<T>;
-  }
-  if (options.responseType === "blob") {
+  
+  if (options.responseType === "blob")
     return response.blob() as any as Promise<T>;
-  }
+
   return response.text().then((text) => {
     if (!text) return "" as any as T;
     try {
