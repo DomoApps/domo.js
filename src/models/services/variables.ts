@@ -15,7 +15,7 @@ export function sendVariables(variables: string) {
   if (ios && !safari) {
     (window as any).webkit.messageHandlers.domovariable.postMessage(variables);
   } else {
-    window.parent.postMessage(message, "*");
+    window.parent.postMessage(message, window.parent.origin);
   }
 }
 

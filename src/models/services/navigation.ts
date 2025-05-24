@@ -10,5 +10,5 @@ export function navigate(url: string, isNewWindow: boolean) {
     url: url,
     isNewWindow: isNewWindow,
   });
-  window.parent.postMessage(message, "*");
+  window.parent.postMessage(message, window.parent.origin);
 }
