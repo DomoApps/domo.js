@@ -128,6 +128,28 @@ class Domo {
       }
     };
   };
+
+  /**
+   * Allows consumers to override or extend static methods/properties of the Domo class.
+   * 
+   * Example Usage:
+   * import Domo, { get as originalGet } from 'domo.js';
+   * 
+   * Domo.extend({
+   *  get: (url, options) => {
+   *    // custom logic
+   *    return originalGet(url, options);
+   *  }
+   * });
+   * 
+   * @param overrides An object whose keys are static method/property names and values are the new implementations.
+   */
+  static extend(overrides: Partial<Record<keyof typeof Domo, any>>) {
+    for (const key in overrides) {
+      if (Object.prototype.hasOwnProperty.call(Domo, key))
+        (Domo as any)[key as keyof typeof Domo] = overrides[key as keyof typeof Domo];
+    }
+  }
 }
 
 /**
