@@ -91,7 +91,7 @@ class Domo {
     this.channel = new MessageChannel();
     window.parent.postMessage(
       JSON.stringify({ event: "subscribe", skipFilters }),
-      window.origin, // Originally "*" possibly for embed? It should be the parent window's origin
+      window.parent.origin, // Originally "*" possibly for embed?
       [this.channel.port2]
     );
 
