@@ -85,6 +85,7 @@ afterEach(() => {
   (window as any).eventListeners.message = [];
 });
 
+
 describe('domo event/callback APIs', () => {
   describe('connect/MessageChannel', () => {
     function makeMessageEvent(data: any, ports: any[] = []) {
@@ -186,5 +187,29 @@ describe('domo uncovered/miscellaneous branches', () => {
   it('should import FilterDataTypes from models/index', () => {
     const { FilterDataTypes } = require('../src/models/interfaces/filter-data-types');
     expect(FilterDataTypes).toBeDefined();
+  });
+});
+
+describe('Domo.extend', () => {
+  it('should override a static method and call the new implementation', async () => {
+    const mockGet = jest.fn().mockResolvedValue('mocked');
+    Domo.extend({ get: mockGet });
+    const result = await Domo.get('/foo');
+    expect(mockGet).toHaveBeenCalledWith('/foo');
+    expect(result).toBe('mocked');
+  });
+
+  it('should not override non-existent static properties', () => {
+    const before = (Domo as any).nonExistent;
+    Domo.extend({ nonExistent: 'value' } as any);
+    expect((Domo as any).nonExistent).toBe(before);
+  });
+
+  it('should allow multiple overrides at once', async () => {
+    const mockGet = jest.fn().mockResolvedValue('mocked-get');
+    const mockPost = jest.fn().mockResolvedValue('mocked-post');
+    Domo.extend({ get: mockGet, post: mockPost });
+    expect(await Domo.get('/foo')).toBe('mocked-get');
+    expect(await Domo.post('/bar')).toBe('mocked-post');
   });
 });
