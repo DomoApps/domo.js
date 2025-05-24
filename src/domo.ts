@@ -2,11 +2,11 @@ import { handleNode } from './utils/domoutils';
 import { sharedOnDataUpdateListener, onDataUpdated } from "./models/services/dataset";
 import { filterContainer, onFiltersUpdated } from "./models/services/filters";
 import { onVariablesUpdated, sendVariables } from "./models/services/variables";
-import { onAppData, sendAppData } from "./models/services/appdata";
+import { onAppDataUpdated, sendAppData } from "./models/services/appdata";
 import { navigate } from "./models/services/navigation";
 import { get, post, put, delete as del, domoHttp } from "./models/services/http";
 import { isSuccess, isVerifiedOrigin, getQueryParams, setFormatHeaders } from './utils/general';
-import { getToken } from './models/constants/general';
+import { eventToListenerMap, getToken } from './models/constants/general';
 import { ArrayRequestOptions, ObjectRequestOptions, RequestOptions } from './models/interfaces/request-options';
 import { ArrayResponseBody, ObjectResponseBody, ResponseBody } from './models/interfaces/response-body';
 
@@ -27,9 +27,9 @@ class Domo {
   public static channel?: MessageChannel;
   public static connected = false;
   public static listeners: { [index: string]: Function[] } = {
-    onDataUpdate: [],
+    onDataUpdated: [],
     onFiltersUpdated: [],
-    onAppData: [],
+    onAppDataUpdated: [],
     onVariablesUpdated: [],
   };
 
@@ -54,15 +54,17 @@ class Domo {
   ////////////////////////////////////////////
   // Event Listeners
   //////////////////////////////////////////
-  static readonly onAppData = onAppData;
   static readonly onDataUpdated = onDataUpdated;
   static readonly onFiltersUpdated = onFiltersUpdated
+  static readonly onAppDataUpdated = onAppDataUpdated;
   static readonly onVariablesUpdated = onVariablesUpdated
 
   /* @deprecated */
   static readonly onFiltersUpdate = onFiltersUpdated;
   /* @deprecated */
   static readonly onDataUpdate = onDataUpdated;
+  /* @deprecated */
+  static readonly onAppData = onAppDataUpdated;
 
   private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
   private static _sharedOnDataUpdateListener(event: MessageEvent) {
@@ -107,7 +109,7 @@ class Domo {
       },
       appData: (data, responsePort) => {
         responsePort.postMessage({});
-        this.listeners.onAppData.forEach(cb => cb(data.appData));
+        this.listeners.onAppDataUpdated.forEach(cb => cb(data.appData));
       },
       variablesUpdated: (data, responsePort) => {
         responsePort.postMessage({});
@@ -119,8 +121,9 @@ class Domo {
       const [responsePort] = e.ports;
       if (!responsePort) return;
 
+      const listenerKey = eventToListenerMap[e.data.event];
       const handler = eventHandlers[e.data.event];
-      if (handler && this.listeners[`on${e.data.event.charAt(0).toUpperCase() + e.data.event.slice(1)}`]?.length > 0) {
+      if (handler && listenerKey && this.listeners[listenerKey]?.length > 0) {
         handler(e.data, responsePort);
       }
     };

@@ -19,12 +19,12 @@ export function sendAppData(appData: string) {
  * @param callback - The function to call when app data is received.
  * @returns A function to unregister the callback.
  */
-export function onAppData(callback: Function) {
+export function onAppDataUpdated(callback: Function) {
   this.connect(true);
-  this.listeners.onAppData.push(callback);
+  this.listeners.onAppDataUpdated.push(callback);
 
   return () => {
-    const index = this.listeners.onAppData.indexOf(callback);
-    this.listeners.onAppData.splice(index, 1);
+    const index = this.listeners.onAppDataUpdated.indexOf(callback);
+    this.listeners.onAppDataUpdated.splice(index, 1);
   };
 };

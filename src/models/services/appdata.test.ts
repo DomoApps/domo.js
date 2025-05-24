@@ -33,16 +33,16 @@ describe('sendAppData', () => {
     window.parent.postMessage = jest.fn();
   });
 
-  it('should register and unregister onAppData', () => {
+  it('should register and unregister onAppDataUpdated', () => {
     const cb = jest.fn();
-    const unregister = (Domo as any).onAppData(cb);
+    const unregister = (Domo as any).onAppDataUpdated(cb);
     expect(typeof unregister).toBe('function');
     unregister();
   });
 
   it('should handle appData event', () => {
     const cb = jest.fn();
-    Domo.onAppData(cb);
+    Domo.onAppDataUpdated(cb);
     Domo.connect();
     const port = makeMockPort();
     const appData = { foo: 'bar' };
