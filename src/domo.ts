@@ -92,6 +92,13 @@ class Domo {
     isSuccess,
   };
 
+  /**
+   * Connects to the parent window's Domo instance using a MessageChannel.
+   * This method sets up message handlers for various events like filtersUpdated, appData, and variablesUpdated.
+   * It also sends a subscription message to the parent window.
+   *
+   * @param skipFilters - If true, skips the initial filter updates.
+   */
   static readonly connect = (skipFilters = false) => {
     if (this.connected) return;
     this.connected = true;
