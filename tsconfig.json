@@ -11,6 +11,7 @@
       "esModuleInterop": true
     },
     "exclude": [
+      "dist",
       "**/*.test.ts",
       "**/*.test.tsx",
       "**/__tests__"
