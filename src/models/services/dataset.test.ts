@@ -33,7 +33,7 @@ describe("Dataset Service", () => {
         domovariable: { postMessage: jest.fn() },
       },
     };
-    Domo.listeners.onDataUpdate = [];
+    Domo.listeners.onDataUpdated = [];
     (Domo as any)._onDataUpdateListener = null;
   });
 
@@ -43,7 +43,7 @@ describe("Dataset Service", () => {
       realRemoveEventListener.call(window, "message", listener);
     });
     (window as any).eventListeners.message = [];
-    Domo.listeners.onDataUpdate = [];
+    Domo.listeners.onDataUpdated = [];
     (Domo as any)._onDataUpdateListener = null;
   });
 
@@ -78,7 +78,7 @@ describe("Dataset Service", () => {
 
     it('should return early if event.origin is not verified in _sharedOnDataUpdateListener', () => {
       const cb = jest.fn();
-      Domo.onDataUpdate(cb);
+      Domo.onDataUpdated(cb);
       const event = new MessageEvent('message', {
         data: JSON.stringify({ alias: 'test-alias' }),
         origin: 'https://untrusted.com',
@@ -105,7 +105,7 @@ describe("Dataset Service", () => {
     });
   });
 
-  describe('onDataUpdate', () => {
+  describe('onDataUpdated', () => {
     beforeAll(() => {
       class MockMessagePort {
         onmessage: ((event: any) => void) | null = null;
@@ -125,7 +125,7 @@ describe("Dataset Service", () => {
       const fakeSource = { postMessage: jest.fn() };
   
       let localUnregister: (() => void) | undefined;
-      if (cb) localUnregister = Domo.onDataUpdate(cb);
+      if (cb) localUnregister = Domo.onDataUpdated(cb);
       if (unregister && localUnregister) localUnregister();
   
       const event = new MessageEvent('message', {
@@ -158,34 +158,34 @@ describe("Dataset Service", () => {
       simulateMessageEvent({ expectAck: false });
     });
   
-    it('should register and unregister onDataUpdate', () => {
+    it('should register and unregister onDataUpdated', () => {
       const cb = jest.fn();
       simulateMessageEvent({ cb, expectAck: true, expectCbCall: true, unregister: false });
       cb.mockClear();
       simulateMessageEvent({ cb, expectAck: false, expectCbCall: false, unregister: true });
     });
   
-    it('should handle invalid callback for onDataUpdate', () => {
-      const unregister = Domo.onDataUpdate(null as any);
+    it('should handle invalid callback for onDataUpdated', () => {
+      const unregister = Domo.onDataUpdated(null as any);
       expect(typeof unregister).toBe('function');
       simulateMessageEvent({ cb: null, expectAck: false, expectCbCall: false });
     });
   
     it('should allow double registration and unregistration', () => {
       const cb = jest.fn();
-      const unregister1 = Domo.onDataUpdate(cb);
-      const unregister2 = Domo.onDataUpdate(cb);
+      const unregister1 = Domo.onDataUpdated(cb);
+      const unregister2 = Domo.onDataUpdated(cb);
       expect(typeof unregister1).toBe('function');
       expect(typeof unregister2).toBe('function');
       unregister1();
       unregister2();
     });
   
-    it('should allow multiple registrations for onDataUpdate', () => {
+    it('should allow multiple registrations for onDataUpdated', () => {
       const cb1 = jest.fn();
       const cb2 = jest.fn();
-      Domo.onDataUpdate(cb1);
-      Domo.onDataUpdate(cb2);
+      Domo.onDataUpdated(cb1);
+      Domo.onDataUpdated(cb2);
       const alias = 'test-alias';
       const message = JSON.stringify({ alias });
       const fakeSource = { postMessage: jest.fn() };
@@ -201,7 +201,7 @@ describe("Dataset Service", () => {
   
     it('should use MessageChannel for communication', () => {
       const cb = jest.fn();
-      const unregister = Domo.onDataUpdate(cb);
+      const unregister = Domo.onDataUpdated(cb);
       const channel = new (global as any).MessageChannel();
       if (channel.port1.onmessage) {
         channel.port1.onmessage({ data: 'test' });
@@ -212,7 +212,7 @@ describe("Dataset Service", () => {
   
     it('should handle invalid JSON in message event', () => {
       const cb = jest.fn();
-      Domo.onDataUpdate(cb);
+      Domo.onDataUpdated(cb);
       const event = new MessageEvent('message', {
         data: '{invalidJson',
         origin: 'https://www.domo.com',
@@ -224,7 +224,7 @@ describe("Dataset Service", () => {
   
     it('should handle message event missing alias property', () => {
       const cb = jest.fn();
-      Domo.onDataUpdate(cb);
+      Domo.onDataUpdated(cb);
       const event = new MessageEvent('message', {
         data: JSON.stringify({ notAlias: 'foo' }),
         origin: 'https://www.domo.com',
@@ -234,8 +234,8 @@ describe("Dataset Service", () => {
       expect(cb).not.toHaveBeenCalled();
     });
 
-    it('should return noop unregister if cb is not a function in onDataUpdate', () => {
-      const unregister = Domo.onDataUpdate(undefined as any);
+    it('should return noop unregister if cb is not a function in onDataUpdated', () => {
+      const unregister = Domo.onDataUpdated(undefined as any);
       expect(typeof unregister).toBe('function');
       expect(unregister()).toBeUndefined();
     });

@@ -1,5 +1,5 @@
 import { handleNode } from './utils/domoutils';
-import { sharedOnDataUpdateListener, onDataUpdate } from "./models/services/dataset";
+import { sharedOnDataUpdateListener, onDataUpdated } from "./models/services/dataset";
 import { filterContainer, onFiltersUpdated } from "./models/services/filters";
 import { onVariablesUpdated, sendVariables } from "./models/services/variables";
 import { onAppData, sendAppData } from "./models/services/appdata";
@@ -55,13 +55,18 @@ class Domo {
   // Event Listeners
   //////////////////////////////////////////
   static readonly onAppData = onAppData;
-  static readonly onDataUpdate = onDataUpdate;
+  static readonly onDataUpdated = onDataUpdated;
   static readonly onFiltersUpdated = onFiltersUpdated
   static readonly onVariablesUpdated = onVariablesUpdated
 
+  /* @deprecated */
+  static readonly onFiltersUpdate = onFiltersUpdated;
+  /* @deprecated */
+  static readonly onDataUpdate = onDataUpdated;
+
   private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
   private static _sharedOnDataUpdateListener(event: MessageEvent) {
-    return sharedOnDataUpdateListener(Domo.listeners.onDataUpdate, isVerifiedOrigin)(event);
+    return sharedOnDataUpdateListener(Domo.listeners.onDataUpdated, isVerifiedOrigin)(event);
   }
 
 

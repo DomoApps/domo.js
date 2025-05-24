@@ -23,7 +23,7 @@ export function sharedOnDataUpdateListener(listeners: Function[], isVerifiedOrig
         listeners.forEach(cb => cb(alias));
       } catch (err) {
         const info =
-          "There was an error in onDataUpdate! It may be that our event listener caught " +
+          "There was an error in onDataUpdated! It may be that our event listener caught " +
           "a message from another source and tried to parse it, so your update still may have worked. " +
           "If you would like more info, here is the error: \n";
         if (process?.env?.NODE_ENV !== 'test')
@@ -41,16 +41,16 @@ export function sharedOnDataUpdateListener(listeners: Function[], isVerifiedOrig
  * @param {(alias: string) => void} cb - Callback function to be called with the alias when a data update event occurs.
  * @returns {() => void} - Function to remove the registered callback.
  */
-export function onDataUpdate(cb: (alias: string) => void) {
+export function onDataUpdated(cb: (alias: string) => void) {
   if (typeof cb !== 'function') return () => {};
   if (!this._onDataUpdateListener) {
     this._onDataUpdateListener = this._sharedOnDataUpdateListener;
     window.addEventListener("message", this._onDataUpdateListener);
   }
 
-  this.listeners.onDataUpdate.push(cb);
+  this.listeners.onDataUpdated.push(cb);
   return () => {
-    const arr = this.listeners.onDataUpdate;
+    const arr = this.listeners.onDataUpdated;
     const idx = arr.indexOf(cb);
     if (idx !== -1) arr.splice(idx, 1);
     if (arr.length === 0 && this._onDataUpdateListener) {
