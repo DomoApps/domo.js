@@ -99,7 +99,9 @@ describe('Filters Service', () => {
       const cb = jest.fn();
       const unregister = (Domo as any).onFiltersUpdated(cb);
       expect(typeof unregister).toBe('function');
+      expect((Domo as any).listeners.onFiltersUpdated).toContain(cb);
       unregister();
+      expect((Domo as any).listeners.onFiltersUpdated).not.toContain(cb);
     });
 
     it('should handle filtersUpdated event', () => {

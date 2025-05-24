@@ -59,7 +59,9 @@ describe('onVariablesUpdated', () => {
     const cb = jest.fn();
     const unregister = (Domo as any).onVariablesUpdated(cb);
     expect(typeof unregister).toBe('function');
+    expect((Domo as any).listeners.onVariablesUpdated).toContain(cb);
     unregister();
+    expect((Domo as any).listeners.onVariablesUpdated).not.toContain(cb);
   });
 
   it('should handle variablesUpdated event', () => {

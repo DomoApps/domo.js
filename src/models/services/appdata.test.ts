@@ -37,7 +37,9 @@ describe('sendAppData', () => {
     const cb = jest.fn();
     const unregister = (Domo as any).onAppDataUpdated(cb);
     expect(typeof unregister).toBe('function');
+    expect((Domo as any).listeners.onAppDataUpdated).toContain(cb);
     unregister();
+    expect((Domo as any).listeners.onAppDataUpdated).not.toContain(cb);
   });
 
   it('should handle appData event', () => {
