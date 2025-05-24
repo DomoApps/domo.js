@@ -1,4 +1,4 @@
-import { setContentHeaders, setAuthTokenHeader, setResponseType, handleNode, processBody } from '../src/utils/domoutils';
+import { setContentHeaders, setAuthTokenHeader, setResponseType, handleNode, processBody } from './domoutils';
 
 describe('domoutils', () => {
   describe('setContentHeaders', () => {
@@ -123,8 +123,8 @@ describe('domoutils', () => {
 
   describe('domoFormatToRequestFormat', () => {
     it('should return the format for supported formats', () => {
-      const { domoFormatToRequestFormat } = require('../src/utils/data-helpers');
-      const { DataFormats } = require('../src/models/enums/data-formats');
+      const { domoFormatToRequestFormat } = require('./data-helpers');
+      const { DataFormats } = require('../models/enums/data-formats');
       expect(domoFormatToRequestFormat('array-of-objects')).toBe(DataFormats.ARRAY_OF_OBJECTS);
       expect(domoFormatToRequestFormat('array-of-arrays')).toBe(DataFormats.JSON);
       expect(domoFormatToRequestFormat('excel')).toBe(DataFormats.EXCEL);

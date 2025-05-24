@@ -1,7 +1,7 @@
 // Mock global location before importing domo
 (global as any).location = { search: '' };
 
-import Domo, { __mutationObserverCallback } from '../src/domo';
+import Domo, { __mutationObserverCallback } from './domo';
 
 declare global {
   // eslint-disable-next-line no-var
