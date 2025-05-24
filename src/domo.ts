@@ -48,26 +48,26 @@ class Domo {
   ////////////////////////////////////////////
   // Event Listeners
   //////////////////////////////////////////
-  static readonly onDataUpdated = onDataUpdated;
-  static readonly onFiltersUpdated = onFiltersUpdated;
-  static readonly onAppDataUpdated = onAppDataUpdated;
-  static readonly onVariablesUpdated = onVariablesUpdated;
+  static onDataUpdated = onDataUpdated;
+  static onFiltersUpdated = onFiltersUpdated;
+  static onAppDataUpdated = onAppDataUpdated;
+  static onVariablesUpdated = onVariablesUpdated;
 
   /* @deprecated */
-  static readonly onFiltersUpdate = onFiltersUpdated;
+  static readonly onFiltersUpdate = this.onFiltersUpdated;
   /* @deprecated */
-  static readonly onDataUpdate = onDataUpdated;
+  static readonly onDataUpdate = this.onDataUpdated;
   /* @deprecated */
-  static readonly onAppData = onAppDataUpdated;
+  static readonly onAppData = this.onAppDataUpdated;
 
 
   /////////////////////////////////////////////
   // Emitters
   ///////////////////////////////////////////
-  static readonly filterContainer = filterContainer;
-  static readonly sendVariables = sendVariables;
-  static readonly sendAppData = sendAppData;
-  static readonly navigate = navigate;
+  static filterContainer = filterContainer;
+  static sendVariables = sendVariables;
+  static sendAppData = sendAppData;
+  static navigate = navigate;
 
 
   ///////////////////////////////////////////
@@ -88,7 +88,7 @@ class Domo {
    *
    * @param skipFilters - If true, skips the initial filter updates.
    */
-  static readonly connect = (skipFilters = false) => {
+  static connect = (skipFilters = false) => {
     if (this.connected) return;
     this.connected = true;
     this.channel = new MessageChannel();
