@@ -35,7 +35,7 @@ class Domo {
   
   private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
 
-  
+
   ////////////////////////////////////
   // DOMO API
   //////////////////////////////////
@@ -108,10 +108,6 @@ class Domo {
     );
 
     const eventHandlers: { [event: string]: (data: any, responsePort: MessagePort) => void } = {
-      dataUpdated: (data, responsePort) => {
-        responsePort.postMessage({});
-        this.listeners.onDataUpdated.forEach(cb => cb(data.alias));
-      },
       filtersUpdated: (data, responsePort) => {
         responsePort.postMessage({});
         this.listeners.onFiltersUpdated.forEach(cb => cb(data.filters));
