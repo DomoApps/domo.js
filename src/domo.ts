@@ -4,11 +4,9 @@ import { filterContainer, onFiltersUpdated } from "./models/services/filters";
 import { onVariablesUpdated, sendVariables } from "./models/services/variables";
 import { onAppDataUpdated, sendAppData } from "./models/services/appdata";
 import { navigate } from "./models/services/navigation";
-import { get, post, put, delete as del, domoHttp } from "./models/services/http";
+import { get, getAll, post, put, delete as del, domoHttp } from "./models/services/http";
 import { isSuccess, isVerifiedOrigin, getQueryParams, setFormatHeaders } from './utils/general';
 import { eventToListenerMap, getToken } from './models/constants/general';
-import { ArrayRequestOptions, ObjectRequestOptions, RequestOptions } from './models/interfaces/request-options';
-import { ArrayResponseBody, ObjectResponseBody, ResponseBody } from './models/interfaces/response-body';
 
 /**
  * The Domo class provides a unified API for interacting with Domo platform features in client applications.
@@ -40,18 +38,11 @@ class Domo {
   // DOMO API
   //////////////////////////////////
   static get: typeof get = get;
+  static getAll: typeof getAll = getAll;
   static post: typeof post = post;
   static put: typeof put = put;
   static delete: typeof del = del;
   static domoHttp: typeof domoHttp = domoHttp;
-  
-  static getAll(urls: string[], options: ObjectRequestOptions): Promise<ObjectResponseBody[][]>;
-  static getAll(urls: string[], options: ArrayRequestOptions): Promise<ArrayResponseBody[]>;
-  static getAll(urls: string[], options?: RequestOptions): Promise<ResponseBody[]>;
-  static getAll<T>(urls: string[], options?: RequestOptions): Promise<T[]>;
-  static getAll<T = ResponseBody>(urls: string[], options?: RequestOptions): Promise<T[]> {
-      return Promise.all(urls.map(url => this.get<T>(url, options)));
-  };
 
 
   ////////////////////////////////////////////

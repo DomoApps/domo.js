@@ -62,6 +62,15 @@ function get<T>(url: string, options?: RequestOptions): Promise<T> {
   return handle(RequestMethods.GET, url, options);
 }
 
+function getAll(urls: string[], options: ObjectRequestOptions): Promise<ObjectResponseBody[][]>;
+function getAll(urls: string[], options: ArrayRequestOptions): Promise<ArrayResponseBody[]>;
+function getAll(urls: string[], options?: RequestOptions): Promise<ResponseBody[]>;
+function getAll<T>(urls: string[], options?: RequestOptions): Promise<T[]>;
+function getAll<T = ResponseBody>(urls: string[], options?: RequestOptions): Promise<T[]> {
+  const handle = this?.get ?? get;
+  return Promise.all(urls.map(url => handle(url, options)));
+};
+
 function post(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
 function post<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T>;
 function post<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
@@ -126,5 +135,5 @@ function parseResponse<T>(response: Response, options: RequestOptions): Promise<
   });
 }
 
-export { get, post, put, trash as delete, domoHttp };
+export { get, getAll, post, put, trash as delete, domoHttp };
 
