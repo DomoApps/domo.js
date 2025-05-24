@@ -9,7 +9,7 @@ describe('navigate', () => {
     navigate('/test', true);
     expect(window.parent.postMessage).toHaveBeenCalledWith(
       JSON.stringify({ event: 'navigate', url: '/test', isNewWindow: true }),
-      '*'
+      window.parent.origin
     );
   });
 });

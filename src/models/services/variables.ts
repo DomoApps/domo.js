@@ -4,18 +4,22 @@
  * @param variables - The variables to send, as a string.
  */
 export function sendVariables(variables: string) {
-  const userAgent = window.navigator.userAgent.toLowerCase(),
-    safari = /safari/.test(userAgent),
-    ios = /iphone|ipod|ipad/.test(userAgent);
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  const ios = /iphone|ipod|ipad/.test(userAgent);
   const message = JSON.stringify({
     event: "variables",
     variables,
   });
 
-  if (ios && !safari) {
-    (window as any).webkit.messageHandlers.domovariable.postMessage(variables);
-  } else {
-    window.parent.postMessage(message, window.parent.origin);
+  if (!ios)
+    return window.parent.postMessage(message, window.parent.origin);
+
+  if (typeof (window as any).webkit?.messageHandlers?.domovariable?.postMessage === "function") {
+    try {
+      (window as any).webkit.messageHandlers.domovariable.postMessage(variables);
+    } catch (err) {
+      console.error("Failed to post message to iOS handler:", err);
+    }
   }
 }
 
