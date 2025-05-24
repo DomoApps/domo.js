@@ -1,4 +1,5 @@
 import Domo from "../../domo";
+import { sharedOnDataUpdateListener } from "./dataset";
 
 const realAddEventListener = window.addEventListener;
 const realRemoveEventListener = window.removeEventListener;
@@ -47,8 +48,8 @@ describe("Dataset Service", () => {
     (Domo as any)._onDataUpdateListener = null;
   });
 
-  describe("_sharedOnDataUpdateListener", () => {
-    it("should log a warning in _sharedOnDataUpdateListener if not test env", () => {
+  describe("sharedOnDataUpdateListener", () => {
+    it("should log a warning in sharedOnDataUpdateListener if not test env", () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = "production";
       const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
@@ -60,8 +61,8 @@ describe("Dataset Service", () => {
       Object.defineProperty(event, "source", {
         value: { postMessage: jest.fn() },
       });
-      
-      (Domo as any)._sharedOnDataUpdateListener(event);
+      const listener = sharedOnDataUpdateListener([], () => true);
+      listener(event);
       expect(warnSpy).toHaveBeenCalled();
       warnSpy.mockRestore();
       process.env.NODE_ENV = originalEnv;
@@ -72,25 +73,26 @@ describe("Dataset Service", () => {
         data: JSON.stringify({ foo: 'bar' }),
         origin: 'https://www.domo.com',
       });
-      (Domo as any)._sharedOnDataUpdateListener(event);
+      const listener = sharedOnDataUpdateListener([], () => true);
+      listener(event);
       expect(window.parent.postMessage).not.toHaveBeenCalled();
     });
 
-    it('should return early if event.origin is not verified in _sharedOnDataUpdateListener', () => {
+    it('should return early if event.origin is not verified in sharedOnDataUpdateListener', () => {
       const cb = jest.fn();
-      Domo.onDataUpdated(cb);
       const event = new MessageEvent('message', {
         data: JSON.stringify({ alias: 'test-alias' }),
         origin: 'https://untrusted.com',
       });
       Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
-      (Domo as any)._sharedOnDataUpdateListener(event);
+      const listener = sharedOnDataUpdateListener([cb], (origin) => origin === 'https://www.domo.com');
+      listener(event);
       expect(cb).not.toHaveBeenCalled();
       // Should not send ack
       expect(event.source.postMessage).not.toHaveBeenCalled();
     });
 
-    it('should not throw if process/env is undefined in _sharedOnDataUpdateListener', () => {
+    it('should not throw if process/env is undefined in sharedOnDataUpdateListener', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
       const originalProcess = global.process;
       global.process = undefined as any; // Instead of deleting, set to undefined
@@ -99,7 +101,8 @@ describe("Dataset Service", () => {
         origin: 'https://www.domo.com',
       });
       Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
-      expect(() => (Domo as any)._sharedOnDataUpdateListener(event)).not.toThrow();
+      const listener = sharedOnDataUpdateListener([], () => true);
+      expect(() => listener(event)).not.toThrow();
       global.process = originalProcess;
       warnSpy.mockRestore();
     });

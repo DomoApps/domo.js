@@ -44,10 +44,9 @@ export function sharedOnDataUpdateListener(listeners: Function[], isVerifiedOrig
 export function onDataUpdated(cb: (alias: string) => void) {
   if (typeof cb !== 'function') return () => {};
   if (!this._onDataUpdateListener) {
-    this._onDataUpdateListener = this._sharedOnDataUpdateListener;
+    this._onDataUpdateListener = sharedOnDataUpdateListener(this.listeners.onDataUpdated, this.__util.isVerifiedOrigin);
     window.addEventListener("message", this._onDataUpdateListener);
   }
-
   this.listeners.onDataUpdated.push(cb);
   return () => {
     const arr = this.listeners.onDataUpdated;

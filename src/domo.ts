@@ -1,5 +1,5 @@
 import { handleNode } from './utils/domoutils';
-import { sharedOnDataUpdateListener, onDataUpdated } from "./models/services/dataset";
+import { onDataUpdated } from "./models/services/dataset";
 import { filterContainer, onFiltersUpdated } from "./models/services/filters";
 import { onVariablesUpdated, sendVariables } from "./models/services/variables";
 import { onAppDataUpdated, sendAppData } from "./models/services/appdata";
@@ -32,7 +32,10 @@ class Domo {
     onAppDataUpdated: [],
     onVariablesUpdated: [],
   };
+  
+  private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
 
+  
   ////////////////////////////////////
   // DOMO API
   //////////////////////////////////
@@ -55,9 +58,9 @@ class Domo {
   // Event Listeners
   //////////////////////////////////////////
   static readonly onDataUpdated = onDataUpdated;
-  static readonly onFiltersUpdated = onFiltersUpdated
+  static readonly onFiltersUpdated = onFiltersUpdated;
   static readonly onAppDataUpdated = onAppDataUpdated;
-  static readonly onVariablesUpdated = onVariablesUpdated
+  static readonly onVariablesUpdated = onVariablesUpdated;
 
   /* @deprecated */
   static readonly onFiltersUpdate = onFiltersUpdated;
@@ -65,11 +68,6 @@ class Domo {
   static readonly onDataUpdate = onDataUpdated;
   /* @deprecated */
   static readonly onAppData = onAppDataUpdated;
-
-  private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
-  private static _sharedOnDataUpdateListener(event: MessageEvent) {
-    return sharedOnDataUpdateListener(Domo.listeners.onDataUpdated, isVerifiedOrigin)(event);
-  }
 
 
   /////////////////////////////////////////////
@@ -110,6 +108,10 @@ class Domo {
     );
 
     const eventHandlers: { [event: string]: (data: any, responsePort: MessagePort) => void } = {
+      dataUpdated: (data, responsePort) => {
+        responsePort.postMessage({});
+        this.listeners.onDataUpdated.forEach(cb => cb(data.alias));
+      },
       filtersUpdated: (data, responsePort) => {
         responsePort.postMessage({});
         this.listeners.onFiltersUpdated.forEach(cb => cb(data.filters));
