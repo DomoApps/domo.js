@@ -10,6 +10,19 @@ import { getToken } from './models/constants/general';
 import { ArrayRequestOptions, ObjectRequestOptions, RequestOptions } from './models/interfaces/request-options';
 import { ArrayResponseBody, ObjectResponseBody, ResponseBody } from './models/interfaces/response-body';
 
+/**
+ * The Domo class provides a unified API for interacting with Domo platform features in client applications.
+ *
+ * It exposes HTTP methods, event listeners, emitters, and utility functions for working with datasets, filters, variables, app data, and navigation.
+ *
+ * Key features:
+ * - HTTP request methods (get, post, put, delete, domoHttp)
+ * - Batch request support via getAll
+ * - Event listeners for data, filters, variables, and app data updates
+ * - Emitters for sending variables, app data, and navigation events
+ * - Utility functions for environment, origin verification, and query parsing
+ * - Handles cross-frame communication and DOM mutation observation for token injection
+ */
 class Domo {
   public static channel?: MessageChannel;
   public static connected = false;

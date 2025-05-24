@@ -1,6 +1,6 @@
 import { getToken } from "../constants/general";
-import { setAuthTokenHeader, setContentHeaders, setResponseType } from "../../utils/domoutils";
-import { isSuccess, setFormatHeaders } from "../../utils/general";
+import { setAuthTokenHeader, setContentHeaders } from "../../utils/domoutils";
+import { setFormatHeaders } from "../../utils/general";
 import { DataFormats } from "../enums/data-formats";
 import { RequestMethods } from "../enums/request-methods";
 import { RequestBody } from "../interfaces/request-body";
@@ -11,73 +11,50 @@ function domoHttp(method: RequestMethods, url: string, options: ObjectRequestOpt
 function domoHttp(method: RequestMethods, url: string, options: ArrayRequestOptions, async?: boolean, body?: RequestBody): Promise<ArrayResponseBody>;
 function domoHttp(method: RequestMethods, url: string, options?: RequestOptions, async?: boolean, body?: RequestBody): Promise<ResponseBody>;
 function domoHttp<T>(method: RequestMethods, url: string, options?: RequestOptions, async?: boolean, body?: RequestBody): Promise<T>;
-function domoHttp<T>(method: RequestMethods, url: string, options: RequestOptions = {}, async?: boolean, body?: RequestBody): Promise<T> {
+async function domoHttp<T>(method: RequestMethods, url: string, options: RequestOptions = {}, asyncFlag?: boolean, body?: RequestBody): Promise<T> {
     options = options || {};
-    return new Promise(function (
-      resolve: (value?: T) => void,
-      reject: (reason?: Error) => void
-    ) {
-      // Do the usual XHR stuff
-      let req: XMLHttpRequest = new XMLHttpRequest();
-      if (async) {
-        req.open(method, url, async);
-      } else {
-        req.open(method, url);
-      }
-      setFormatHeaders(req, url, options);
-      setContentHeaders(req, options);
-      setAuthTokenHeader(req, getToken());
-      setResponseType(req, options);
+    const customFetch = (options as any).fetch as typeof fetch | undefined;
+    const headers: Record<string, string> = {};
+    setFormatHeaders(headers as any, url, options);
+    setContentHeaders(headers as any, options);
+    setAuthTokenHeader(headers as any, getToken());
 
-      req.onload = function () {
-        let data;
-        // This is called even on 404 etc so check the status
-        if (isSuccess(req.status)) {
-          if (["csv", "excel"].includes(options.format) || !req.response) {
-            resolve(req.response);
-            return;
-          }
-          if (options.responseType === "blob") {
-            resolve(
-              new Blob([req.response], {
-                type: req.getResponseHeader("content-type"),
-              }) as any as T
-            );
-            return;
-          }
+    if (asyncFlag === false)
+      throw new Error("Synchronous requests are not supported in fetch. Use async requests.");
 
-          let responseStr = req.response;
-          try {
-            data = JSON.parse(responseStr);
-          } catch (ex) {
-            reject(Error("Invalid JSON response: " + ex.message));
-            return;
-          }
-          resolve(data as T);
-        } else {
-          reject(Error(req.statusText));
-        }
-      };
+    const fetchOptions: RequestInit = {
+      method,
+      headers,
+      body: serializeBody(body, options.contentType),
+    };
 
-      // Handle network errors
-      req.onerror = function () {
-        reject(Error("Network Error"));
-      };
+    const fetchImpl = customFetch || fetch;
+    let response: Response;
+    try {
+      response = await fetchImpl(url, fetchOptions);
+    } catch (fetchErr: any) {
+      throw buildError(undefined, fetchErr.message, '');
+    }
 
-      // Make the request
-      if (body) {
-        if (!options.contentType || options.contentType === DataFormats.JSON) {
-          const json = JSON.stringify(body);
-          // Make the request
-          req.send(json);
-        } else {
-          // body can no longer be JSON
-          req.send(body as Document | XMLHttpRequestBodyInit);
-        }
-      } else {
-        req.send();
-      }
-    });
+    if (!response.ok) {
+      let errorText = response.statusText;
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+        errorText = errorBody || errorText;
+      } catch {}
+      throw buildError(response, errorText, errorBody);
+    }
+    
+    try {
+      return await parseResponse<T>(response, options);
+    } catch (err: any) {
+      if (err && (err.status || err.status === 0)) throw err;
+
+      const error: any = new Error(`domoHttp error: ${err.message}`);
+      error.originalError = err;
+      throw error;
+    }
 }
 
 function get(url: string, options: ObjectRequestOptions): Promise<ObjectResponseBody[]>;
@@ -106,4 +83,51 @@ function trash<T>(url: string, options?: RequestOptions): Promise<T> {
   return domoHttp<T>(RequestMethods.DELETE, url, options);
 }
 
+function serializeBody(body: RequestBody, contentType?: string): any {
+    if (!body) return undefined;
+    if (!contentType || contentType === DataFormats.JSON) {
+      return JSON.stringify(body);
+    }
+    return body as any;
+  }
+
+function buildError(response: Response | undefined, errorText: string, errorBody: string): Error {
+  const error: any = new Error(response ? `HTTP error ${response.status}: ${errorText}` : errorText);
+  if (response) {
+    error.status = response.status;
+    error.statusText = response.statusText;
+    error.body = errorBody;
+    error.headers = {};
+    if (response.headers && typeof response.headers.forEach === 'function') {
+      response.headers.forEach((value, key) => {
+        error.headers[key] = value;
+      });
+    }
+  }
+  return error;
+}
+
+function parseResponse<T>(response: Response, options: RequestOptions): Promise<T> {
+  if (["csv", "excel"].includes(options.format)) {
+    if (options.responseType === "blob") {
+      return response.blob() as any as Promise<T>;
+    }
+    return response.text() as any as Promise<T>;
+  }
+  if (options.responseType === "blob") {
+    return response.blob() as any as Promise<T>;
+  }
+  return response.text().then((text) => {
+    if (!text) return "" as any as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch (ex: any) {
+      const error: any = new Error("Invalid JSON response: " + ex.message);
+      error.responseText = text;
+      throw error;
+    }
+  });
+}
+
 export { get, post, put, trash as delete, domoHttp };
+

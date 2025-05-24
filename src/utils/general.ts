@@ -6,10 +6,22 @@ import { domoFormatToRequestFormat } from './data-helpers';
 const HOST_WHITELIST = /^(?:[\w-]+\.)*(domo|domotech|domorig)\.(com|io)$/i;
 const HOST_BLACKLIST = /domoapps/i;
 
+/**
+ * Checks if the HTTP status code represents a successful response (2xx).
+ *
+ * @param status - The HTTP status code to check.
+ * @returns True if status is between 200 and 299, otherwise false.
+ */
 function isSuccess(status: number) {
   return status >= 200 && status < 300;
 }
 
+/**
+ * Determines if the given origin is a verified and allowed domain.
+ *
+ * @param origin - The origin URL to verify.
+ * @returns True if the origin is HTTPS and matches the whitelist, but not the blacklist.
+ */
 function isVerifiedOrigin(origin: string): boolean {
   try {
     const url = new URL(origin);
@@ -21,6 +33,11 @@ function isVerifiedOrigin(origin: string): boolean {
   }
 }
 
+/**
+ * Parses the current window's query string into an object of key-value pairs.
+ *
+ * @returns An object containing query parameters as key-value pairs.
+ */
 function getQueryParams(): QueryParams {
   const query = location.search.substr(1);
   let result: { [index: string]: string } = {};
@@ -31,17 +48,23 @@ function getQueryParams(): QueryParams {
   return result;
 }
 
+/**
+ * Sets the Accept header on the XMLHttpRequest based on the data format if the URL matches a data endpoint.
+ *
+ * @param req - The XMLHttpRequest object to set the header on.
+ * @param url - The request URL.
+ * @param options - Optional request options that may specify a format.
+ */
 function setFormatHeaders(
   req: XMLHttpRequest,
   url: string,
   options?: RequestOptions
 ) {
-  if (url.indexOf("data/v") === -1) {
-    return;
-  }
+  if (url.indexOf("data/v") === -1) return;
+
   // set format
   const requestFormat: DataFormats =
-    options && options.format !== undefined
+    options?.format !== undefined
       ? domoFormatToRequestFormat(options.format)
       : DataFormats.DEFAULT;
 
