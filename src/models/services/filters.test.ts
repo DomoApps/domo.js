@@ -73,7 +73,6 @@ describe('Filters Service', () => {
         configurable: true
       });
       (window as any).webkit = { messageHandlers: { domofilter: { postMessage: jest.fn() } } };
-      // Remove 'Safari' from userAgent to ensure !safari
       const filter = [{ column: 'a', operator: 'IN', values: ['x'], dataType: 'STRING' }];
       Domo.filterContainer(filter as any, true);
       expect((window as any).webkit.messageHandlers.domofilter.postMessage).toHaveBeenCalled();
