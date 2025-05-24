@@ -1,5 +1,17 @@
 import { Filter } from "../interfaces/filter";
 
+declare global {
+  interface Window {
+    webkit?: {
+      messageHandlers?: {
+        domofilter?: {
+          postMessage?: (message: any) => void;
+        };
+      };
+    };
+  }
+}
+
 /**
  * Sends filter data to the parent window or to the iOS webkit message handler.
  *
@@ -10,9 +22,8 @@ export function filterContainer(
   filters: Filter[] | null,
   pageStateUpdate: boolean | null = null
 ): void {
-  const userAgent = window.navigator.userAgent.toLowerCase(),
-    safari = /safari/.test(userAgent),
-    ios = /iphone|ipod|ipad/.test(userAgent);
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  const ios = /iphone|ipod|ipad/.test(userAgent);
 
   const message = JSON.stringify({
     event: "filter",
@@ -25,15 +36,22 @@ export function filterContainer(
     pageStateUpdate,
   });
 
-  if (ios && !safari) {
-    (window as any).webkit.messageHandlers.domofilter.postMessage(
-      filters?.map((filter) => ({
-        column: filter.column,
-        operand: filter.operator || (filter as any).operand,
-        values: filter.values,
-        dataType: filter.dataType,
-      }))
-    );
+  if (
+    ios &&
+    typeof window.webkit?.messageHandlers?.domofilter?.postMessage === "function"
+  ) {
+    try {
+      window.webkit.messageHandlers.domofilter.postMessage(
+        filters?.map((filter) => ({
+          column: filter.column,
+          operand: filter.operator || (filter as any).operand,
+          values: filter.values,
+          dataType: filter.dataType,
+        }))
+      );
+    } catch (err) {
+      console.error("Failed to post message to iOS handler:", err);
+    }
   } else {
     window.parent.postMessage(message, "*");
   }
