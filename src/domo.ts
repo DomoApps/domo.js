@@ -122,6 +122,14 @@ class Domo {
   };
 }
 
+/**
+ * MutationObserver callback that injects the authentication token into any newly added HTML elements.
+ *
+ * This function is triggered whenever nodes are added to the DOM (either in the document or head).
+ * It retrieves the current token and applies it to any new HTMLElement using the handleNode utility.
+ *
+ * @param mutations - An array of MutationRecord objects representing the changes to the DOM.
+ */
 const __mutationObserverCallback = (mutations: any) => {
   const token = getToken();
   for (const record of mutations) {
