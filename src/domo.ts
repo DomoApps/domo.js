@@ -47,6 +47,8 @@ class Domo {
 
   ////////////////////////////////////////////
   // Event Listeners
+  // 
+  // These receive messages from the parent window via port1 of the MessageChannel
   //////////////////////////////////////////
   static onDataUpdated = onDataUpdated;
   static onFiltersUpdated = onFiltersUpdated;
@@ -63,6 +65,8 @@ class Domo {
 
   /////////////////////////////////////////////
   // Emitters
+  //
+  // These send messages to the parent window via port2 of the MessageChannel
   ///////////////////////////////////////////
   static filterContainer = filterContainer;
   static sendVariables = sendVariables;

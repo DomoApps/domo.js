@@ -6,4 +6,5 @@ export interface QueryParams {
   locale?: string;
   environment?: string;
   platform?: 'desktop' | 'mobile';
+  [key: string]: string | number | undefined;
 }

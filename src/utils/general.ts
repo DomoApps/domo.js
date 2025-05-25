@@ -12,7 +12,7 @@ const HOST_BLACKLIST = /domoapps/i;
  * @param status - The HTTP status code to check.
  * @returns True if status is between 200 and 299, otherwise false.
  */
-function isSuccess(status: number) {
+export function isSuccess(status: number) {
   return status >= 200 && status < 300;
 }
 
@@ -22,7 +22,7 @@ function isSuccess(status: number) {
  * @param origin - The origin URL to verify.
  * @returns True if the origin is HTTPS and matches the whitelist, but not the blacklist.
  */
-function isVerifiedOrigin(origin: string): boolean {
+export function isVerifiedOrigin(origin: string): boolean {
   try {
     const url = new URL(origin);
     if (url.protocol !== 'https:') return false;
@@ -38,7 +38,7 @@ function isVerifiedOrigin(origin: string): boolean {
  *
  * @returns An object containing query parameters as key-value pairs.
  */
-function getQueryParams(): QueryParams {
+export function getQueryParams(): QueryParams {
   const query = location.search.substr(1);
   let result: { [index: string]: string } = {};
   query.split("&").forEach(function (part) {
@@ -49,26 +49,23 @@ function getQueryParams(): QueryParams {
 }
 
 /**
- * Sets the Accept header on the XMLHttpRequest based on the data format if the URL matches a data endpoint.
+ * Sets the Accept header on the headers object based on the data format if the URL matches a data endpoint.
  *
- * @param req - The XMLHttpRequest object to set the header on.
+ * @param headers - The headers object to set the Accept header on.
  * @param url - The request URL.
  * @param options - Optional request options that may specify a format.
  */
-function setFormatHeaders(
-  req: XMLHttpRequest,
+export function setFormatHeaders(
+  headers: Record<string, string>,
   url: string,
   options?: RequestOptions
 ) {
-  if (url.indexOf("data/v") === -1) return;
+  if (!headers || url?.indexOf("data/v") === -1) return;
 
-  // set format
   const requestFormat: DataFormats =
     options?.format !== undefined
       ? domoFormatToRequestFormat(options.format)
-      : DataFormats.DEFAULT;
+      : DataFormats.ARRAY_OF_OBJECTS;
 
-  req.setRequestHeader("Accept", requestFormat);
+  headers["Accept"] = requestFormat;
 }
-
-export { isSuccess, isVerifiedOrigin, getQueryParams, setFormatHeaders };

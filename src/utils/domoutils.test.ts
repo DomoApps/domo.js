@@ -129,7 +129,7 @@ describe('domoutils', () => {
       expect(domoFormatToRequestFormat('array-of-arrays')).toBe(DataFormats.JSON);
       expect(domoFormatToRequestFormat('excel')).toBe(DataFormats.EXCEL);
       expect(domoFormatToRequestFormat('csv')).toBe(DataFormats.CSV);
-      expect(domoFormatToRequestFormat('xml')).toBe(DataFormats.DEFAULT);
+      expect(domoFormatToRequestFormat('xml')).toBe(DataFormats.ARRAY_OF_OBJECTS);
     });
   });
 });
