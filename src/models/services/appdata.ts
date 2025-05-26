@@ -9,7 +9,7 @@ export function sendAppData(appData: string) {
     appData,
   });
 
-  window.parent.postMessage(message, window.parent.origin);
+  window.parent.postMessage(message, window.origin);
 }
 
 /**

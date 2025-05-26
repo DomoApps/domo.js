@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>domo.js Feature Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #f4f4f4; }
+    .success { color: green; }
+    .fail { color: red; }
+    .pending { color: orange; }
+  </style>
+</head>
+<body>
+  <h1>domo.js Feature Report</h1>
+  <button id="runTests">Run All Feature Tests</button>
+  <table id="reportTable">
+    <thead>
+      <tr><th>Feature</th><th>Status</th><th>Details</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <script src="https://unpkg.com/ryuu.js@5.0.0-alpha.1/dist/domo.js"></script>
+  <script>
+    console.log('domo.js loaded:', domo);
+    if (!domo) {
+      console.error('domo.js is not loaded correctly.');
+      document.body.innerHTML = '<h2>Error: domo.js is not loaded.</h2>';
+    }
+
+    let lastId = null;
+    // List of features/services to test
+    const features = [
+      {
+        name: 'http-post',
+        fn: async () => {
+          const postRes = await (domo.post ? domo.post('/domo/datastores/v1/collections/SanityTest/documents/', { foo: 'bar' }) : Promise.reject('Not implemented'));
+          lastId = postRes && postRes._id ? postRes._id : (postRes.insertedId || postRes.id);
+          if (!lastId) throw new Error('POST did not return an ID');
+          return postRes;
+        }
+      },
+      {
+        name: 'http-put',
+        fn: async () => {
+          if (!lastId) throw new Error('No ID from POST');
+          return await (domo.put ? domo.put(`/domo/datastores/v1/collections/SanityTest/documents/${lastId}`, { foo: 'baz' }) : Promise.reject('Not implemented'));
+        }
+      },
+      {
+        name: 'http-delete',
+        fn: async () => {
+          if (!lastId) throw new Error('No ID from POST');
+          return await (domo.delete ? domo.delete(`/domo/datastores/v1/collections/SanityTest/documents/${lastId}`) : Promise.reject('Not implemented'));
+        }
+      },
+      {
+        name: 'http-get',
+        fn: async () => {
+          return await (domo.get ? domo.get('/domo/datastores/v1/collections/SanityTest/documents/') : Promise.reject('Not implemented'));
+        }
+      },
+      { name: 'filterContainer', fn: () => domo.filterContainer ? domo.filterContainer() : Promise.reject('Not implemented') },
+      { name: 'onDataUpdated', fn: () => new Promise((resolve) => {
+        if (domo.onDataUpdated) {
+          domo.onDataUpdated(() => resolve('Callback registered'));
+        } else {
+          resolve('Not implemented');
+        }
+      }) },
+      { name: 'onFiltersUpdate', fn: () => new Promise((resolve) => {
+        if (domo.onFiltersUpdate) {
+          domo.onFiltersUpdate(() => resolve('Callback registered'));
+        } else {
+          resolve('Not implemented');
+        }
+      }) },
+      { name: 'sendVariables', fn: () => domo.sendVariables ? domo.sendVariables({test: 1}) : Promise.reject('Not implemented') },
+      { name: 'onVariablesUpdate', fn: () => new Promise((resolve) => {
+        if (domo.onVariablesUpdate) {
+          domo.onVariablesUpdate(() => resolve('Callback registered'));
+        } else {
+          resolve('Not implemented');
+        }
+      }) }
+    ];
+
+    function updateReport(name, status, details) {
+      const tbody = document.querySelector('#reportTable tbody');
+      let row = document.getElementById('row-' + name);
+      if (!row) {
+        row = document.createElement('tr');
+        row.id = 'row-' + name;
+        row.innerHTML = `<td>${name}</td><td></td><td></td>`;
+        tbody.appendChild(row);
+      }
+      let statusHtml = '';
+      if (status === 'success') statusHtml = '<span class="success">Success</span>';
+      else if (status === 'fail') statusHtml = '<span class="fail">Fail</span>';
+      else statusHtml = '<span class="pending">Pending</span>';
+      row.children[1].innerHTML = statusHtml;
+      row.children[2].textContent = details || '';
+    }
+
+    async function runAllTests() {
+      // Show all features as pending first
+      for (const feature of features) {
+        updateReport(feature.name, 'pending', '');
+      }
+      for (const feature of features) {
+        try {
+          const result = await feature.fn();
+          updateReport(feature.name, 'success', typeof result === 'string' ? result : JSON.stringify(result));
+        } catch (e) {
+          updateReport(feature.name, 'fail', e && e.message ? e.message : String(e));
+        }
+      }
+    }
+
+    document.getElementById('runTests').addEventListener('click', runAllTests);
+  </script>
+</body>
+</html>

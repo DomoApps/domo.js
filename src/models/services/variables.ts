@@ -12,7 +12,7 @@ export function sendVariables(variables: string) {
   });
 
   if (!ios)
-    return window.parent.postMessage(message, window.parent.origin);
+    return window.parent.postMessage(message, window.origin);
 
   if (typeof (window as any).webkit?.messageHandlers?.domovariable?.postMessage === "function") {
     try {

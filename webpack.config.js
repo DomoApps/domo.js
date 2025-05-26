@@ -28,6 +28,7 @@ module.exports = {
     filename: 'domo.js',
     path: path.resolve(__dirname, 'dist'),
     library: 'domo',
-    libraryTarget: 'umd'
+    libraryTarget: 'umd',
+    libraryExport: 'Domo'
   }
 };

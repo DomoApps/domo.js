@@ -98,7 +98,7 @@ class Domo {
     this.channel = new MessageChannel();
     window.parent.postMessage(
       JSON.stringify({ event: "subscribe", skipFilters }),
-      window.parent.origin, // Originally "*" possibly for embed?
+      window.origin, // Originally "*" possibly for embed?
       [this.channel.port2]
     );
 
@@ -174,4 +174,4 @@ ob.observe(document.documentElement, { childList: true });
 ob.observe(document.head, { childList: true });
 
 export default Domo;
-export { __mutationObserverCallback };
+export { Domo, __mutationObserverCallback };
