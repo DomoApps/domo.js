@@ -3,3 +3,4 @@ node_modules
 domo.js-alpha.iml
 dist
 coverage/
+demo/domo.js
