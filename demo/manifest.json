@@ -8,7 +8,18 @@
     "width": 4,
     "height": 3
   },
-  "datasetsMapping": [],
+  "datasetsMapping": [
+    {
+      "alias": "test",
+      "dataSetId": "f8956b7f-13cf-45f1-96dd-a27ed3910c18",
+      "fields": [
+        {
+          "alias": "id",
+          "columnName": "id"
+        }
+      ]
+    }
+  ],
   "workflowMapping": [],
   "packageMapping": [],
   "collectionsMapping": [
