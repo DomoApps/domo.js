@@ -20,6 +20,7 @@
   "types": "dist/domo.d.ts",
   "scripts": {
     "test": "jest",
+    "coverage": "jest --coverage",
     "build": "rm -rf dist && mkdir dist && NODE_ENV=production webpack && cp dist/domo.js demo/domo.js",
     "release": "npm run build && npm publish",
     "releaseAlpha": "npm run build && npm publish --tag alpha",
