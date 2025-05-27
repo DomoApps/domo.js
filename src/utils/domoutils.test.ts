@@ -1,34 +1,29 @@
-import { setContentHeaders, setAuthTokenHeader, setResponseType, handleNode, processBody } from '../src/utils/domoutils';
+import { setContentHeaders, setAuthTokenHeader, setResponseType, handleNode, processBody } from './domoutils';
 
 describe('domoutils', () => {
   describe('setContentHeaders', () => {
     it('sets Content-Type appropriately', () => {
-      const req: { setRequestHeader: jest.Mock } = { setRequestHeader: jest.fn() };
-      setContentHeaders(req as any, { contentType: 'application/json' });
-      expect(req.setRequestHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
-      req.setRequestHeader.mockClear();
-      setContentHeaders(req as any, { contentType: 'multipart' });
-      expect(req.setRequestHeader).not.toHaveBeenCalledWith('Content-Type', 'multipart');
-      req.setRequestHeader.mockClear();
-      setContentHeaders(req as any, {});
-      expect(req.setRequestHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
-      req.setRequestHeader.mockClear();
-      setContentHeaders(req as any);
-      expect(req.setRequestHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
-      req.setRequestHeader.mockClear();
-      setContentHeaders(req as any, null);
-      expect(req.setRequestHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
+      const headers: Record<string, string> = {};
+      setContentHeaders(headers, { contentType: 'application/json' });
+      expect(headers['Content-Type']).toBe('application/json');
+      setContentHeaders(headers, { contentType: 'multipart' });
+      expect(headers['Content-Type']).toBe('application/json');
+      setContentHeaders(headers, {});
+      expect(headers['Content-Type']).toBe('application/json');
+      setContentHeaders(headers);
+      expect(headers['Content-Type']).toBe('application/json');
+      setContentHeaders(headers, null);
+      expect(headers['Content-Type']).toBe('application/json');
     });
   });
 
   describe('setAuthTokenHeader', () => {
     it('sets or skips header based on token presence', () => {
-      const req: { setRequestHeader: jest.Mock } = { setRequestHeader: jest.fn() };
-      setAuthTokenHeader(req as any, 'tok');
-      expect(req.setRequestHeader).toHaveBeenCalledWith('X-DOMO-Ryuu-Session', 'tok');
-      req.setRequestHeader.mockClear();
-      setAuthTokenHeader(req as any, '');
-      expect(req.setRequestHeader).not.toHaveBeenCalled();
+      const headers: Record<string, string> = {};
+      setAuthTokenHeader(headers, 'tok');
+      expect(headers['X-DOMO-Ryuu-Session']).toBe('tok');
+      setAuthTokenHeader(headers, '');
+      expect(headers['X-DOMO-Ryuu-Session']).not.toBeDefined();
     });
   });
 
@@ -128,13 +123,13 @@ describe('domoutils', () => {
 
   describe('domoFormatToRequestFormat', () => {
     it('should return the format for supported formats', () => {
-      const { domoFormatToRequestFormat } = require('../src/utils/data-helpers');
-      const { DataFormats } = require('../src/models/enums/data-formats');
+      const { domoFormatToRequestFormat } = require('./data-helpers');
+      const { DataFormats } = require('../models/enums/data-formats');
       expect(domoFormatToRequestFormat('array-of-objects')).toBe(DataFormats.ARRAY_OF_OBJECTS);
       expect(domoFormatToRequestFormat('array-of-arrays')).toBe(DataFormats.JSON);
       expect(domoFormatToRequestFormat('excel')).toBe(DataFormats.EXCEL);
       expect(domoFormatToRequestFormat('csv')).toBe(DataFormats.CSV);
-      expect(domoFormatToRequestFormat('xml')).toBe(DataFormats.DEFAULT);
+      expect(domoFormatToRequestFormat('xml')).toBe(DataFormats.ARRAY_OF_OBJECTS);
     });
   });
 });

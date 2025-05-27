@@ -1,9 +1,13 @@
 import { DomoDataFormats } from './domo-data-formats';
 
+type fetchType = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+
 export interface RequestOptions {
   format?: DomoDataFormats;
   responseType?: XMLHttpRequestResponseType;
-  [index: string]: string | undefined;
+  fetch?: fetchType;
+  contentType?: string;
+  [key: string]: unknown;
 }
 
 export interface ObjectRequestOptions extends RequestOptions {

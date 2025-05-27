@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>domo.js Feature Report</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 2em;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th,
+      td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: left;
+      }
+      th {
+        background: #f4f4f4;
+      }
+      .success {
+        color: green;
+      }
+      .fail {
+        color: red;
+      }
+      .pending {
+        color: orange;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>domo.js Feature Report</h1>
+    <button id="runTests">Run All Feature Tests</button>
+    <table id="reportTable">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Status</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <script src="domo.js"></script>
+    <script>
+      console.log("domo.js loaded:", domo);
+      if (!domo) {
+        console.error("domo.js is not loaded correctly.");
+        document.body.innerHTML = "<h2>Error: domo.js is not loaded.</h2>";
+      }
+
+      let lastId = null;
+      let onDataUpdatedStatus = "pending";
+      let onFiltersUpdatedStatus = "pending";
+      let onVariablesUpdatedStatus = "pending";
+      let onAppDataUpdatedStatus = "pending";
+
+      try {
+        domo.onDataUpdated((alias) => {
+          onDataUpdatedStatus = "success";
+          updateReport("onDataUpdated", onDataUpdatedStatus, `The registered callback was executed successfully with alias: ${alias}`);
+        });
+      } catch (e) {
+        console.error("Error registering onDataUpdated:", e);
+        onDataUpdatedStatus = "fail";
+        updateReport("onDataUpdated", onDataUpdatedStatus, e.message);
+      }
+      try {
+        domo.onFiltersUpdated(() => {
+          onFiltersUpdatedStatus = "success";
+          updateReport("onFiltersUpdated", onFiltersUpdatedStatus, "The registered callback was executed successfully.");
+        });
+      } catch (e) {
+        console.error("Error registering onFiltersUpdate:", e);
+        onFiltersUpdatedStatus = "fail";
+        updateReport("onFiltersUpdated", onFiltersUpdatedStatus, e.message);
+      }
+      try {
+        domo.onVariablesUpdated(() => {
+          onVariablesUpdatedStatus = "success";
+          updateReport("onVariablesUpdated", onVariablesUpdatedStatus, "The registered callback was executed successfully.");
+        });
+      } catch (e) {
+        console.error("Error registering onVariablesUpdate:", e);
+        onVariablesUpdatedStatus = "fail";
+        updateReport("onVariablesUpdated", onVariablesUpdatedStatus, e.message);
+      }
+      try {
+        domo.onAppDataUpdated(() => {
+          onAppDataUpdatedStatus = "success";
+          updateReport("onAppDataUpdated", onAppDataUpdatedStatus, "The registered callback was executed successfully.");
+        });
+      } catch (e) {
+        console.error("Error registering onAppDataUpdate:", e);
+        onAppDataUpdatedStatus = "fail";
+        updateReport("onAppDataUpdated", onAppDataUpdatedStatus, e.message);
+      }
+
+      // List of features/services to test
+      const features = [
+        {
+          name: "http-post",
+          fn: async () => {
+            const postResponse = await (domo.post
+              ? domo.post(
+                  "/domo/datastores/v1/collections/SanityTest/documents/",
+                  { foo: "bar" }
+                )
+              : Promise.reject("Not implemented"));
+            lastId = postResponse?.id;
+            if (!lastId) throw new Error("POST did not return an ID");
+            return postResponse;
+          },
+        },
+        {
+          name: "http-put",
+          fn: async () => {
+            if (!lastId) throw new Error("No ID from POST");
+            return await (domo.put
+              ? domo.put(
+                  `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`,
+                  { foo: "baz" }
+                )
+              : Promise.reject("Not implemented"));
+          },
+        },
+        {
+          name: "http-delete",
+          fn: async () => {
+            if (!lastId) throw new Error("No ID from POST");
+            return await (domo.delete
+              ? domo.delete(
+                  `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`
+                )
+              : Promise.reject("Not implemented"));
+          },
+        },
+        {
+          name: "http-get",
+          fn: async () => {
+            return await (domo.get
+              ? domo.get(
+                  "/domo/datastores/v1/collections/SanityTest/documents/"
+                )
+              : Promise.reject("Not implemented"));
+          },
+        },
+        {
+          name: "filterContainer",
+          fn: () =>
+            domo.filterContainer
+              ? domo.filterContainer()
+              : Promise.reject("Not implemented"),
+        },
+        {
+          name: "sendVariables",
+          fn: () =>
+            domo.sendVariables
+              ? domo.sendVariables({ test: 1 })
+              : Promise.reject("Not implemented"),
+        },
+        {
+          name: "onDataUpdated",
+          fn: () => new Promise(),
+          pendingMsg:
+            'This will execute when you change <a href="https://domo.demo.domo.com/datasources/f8956b7f-13cf-45f1-96dd-a27ed3910c18/details/overview" target="_blank">this dataset</a>',
+        },
+        {
+          name: "onFiltersUpdated",
+          fn: () => new Promise(),
+          pendingMsg:
+            "This will execute when you add or modify any filter on this page",
+        },
+        {
+          name: "onVariablesUpdated",
+          fn: () => new Promise(),
+          pendingMsg:
+            'This will execute when you change <a href="https://domohelp.domo.com/hc/en-us/articles/360060549474-App-Studio-Overview" target="_blank">a variable in this App Studio app</a>',
+        },
+        {
+          name: "onAppDataUpdated",
+          fn: () => new Promise(),
+          pendingMsg:
+            'This will execute when you change <a href="https://domohelp.domo.com/hc/en-us/articles/360060549474-App-Studio-Overview" target="_blank">the app data in this App Studio app</a>',
+        },
+      ];
+
+      function updateReport(name, status, details) {
+        const tbody = document.querySelector("#reportTable tbody");
+        let row = document.getElementById("row-" + name);
+        if (!row) {
+          row = document.createElement("tr");
+          row.id = "row-" + name;
+          row.innerHTML = `<td>${name}</td><td></td><td></td>`;
+          tbody.appendChild(row);
+        }
+        let statusHtml = "";
+        if (status === "success")
+          statusHtml = '<span class="success">Success</span>';
+        else if (status === "fail")
+          statusHtml = '<span class="fail">Fail</span>';
+        else statusHtml = '<span class="pending">Pending</span>';
+        row.children[1].innerHTML = statusHtml;
+        if (status === "pending") {
+          const feature = features.find((f) => f.name === name);
+          if (feature && feature.pendingMsg) {
+            row.children[2].innerHTML = feature.pendingMsg;
+          } else {
+            row.children[2].textContent = details || "";
+          }
+        } else {
+          row.children[2].textContent = details || "";
+        }
+      }
+
+      async function runAllTests() {
+        for (const feature of features)
+          updateReport(feature.name, "pending", "");
+
+        for (const feature of features) {
+          if (["onDataUpdated", "onFiltersUpdated", "onVariablesUpdated", "onAppDataUpdated"].includes(feature.name))
+            continue;
+
+          try {
+            const result = await feature.fn();
+            updateReport(
+              feature.name,
+              "success",
+              typeof result === "string" ? result : JSON.stringify(result)
+            );
+          } catch (e) {
+            updateReport(
+              feature.name,
+              "fail",
+              e && e.message ? e.message : String(e)
+            );
+          }
+        }
+      }
+
+      document
+        .getElementById("runTests")
+        .addEventListener("click", runAllTests);
+    </script>
+  </body>
+</html>

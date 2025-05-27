@@ -17,7 +17,7 @@ module.exports = {
     rules: [{
       test: /\.tsx?$/,
       use: 'ts-loader',
-      exclude: /node_modules/
+      exclude: [/node_modules/, /\.test\.(ts|tsx)$/]
       }
     ]
   },
@@ -28,6 +28,7 @@ module.exports = {
     filename: 'domo.js',
     path: path.resolve(__dirname, 'dist'),
     library: 'domo',
-    libraryTarget: 'umd'
+    libraryTarget: 'umd',
+    libraryExport: 'Domo'
   }
 };

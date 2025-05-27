@@ -6,7 +6,6 @@
  * for more details.
  */
 export enum DataFormats {
-  DEFAULT = 'application/array-of-objects',
   ARRAY_OF_OBJECTS = 'application/array-of-objects',
   JSON = 'application/json',
   CSV = 'text/csv',

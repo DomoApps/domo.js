@@ -9,5 +9,11 @@
       "lib": ["es6", "es2017", "dom"],
       "jsx": "react",
       "esModuleInterop": true
-    }
+    },
+    "exclude": [
+      "dist",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/__tests__"
+    ]
   }
