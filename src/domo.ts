@@ -473,4 +473,4 @@ ob.observe(document.documentElement, { childList: true });
 ob.observe(document.head, { childList: true });
 
 export default domo;
-export { __mutationObserverCallback };
+export { domo, __mutationObserverCallback };
