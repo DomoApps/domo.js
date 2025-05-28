@@ -98,7 +98,7 @@ class Domo {
     this.channel = new MessageChannel();
     window.parent.postMessage(
       JSON.stringify({ event: "subscribe", skipFilters }),
-      window.origin, // Originally "*" possibly for embed?
+      "*",
       [this.channel.port2]
     );
 
