@@ -53,7 +53,7 @@ export function filterContainer(
       console.error("Failed to post message to iOS handler:", err);
     }
   } else {
-    window.parent.postMessage(message, window.origin);
+    window.parent.postMessage(message, "*");
   }
 }
 
