@@ -62,7 +62,11 @@
       try {
         domo.onDataUpdated((alias) => {
           onDataUpdatedStatus = "success";
-          updateReport("onDataUpdated", onDataUpdatedStatus, `The registered callback was executed successfully with alias: ${alias}`);
+          updateReport(
+            "onDataUpdated",
+            onDataUpdatedStatus,
+            `The registered callback was executed successfully with alias: ${alias}`
+          );
         });
       } catch (e) {
         console.error("Error registering onDataUpdated:", e);
@@ -72,7 +76,11 @@
       try {
         domo.onFiltersUpdated(() => {
           onFiltersUpdatedStatus = "success";
-          updateReport("onFiltersUpdated", onFiltersUpdatedStatus, "The registered callback was executed successfully.");
+          updateReport(
+            "onFiltersUpdated",
+            onFiltersUpdatedStatus,
+            "The registered callback was executed successfully."
+          );
         });
       } catch (e) {
         console.error("Error registering onFiltersUpdate:", e);
@@ -82,7 +90,11 @@
       try {
         domo.onVariablesUpdated(() => {
           onVariablesUpdatedStatus = "success";
-          updateReport("onVariablesUpdated", onVariablesUpdatedStatus, "The registered callback was executed successfully.");
+          updateReport(
+            "onVariablesUpdated",
+            onVariablesUpdatedStatus,
+            "The registered callback was executed successfully."
+          );
         });
       } catch (e) {
         console.error("Error registering onVariablesUpdate:", e);
@@ -92,7 +104,11 @@
       try {
         domo.onAppDataUpdated(() => {
           onAppDataUpdatedStatus = "success";
-          updateReport("onAppDataUpdated", onAppDataUpdatedStatus, "The registered callback was executed successfully.");
+          updateReport(
+            "onAppDataUpdated",
+            onAppDataUpdatedStatus,
+            "The registered callback was executed successfully."
+          );
         });
       } catch (e) {
         console.error("Error registering onAppDataUpdate:", e);
@@ -179,13 +195,12 @@
           name: "onVariablesUpdated",
           fn: () => new Promise(),
           pendingMsg:
-            'This will execute when you change <a href="https://domohelp.domo.com/hc/en-us/articles/360060549474-App-Studio-Overview" target="_blank">a variable in this App Studio app</a>',
+            "To trigger this, change the variable at the top of this page.",
         },
         {
           name: "onAppDataUpdated",
           fn: () => new Promise(),
-          pendingMsg:
-            'This will execute when you change <a href="https://domohelp.domo.com/hc/en-us/articles/360060549474-App-Studio-Overview" target="_blank">the app data in this App Studio app</a>',
+          pendingMsg: "To trigger this...",
         },
       ];
 
@@ -222,7 +237,14 @@
           updateReport(feature.name, "pending", "");
 
         for (const feature of features) {
-          if (["onDataUpdated", "onFiltersUpdated", "onVariablesUpdated", "onAppDataUpdated"].includes(feature.name))
+          if (
+            [
+              "onDataUpdated",
+              "onFiltersUpdated",
+              "onVariablesUpdated",
+              "onAppDataUpdated",
+            ].includes(feature.name)
+          )
             continue;
 
           try {
