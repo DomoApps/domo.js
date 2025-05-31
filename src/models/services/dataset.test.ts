@@ -114,16 +114,48 @@ describe("Dataset Service", () => {
       if (localUnregister) localUnregister();
     }
 
-    it.skip("should prevent app refresh if callback is registered", () => {
-      // Skipped: MessageChannel-based implementation no longer uses window.postMessage for ack
+    it("should prevent app refresh if callback is registered", () => {
+      const cb = jest.fn();
+      Domo.onDataUpdated(cb);
+      Domo.connect();
+      const responsePort = new (global as any).MessagePort();
+      responsePort.postMessage = jest.fn();
+      const alias = "test-alias";
+      const eventData = { event: "dataUpdated", alias };
+      const event = new MessageEvent("message", {
+        data: eventData,
+        ports: [responsePort],
+      });
+      Domo.channel?.port1.onmessage?.(event);
+      expect(cb).toHaveBeenCalledWith(alias);
+      expect(responsePort.postMessage).toHaveBeenCalledWith({
+        event: "ack",
+        alias,
+      });
     });
 
     it("should not prevent app refresh if callback is not registered", () => {
       simulateMessageEvent({ expectAck: false });
     });
 
-    it.skip("should register and unregister onDataUpdated", () => {
-      // Skipped: MessageChannel-based implementation no longer uses window.postMessage for ack
+    it("should register and unregister onDataUpdated", () => {
+      const cb = jest.fn();
+      const unregister = Domo.onDataUpdated(cb);
+      Domo.connect();
+      // Simulate MessageChannel event: should call cb
+      const alias = "test-alias";
+      const responsePort = { postMessage: jest.fn() };
+      const event = {
+        data: { event: "dataUpdated", alias },
+        ports: [responsePort],
+      };
+      Domo.channel?.port1.onmessage?.(event as any);
+      expect(cb).toHaveBeenCalledWith(alias);
+      // Unregister and simulate again: should NOT call cb again
+      cb.mockClear();
+      unregister();
+      Domo.channel?.port1.onmessage?.(event as any);
+      expect(cb).not.toHaveBeenCalled();
     });
 
     it("should handle invalid callback for onDataUpdated", () => {
@@ -146,8 +178,34 @@ describe("Dataset Service", () => {
       unregister2();
     });
 
-    it.skip("should allow multiple registrations for onDataUpdated", () => {
-      // Skipped: MessageChannel-based implementation no longer uses window.postMessage for ack
+    it("should allow multiple registrations for onDataUpdated", () => {
+      const cb1 = jest.fn();
+      const cb2 = jest.fn();
+      const unregister1 = Domo.onDataUpdated(cb1);
+      const unregister2 = Domo.onDataUpdated(cb2);
+      Domo.connect();
+      const alias = "test-alias";
+      const responsePort = { postMessage: jest.fn() };
+      const event = {
+        data: { event: "dataUpdated", alias },
+        ports: [responsePort],
+      };
+      Domo.channel?.port1.onmessage?.(event as any);
+      expect(cb1).toHaveBeenCalledWith(alias);
+      expect(cb2).toHaveBeenCalledWith(alias);
+      // Unregister one and trigger again
+      cb1.mockClear();
+      cb2.mockClear();
+      unregister1();
+      Domo.channel?.port1.onmessage?.(event as any);
+      expect(cb1).not.toHaveBeenCalled();
+      expect(cb2).toHaveBeenCalledWith(alias);
+      // Unregister the second and trigger again
+      cb2.mockClear();
+      unregister2();
+      Domo.channel?.port1.onmessage?.(event as any);
+      expect(cb1).not.toHaveBeenCalled();
+      expect(cb2).not.toHaveBeenCalled();
     });
 
     it("should use MessageChannel for communication", () => {
