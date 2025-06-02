@@ -38,7 +38,8 @@ export function filterContainer(
 
   if (
     ios &&
-    typeof window.webkit?.messageHandlers?.domofilter?.postMessage === "function"
+    typeof window.webkit?.messageHandlers?.domofilter?.postMessage ===
+      "function"
   ) {
     try {
       window.webkit.messageHandlers.domofilter.postMessage(
@@ -70,6 +71,6 @@ export function onFiltersUpdated(callback: Function) {
 
   return () => {
     const index = this.listeners.onFiltersUpdated.indexOf(callback);
-    this.listeners.onFiltersUpdated.splice(index, 1);
+    if (index >= 0) this.listeners.onFiltersUpdated.splice(index, 1);
   };
-};
+}
