@@ -12,6 +12,8 @@ export function onDataUpdated(callback: (alias: string) => void) {
 
   return () => {
     const index = this.listeners.onDataUpdated.indexOf(callback);
-    this.listeners.onDataUpdated.splice(index, 1);
+    if(index >= 0) {
+      this.listeners.onDataUpdated.splice(index, 1);
+    }
   };
 }
