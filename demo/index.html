@@ -58,6 +58,7 @@
       let onFiltersUpdatedStatus = "pending";
       let onVariablesUpdatedStatus = "pending";
       let onAppDataUpdatedStatus = "pending";
+      let lastAppData = null;
 
       try {
         domo.onDataUpdated((alias) => {
@@ -102,12 +103,13 @@
         updateReport("onVariablesUpdated", onVariablesUpdatedStatus, e.message);
       }
       try {
-        domo.onAppDataUpdated(() => {
+        domo.onAppDataUpdated((data) => {
           onAppDataUpdatedStatus = "success";
+          lastAppData = data;
           updateReport(
             "onAppDataUpdated",
             onAppDataUpdatedStatus,
-            "The registered callback was executed successfully."
+            `The registered callback was executed successfully. Data: ${data}`
           );
         });
       } catch (e) {
@@ -200,7 +202,13 @@
         {
           name: "onAppDataUpdated",
           fn: () => new Promise(),
-          pendingMsg: "To trigger this...",
+          pendingMsg:
+            "To trigger this click the 'sendAppData' button--this app must be embedded.",
+        },
+        {
+          name: "sendAppData",
+          fn: () => domo.sendAppData("onAppDataUpdated works"),
+          customButton: true,
         },
       ];
 
@@ -220,7 +228,22 @@
           statusHtml = '<span class="fail">Fail</span>';
         else statusHtml = '<span class="pending">Pending</span>';
         row.children[1].innerHTML = statusHtml;
-        if (status === "pending") {
+        if (name === "sendAppData") {
+          row.children[2].innerHTML = `<button id="sendAppDataBtn">Send App Data</button> <span id="sendAppDataResult"></span>`;
+          const btn = document.getElementById("sendAppDataBtn");
+          if (btn) {
+            btn.onclick = async function () {
+              try {
+                await features.find((f) => f.name === "sendAppData").fn();
+                document.getElementById("sendAppDataResult").textContent =
+                  "Sent!";
+              } catch (e) {
+                document.getElementById("sendAppDataResult").textContent =
+                  "Failed: " + (e && e.message ? e.message : String(e));
+              }
+            };
+          }
+        } else if (status === "pending") {
           const feature = features.find((f) => f.name === name);
           if (feature && feature.pendingMsg) {
             row.children[2].innerHTML = feature.pendingMsg;
