@@ -45,267 +45,205 @@
       </thead>
       <tbody></tbody>
     </table>
+
     <script src="domo.js"></script>
     <script>
-      console.log("domo.js loaded:", domo);
-      if (!domo) {
-        console.error("domo.js is not loaded correctly.");
-        document.body.innerHTML = "<h2>Error: domo.js is not loaded.</h2>";
-      }
+      (function () {
+        if (!domo) {
+          console.error("domo.js is not loaded.");
+          document.body.innerHTML = "<h2>Error: domo.js is not loaded.</h2>";
+          return;
+        }
 
-      let lastId = null;
-      let onDataUpdatedStatus = "pending";
-      let onFiltersUpdatedStatus = "pending";
-      let onVariablesUpdatedStatus = "pending";
-      let onAppDataUpdatedStatus = "pending";
-      let lastAppData = null;
+        const STATUS_LABELS = { success: "Success", fail: "Fail", pending: "Pending" };
+        const EVENT_FEATURES = [
+          "onDataUpdated",
+          "onFiltersUpdated",
+          "onVariablesUpdated",
+          "onAppDataUpdated",
+        ];
 
-      try {
-        domo.onDataUpdated((alias) => {
-          onDataUpdatedStatus = "success";
-          updateReport(
-            "onDataUpdated",
-            onDataUpdatedStatus,
-            `The registered callback was executed successfully with alias: ${alias}`
-          );
-        });
-      } catch (e) {
-        console.error("Error registering onDataUpdated:", e);
-        onDataUpdatedStatus = "fail";
-        updateReport("onDataUpdated", onDataUpdatedStatus, e.message);
-      }
-      try {
-        domo.onFiltersUpdated(() => {
-          onFiltersUpdatedStatus = "success";
-          updateReport(
-            "onFiltersUpdated",
-            onFiltersUpdatedStatus,
-            "The registered callback was executed successfully."
-          );
-        });
-      } catch (e) {
-        console.error("Error registering onFiltersUpdate:", e);
-        onFiltersUpdatedStatus = "fail";
-        updateReport("onFiltersUpdated", onFiltersUpdatedStatus, e.message);
-      }
-      try {
-        domo.onVariablesUpdated(() => {
-          onVariablesUpdatedStatus = "success";
-          updateReport(
-            "onVariablesUpdated",
-            onVariablesUpdatedStatus,
-            "The registered callback was executed successfully."
-          );
-        });
-      } catch (e) {
-        console.error("Error registering onVariablesUpdate:", e);
-        onVariablesUpdatedStatus = "fail";
-        updateReport("onVariablesUpdated", onVariablesUpdatedStatus, e.message);
-      }
-      try {
-        domo.onAppDataUpdated((data) => {
-          onAppDataUpdatedStatus = "success";
-          lastAppData = data;
-          updateReport(
-            "onAppDataUpdated",
-            onAppDataUpdatedStatus,
-            `The registered callback was executed successfully. Data: ${data}`
-          );
-        });
-      } catch (e) {
-        console.error("Error registering onAppDataUpdate:", e);
-        onAppDataUpdatedStatus = "fail";
-        updateReport("onAppDataUpdated", onAppDataUpdatedStatus, e.message);
-      }
-
-      // List of features/services to test
-      const features = [
-        {
-          name: "http-post",
-          fn: async () => {
-            const postResponse = await (domo.post
-              ? domo.post(
-                  "/domo/datastores/v1/collections/SanityTest/documents/",
-                  { foo: "bar" }
-                )
-              : Promise.reject("Not implemented"));
-            lastId = postResponse?.id;
-            if (!lastId) throw new Error("POST did not return an ID");
-            return postResponse;
+        const features = [
+          {
+            name: "http-post",
+            fn: async () => {
+              if (!domo.post) throw new Error("Not implemented");
+              const res = await domo.post(
+                "/domo/datastores/v1/collections/SanityTest/documents/",
+                { foo: "bar" }
+              );
+              if (!res?.id) throw new Error("POST did not return an ID");
+              lastId = res.id;
+              return res;
+            },
           },
-        },
-        {
-          name: "http-put",
-          fn: async () => {
-            if (!lastId) throw new Error("No ID from POST");
-            return await (domo.put
-              ? domo.put(
-                  `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`,
-                  { foo: "baz" }
-                )
-              : Promise.reject("Not implemented"));
+          {
+            name: "http-put",
+            fn: async () => {
+              if (!lastId) throw new Error("No ID from POST");
+              if (!domo.put) throw new Error("Not implemented");
+              return domo.put(
+                `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`,
+                { foo: "baz" }
+              );
+            },
           },
-        },
-        {
-          name: "http-delete",
-          fn: async () => {
-            if (!lastId) throw new Error("No ID from POST");
-            return await (domo.delete
-              ? domo.delete(
-                  `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`
-                )
-              : Promise.reject("Not implemented"));
+          {
+            name: "http-delete",
+            fn: async () => {
+              if (!lastId) throw new Error("No ID from POST");
+              if (!domo.delete) throw new Error("Not implemented");
+              return domo.delete(
+                `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`
+              );
+            },
           },
-        },
-        {
-          name: "http-get",
-          fn: async () => {
-            return await (domo.get
-              ? domo.get(
-                  "/domo/datastores/v1/collections/SanityTest/documents/"
-                )
-              : Promise.reject("Not implemented"));
+          {
+            name: "http-get",
+            fn: async () => {
+              if (!domo.get) throw new Error("Not implemented");
+              return domo.get("/domo/datastores/v1/collections/SanityTest/documents/");
+            },
           },
-        },
-        {
-          name: "filterContainer",
-          fn: () =>
-            domo.filterContainer
-              ? domo.filterContainer()
-              : Promise.reject("Not implemented"),
-        },
-        {
-          name: "sendVariables",
-          fn: () =>
-            domo.sendVariables
-              ? domo.sendVariables({ test: 1 })
-              : Promise.reject("Not implemented"),
-        },
-        {
-          name: "onDataUpdated",
-          fn: () => new Promise(),
-          pendingMsg:
-            'This will execute when you change <a href="https://domo.demo.domo.com/datasources/f8956b7f-13cf-45f1-96dd-a27ed3910c18/details/overview" target="_blank">this dataset</a>',
-        },
-        {
-          name: "onFiltersUpdated",
-          fn: () => new Promise(),
-          pendingMsg:
-            "This will execute when you add or modify any filter on this page",
-        },
-        {
-          name: "onVariablesUpdated",
-          fn: () => new Promise(),
-          pendingMsg:
-            "To trigger this, change the variable at the top of this page.",
-        },
-        {
-          name: "onAppDataUpdated",
-          fn: () => new Promise(),
-          pendingMsg:
-            "To trigger this click the 'sendAppData' button--this app must be embedded.",
-        },
-        {
-          name: "sendAppData",
-          fn: () => domo.sendAppData("onAppDataUpdated works"),
-          customButton: true,
-        },
-      ];
+          {
+            name: "filterContainer",
+            fn: () => {
+              if (!domo.filterContainer) throw new Error("Not implemented");
+              return domo.filterContainer();
+            },
+          },
+          {
+            name: "sendVariables",
+            fn: () => {
+              if (!domo.sendVariables) throw new Error("Not implemented");
+              return domo.sendVariables({ test: 1 });
+            },
+          },
+          {
+            name: "onDataUpdated",
+            fn: () => new Promise(),
+            pendingMsg:
+              'This will run when you change <a href="https://domo.demo.domo.com/datasources/f8956b7f-13cf-45f1-96dd-a27ed3910c18/details/overview" target="_blank">this dataset</a>.',
+          },
+          {
+            name: "onFiltersUpdated",
+            fn: () => new Promise(),
+            pendingMsg: "This will run when you add or modify any filter on this page.",
+          },
+          {
+            name: "onVariablesUpdated",
+            fn: () => new Promise(),
+            pendingMsg: "To trigger this, change the variable at the top of this page.",
+          },
+          {
+            name: "onAppDataUpdated",
+            fn: () => new Promise(),
+            pendingMsg:
+              "To trigger this, click the 'Send App Data' button—this app must be embedded.",
+          },
+          {
+            name: "sendAppData",
+            fn: () => {
+              if (!domo.sendAppData) throw new Error("Not implemented");
+              return domo.sendAppData("onAppDataUpdated works");
+            },
+            customButton: true,
+          },
+        ];
 
-      const STATUS_LABELS = {
-        success: "Success",
-        fail: "Fail",
-        pending: "Pending",
-      };
-
-      function updateReport(name, status, details) {
+        let lastId = null;
+        let lastAppData = null;
         const tbody = document.querySelector("#reportTable tbody");
-        const rowId = `row-${name}`;
-        let row = document.getElementById(rowId);
 
-        if (!row) {
-          row = document.createElement("tr");
-          row.id = rowId;
-          row.innerHTML = `<td>${name}</td><td></td><td></td>`;
-          tbody.appendChild(row);
-        }
+        // 1) Build initial rows
+        features.forEach(({ name, pendingMsg, customButton }) => {
+          const tr = document.createElement("tr");
+          tr.id = `row-${name}`;
+          tr.innerHTML = `
+            <td>${name}</td>
+            <td><span class="pending">${STATUS_LABELS.pending}</span></td>
+            <td>${pendingMsg || ""}</td>
+          `;
+          tbody.appendChild(tr);
+          if (customButton) setupSendAppData();
+        });
 
-        // Update status cell
-        const statusCell = row.children[1];
-        statusCell.innerHTML =
-          `<span class="${status}">` +
-          (STATUS_LABELS[status] || STATUS_LABELS.pending) +
-          "</span>";
-
-        // Update details cell
-        const detailsCell = row.children[2];
-        detailsCell.textContent = "";
-
-        if (name === "sendAppData") {
-          let btn = document.getElementById("sendAppDataBtn");
-          let resultSpan = document.getElementById("sendAppDataResult");
-
-          if (!btn) {
-            btn = document.createElement("button");
-            btn.id = "sendAppDataBtn";
-            btn.textContent = "Send App Data";
-
-            resultSpan = document.createElement("span");
-            resultSpan.id = "sendAppDataResult";
-
-            btn.addEventListener("click", async () => {
-              try {
-                await features.find((f) => f.name === "sendAppData").fn();
-                resultSpan.textContent = "Sent!";
-              } catch (e) {
-                resultSpan.textContent = `Failed: ${e?.message || e}`;
-              }
-            });
-          }
-
-          return detailsCell.append(btn, " ", resultSpan);
-        }
-
-        const feature = features.find((f) => f.name === name);
-        detailsCell.textContent =
-          (feature && feature?.pendingMsg) || details || "";
-      }
-
-      async function runAllTests() {
-        for (const feature of features)
-          updateReport(feature.name, "pending", "");
-
-        for (const feature of features) {
-          if (
-            [
-              "onDataUpdated",
-              "onFiltersUpdated",
-              "onVariablesUpdated",
-              "onAppDataUpdated",
-            ].includes(feature.name)
-          )
-            continue;
-
+        // 2) Register domo event callbacks in a loop
+        EVENT_FEATURES.forEach((eventName) => {
           try {
-            const result = await feature.fn();
-            updateReport(
-              feature.name,
-              "success",
-              typeof result === "string" ? result : JSON.stringify(result)
-            );
+            domo[eventName]((arg) => {
+              const msg =
+                eventName === "onDataUpdated"
+                  ? `Callback ran with alias: ${arg}`
+                  : eventName === "onAppDataUpdated"
+                  ? `Callback ran. Data: ${arg}`
+                  : "Callback ran successfully.";
+              updateRow(eventName, "success", msg);
+            });
           } catch (e) {
-            updateReport(
-              feature.name,
-              "fail",
-              e && e.message ? e.message : String(e)
-            );
+            console.error(`Error registering ${eventName}:`, e);
+            updateRow(eventName, "fail", e.message);
+          }
+        });
+
+        // 3) Wire up "Send App Data" button once
+        function setupSendAppData() {
+          const row = document.getElementById("row-sendAppData");
+          const cell = row.children[2];
+          if (cell.querySelector("#sendAppDataBtn")) return;
+
+          const btn = document.createElement("button");
+          btn.id = "sendAppDataBtn";
+          btn.textContent = "Send App Data";
+          const resultSpan = document.createElement("span");
+          resultSpan.id = "sendAppDataResult";
+
+          btn.addEventListener("click", async () => {
+            try {
+              await features.find((f) => f.name === "sendAppData").fn();
+              resultSpan.textContent = "Sent!";
+            } catch (e) {
+              resultSpan.textContent = `Failed: ${e?.message || e}`;
+            }
+          });
+
+          cell.append(btn, " ", resultSpan);
+        }
+
+        // 4) Run non-event tests sequentially
+        async function runAllTests() {
+          for (const { name } of features) {
+            if (EVENT_FEATURES.includes(name) || name === "sendAppData") continue;
+            updateRow(name, "pending", ""); // reset status
+          }
+          for (const feat of features) {
+            const { name, fn } = feat;
+            if (EVENT_FEATURES.includes(name) || name === "sendAppData") continue;
+            try {
+              const res = await fn();
+              const detail = typeof res === "string" ? res : JSON.stringify(res);
+              updateRow(name, "success", detail);
+            } catch (e) {
+              updateRow(name, "fail", e.message || String(e));
+            }
           }
         }
-      }
 
-      document
-        .getElementById("runTests")
-        .addEventListener("click", runAllTests);
+        // 5) Helper to update a row
+        function updateRow(name, status, details = "") {
+          const row = document.getElementById(`row-${name}`);
+          if (!row) return;
+          row.children[1].innerHTML = `<span class="${status}">${
+            STATUS_LABELS[status] || STATUS_LABELS.pending
+          }</span>`;
+          // Don’t overwrite details for event-driven features or "sendAppData"
+          if (!EVENT_FEATURES.includes(name) && name !== "sendAppData") {
+            row.children[2].textContent = details;
+          }
+        }
+
+        document.getElementById("runTests").addEventListener("click", runAllTests);
+      })();
     </script>
   </body>
 </html>
