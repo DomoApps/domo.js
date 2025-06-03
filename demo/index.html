@@ -212,47 +212,63 @@
         },
       ];
 
+      const STATUS_LABELS = {
+        success: "Success",
+        fail: "Fail",
+        pending: "Pending",
+      };
+
       function updateReport(name, status, details) {
         const tbody = document.querySelector("#reportTable tbody");
-        let row = document.getElementById("row-" + name);
+        const rowId = `row-${name}`;
+        let row = document.getElementById(rowId);
+
         if (!row) {
           row = document.createElement("tr");
-          row.id = "row-" + name;
+          row.id = rowId;
           row.innerHTML = `<td>${name}</td><td></td><td></td>`;
           tbody.appendChild(row);
         }
-        let statusHtml = "";
-        if (status === "success")
-          statusHtml = '<span class="success">Success</span>';
-        else if (status === "fail")
-          statusHtml = '<span class="fail">Fail</span>';
-        else statusHtml = '<span class="pending">Pending</span>';
-        row.children[1].innerHTML = statusHtml;
+
+        // Update status cell
+        const statusCell = row.children[1];
+        statusCell.innerHTML =
+          `<span class="${status}">` +
+          (STATUS_LABELS[status] || STATUS_LABELS.pending) +
+          "</span>";
+
+        // Update details cell
+        const detailsCell = row.children[2];
+        detailsCell.textContent = "";
+
         if (name === "sendAppData") {
-          row.children[2].innerHTML = `<button id="sendAppDataBtn">Send App Data</button> <span id="sendAppDataResult"></span>`;
-          const btn = document.getElementById("sendAppDataBtn");
-          if (btn) {
-            btn.onclick = async function () {
+          let btn = document.getElementById("sendAppDataBtn");
+          let resultSpan = document.getElementById("sendAppDataResult");
+
+          if (!btn) {
+            btn = document.createElement("button");
+            btn.id = "sendAppDataBtn";
+            btn.textContent = "Send App Data";
+
+            resultSpan = document.createElement("span");
+            resultSpan.id = "sendAppDataResult";
+
+            btn.addEventListener("click", async () => {
               try {
                 await features.find((f) => f.name === "sendAppData").fn();
-                document.getElementById("sendAppDataResult").textContent =
-                  "Sent!";
+                resultSpan.textContent = "Sent!";
               } catch (e) {
-                document.getElementById("sendAppDataResult").textContent =
-                  "Failed: " + (e && e.message ? e.message : String(e));
+                resultSpan.textContent = `Failed: ${e?.message || e}`;
               }
-            };
+            });
           }
-        } else if (status === "pending") {
-          const feature = features.find((f) => f.name === name);
-          if (feature && feature.pendingMsg) {
-            row.children[2].innerHTML = feature.pendingMsg;
-          } else {
-            row.children[2].textContent = details || "";
-          }
-        } else {
-          row.children[2].textContent = details || "";
+
+          return detailsCell.append(btn, " ", resultSpan);
         }
+
+        const feature = features.find((f) => f.name === name);
+        detailsCell.textContent =
+          (feature && feature?.pendingMsg) || details || "";
       }
 
       async function runAllTests() {
