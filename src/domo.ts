@@ -1,12 +1,24 @@
-import { handleNode } from './utils/domoutils';
+import { handleNode } from "./utils/domoutils";
 import { onDataUpdated } from "./models/services/dataset";
 import { filterContainer, onFiltersUpdated } from "./models/services/filters";
 import { onVariablesUpdated, sendVariables } from "./models/services/variables";
 import { onAppDataUpdated, sendAppData } from "./models/services/appdata";
 import { navigate } from "./models/services/navigation";
-import { get, getAll, post, put, delete as del, domoHttp } from "./models/services/http";
-import { isSuccess, isVerifiedOrigin, getQueryParams, setFormatHeaders } from './utils/general';
-import { eventToListenerMap, getToken } from './models/constants/general';
+import {
+  get,
+  getAll,
+  post,
+  put,
+  delete as del,
+  domoHttp,
+} from "./models/services/http";
+import {
+  isSuccess,
+  isVerifiedOrigin,
+  getQueryParams,
+  setFormatHeaders,
+} from "./utils/general";
+import { eventToListenerMap, getToken } from "./models/constants/general";
 
 /**
  * The Domo class provides a unified API for interacting with Domo platform features in client applications.
@@ -30,9 +42,6 @@ class Domo {
     onAppDataUpdated: [],
     onVariablesUpdated: [],
   };
-  
-  private static _onDataUpdateListener: ((event: MessageEvent) => void) | null = null;
-
 
   ////////////////////////////////////
   // DOMO API
@@ -44,10 +53,9 @@ class Domo {
   static delete: typeof del = del;
   static domoHttp: typeof domoHttp = domoHttp;
 
-
   ////////////////////////////////////////////
   // Event Listeners
-  // 
+  //
   // These receive messages from the parent window via port1 of the MessageChannel
   //////////////////////////////////////////
   static onDataUpdated = onDataUpdated;
@@ -62,7 +70,6 @@ class Domo {
   /* @deprecated */
   static readonly onAppData = this.onAppDataUpdated;
 
-
   /////////////////////////////////////////////
   // Emitters
   //
@@ -72,7 +79,6 @@ class Domo {
   static sendVariables = sendVariables;
   static sendAppData = sendAppData;
   static navigate = navigate;
-
 
   ///////////////////////////////////////////
   // General
@@ -102,19 +108,27 @@ class Domo {
       [this.channel.port2]
     );
 
-    const eventHandlers: { [event: string]: (data: any, responsePort: MessagePort) => void } = {
-      filtersUpdated: (data, responsePort) => {
-        responsePort.postMessage({});
-        this.listeners.onFiltersUpdated.forEach(cb => cb(data.filters));
+    const eventHandlers: {
+      [event: string]: (data: any, responsePort: MessagePort) => void;
+    } = {
+      dataUpdated: (message, responsePort) => {
+        responsePort.postMessage({ event: "ack", alias: message.alias });
+        this.listeners.onDataUpdated.forEach((cb) => cb(message.alias));
       },
-      appData: (data, responsePort) => {
+      filtersUpdated: (message, responsePort) => {
         responsePort.postMessage({});
-        this.listeners.onAppDataUpdated.forEach(cb => cb(data.appData));
+        this.listeners.onFiltersUpdated.forEach((cb) => cb(message.filters));
       },
-      variablesUpdated: (data, responsePort) => {
+      appData: (message, responsePort) => {
         responsePort.postMessage({});
-        this.listeners.onVariablesUpdated.forEach(cb => cb(data.variables));
-      }
+        this.listeners.onAppDataUpdated.forEach((cb) => cb(message.appData));
+      },
+      variablesUpdated: (message, responsePort) => {
+        responsePort.postMessage({});
+        this.listeners.onVariablesUpdated.forEach((cb) =>
+          cb(message.variables)
+        );
+      },
     };
 
     this.channel.port1.onmessage = (e: MessageEvent) => {
@@ -131,23 +145,24 @@ class Domo {
 
   /**
    * Allows consumers to override or extend static methods/properties of the Domo class.
-   * 
+   *
    * Example Usage:
    * import Domo, { get as originalGet } from 'domo.js';
-   * 
+   *
    * Domo.extend({
    *  get: (url, options) => {
    *    // custom logic
    *    return originalGet(url, options);
    *  }
    * });
-   * 
+   *
    * @param overrides An object whose keys are static method/property names and values are the new implementations.
    */
   static extend(overrides: Partial<Record<keyof typeof Domo, any>>) {
     for (const key in overrides) {
       if (Object.prototype.hasOwnProperty.call(Domo, key))
-        (Domo as any)[key as keyof typeof Domo] = overrides[key as keyof typeof Domo];
+        (Domo as any)[key as keyof typeof Domo] =
+          overrides[key as keyof typeof Domo];
     }
   }
 }

@@ -25,6 +25,6 @@ export function onAppDataUpdated(callback: Function) {
 
   return () => {
     const index = this.listeners.onAppDataUpdated.indexOf(callback);
-    this.listeners.onAppDataUpdated.splice(index, 1);
+    if (index >= 0) this.listeners.onAppDataUpdated.splice(index, 1);
   };
-};
+}
