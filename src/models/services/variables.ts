@@ -11,12 +11,16 @@ export function sendVariables(variables: string) {
     variables,
   });
 
-  if (!ios)
-    return window.parent.postMessage(message, "*");
+  if (!ios) return window.parent.postMessage(message, "*");
 
-  if (typeof (window as any).webkit?.messageHandlers?.domovariable?.postMessage === "function") {
+  if (
+    typeof (window as any).webkit?.messageHandlers?.domovariable
+      ?.postMessage === "function"
+  ) {
     try {
-      (window as any).webkit.messageHandlers.domovariable.postMessage(variables);
+      (window as any).webkit.messageHandlers.domovariable.postMessage(
+        variables
+      );
     } catch (err) {
       console.error("Failed to post message to iOS handler:", err);
     }
@@ -36,6 +40,6 @@ export function onVariablesUpdated(callback: Function) {
 
   return () => {
     const index = this.listeners.onVariablesUpdated.indexOf(callback);
-    this.listeners.onVariablesUpdated.splice(index, 1);
+    if (index >= 0) this.listeners.onVariablesUpdated.splice(index, 1);
   };
-};
+}

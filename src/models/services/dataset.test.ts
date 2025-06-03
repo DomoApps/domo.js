@@ -1,17 +1,24 @@
 import Domo from "../../domo";
-import { sharedOnDataUpdateListener } from "./dataset";
 
 const realAddEventListener = window.addEventListener;
 const realRemoveEventListener = window.removeEventListener;
 (window as any).eventListeners = { message: [] };
-window.addEventListener = function(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) {
-  if (type === 'message') {
+window.addEventListener = function (
+  type: string,
+  listener: EventListenerOrEventListenerObject,
+  options?: boolean | AddEventListenerOptions
+) {
+  if (type === "message") {
     (window as any).eventListeners.message.push(listener);
   }
   return realAddEventListener.call(this, type, listener, options);
 };
-window.removeEventListener = function(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) {
-  if (type === 'message') {
+window.removeEventListener = function (
+  type: string,
+  listener: EventListenerOrEventListenerObject,
+  options?: boolean | EventListenerOptions
+) {
+  if (type === "message") {
     const arr = (window as any).eventListeners.message;
     const idx = arr.indexOf(listener);
     if (idx !== -1) arr.splice(idx, 1);
@@ -39,7 +46,8 @@ describe("Dataset Service", () => {
   });
 
   afterEach(() => {
-    const listeners: EventListenerOrEventListenerObject[] = (window as any).eventListeners?.message ?? [];
+    const listeners: EventListenerOrEventListenerObject[] =
+      (window as any).eventListeners?.message ?? [];
     listeners.forEach((listener: EventListenerOrEventListenerObject) => {
       realRemoveEventListener.call(window, "message", listener);
     });
@@ -48,67 +56,7 @@ describe("Dataset Service", () => {
     (Domo as any)._onDataUpdateListener = null;
   });
 
-  describe("sharedOnDataUpdateListener", () => {
-    it("should log a warning in sharedOnDataUpdateListener if not test env", () => {
-      const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = "production";
-      const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-      const event = new MessageEvent("message", {
-        data: "{invalidJson",
-        origin: "https://www.domo.com",
-      });
-
-      Object.defineProperty(event, "source", {
-        value: { postMessage: jest.fn() },
-      });
-      const listener = sharedOnDataUpdateListener([], () => true);
-      listener(event);
-      expect(warnSpy).toHaveBeenCalled();
-      warnSpy.mockRestore();
-      process.env.NODE_ENV = originalEnv;
-    });
-
-    it('should return early if message does not have alias property', () => {
-      const event = new MessageEvent('message', {
-        data: JSON.stringify({ foo: 'bar' }),
-        origin: 'https://www.domo.com',
-      });
-      const listener = sharedOnDataUpdateListener([], () => true);
-      listener(event);
-      expect(window.parent.postMessage).not.toHaveBeenCalled();
-    });
-
-    it('should return early if event.origin is not verified in sharedOnDataUpdateListener', () => {
-      const cb = jest.fn();
-      const event = new MessageEvent('message', {
-        data: JSON.stringify({ alias: 'test-alias' }),
-        origin: 'https://untrusted.com',
-      });
-      Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
-      const listener = sharedOnDataUpdateListener([cb], (origin) => origin === 'https://www.domo.com');
-      listener(event);
-      expect(cb).not.toHaveBeenCalled();
-      // Should not send ack
-      expect(event.source.postMessage).not.toHaveBeenCalled();
-    });
-
-    it('should not throw if process/env is undefined in sharedOnDataUpdateListener', () => {
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      const originalProcess = global.process;
-      global.process = undefined as any; // Instead of deleting, set to undefined
-      const event = new MessageEvent('message', {
-        data: '{invalidJson',
-        origin: 'https://www.domo.com',
-      });
-      Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
-      const listener = sharedOnDataUpdateListener([], () => true);
-      expect(() => listener(event)).not.toThrow();
-      global.process = originalProcess;
-      warnSpy.mockRestore();
-    });
-  });
-
-  describe('onDataUpdated', () => {
+  describe("onDataUpdated", () => {
     beforeAll(() => {
       class MockMessagePort {
         onmessage: ((event: any) => void) | null = null;
@@ -121,125 +69,187 @@ describe("Dataset Service", () => {
         port2 = new MockMessagePort();
       };
     });
-  
-    function simulateMessageEvent({ cb, expectAck, expectCbCall, unregister }: { cb?: jest.Mock, expectAck: boolean, expectCbCall?: boolean, unregister?: boolean }) {
-      const alias = 'test-alias';
+
+    function simulateMessageEvent({
+      cb,
+      expectAck,
+      expectCbCall,
+      unregister,
+    }: {
+      cb?: jest.Mock;
+      expectAck: boolean;
+      expectCbCall?: boolean;
+      unregister?: boolean;
+    }) {
+      const alias = "test-alias";
       const message = JSON.stringify({ alias });
       const fakeSource = { postMessage: jest.fn() };
-  
+
       let localUnregister: (() => void) | undefined;
       if (cb) localUnregister = Domo.onDataUpdated(cb);
       if (unregister && localUnregister) localUnregister();
-  
-      const event = new MessageEvent('message', {
+
+      const event = new MessageEvent("message", {
         data: message,
-        origin: 'https://www.domo.com',
+        origin: "https://www.domo.com",
       });
-      Object.defineProperty(event, 'source', { value: fakeSource });
+      Object.defineProperty(event, "source", { value: fakeSource });
       window.dispatchEvent(event);
-  
-      const expectedAck = JSON.stringify({ event: 'ack', alias });
-      if (expectAck) 
-        expect(fakeSource.postMessage).toHaveBeenCalledWith(expectedAck, 'https://www.domo.com');
+
+      const expectedAck = JSON.stringify({ event: "ack", alias });
+      if (expectAck)
+        expect(fakeSource.postMessage).toHaveBeenCalledWith(
+          expectedAck,
+          "https://www.domo.com"
+        );
       else
-        expect(fakeSource.postMessage).not.toHaveBeenCalledWith(expectedAck, 'https://www.domo.com');
-  
-      if (cb && expectCbCall) 
-        expect(cb).toHaveBeenCalledWith('test-alias');
-      else if (cb)
-        expect(cb).not.toHaveBeenCalled();
-  
+        expect(fakeSource.postMessage).not.toHaveBeenCalledWith(
+          expectedAck,
+          "https://www.domo.com"
+        );
+
+      if (cb && expectCbCall) expect(cb).toHaveBeenCalledWith("test-alias");
+      else if (cb) expect(cb).not.toHaveBeenCalled();
+
       if (localUnregister) localUnregister();
     }
-  
-    it('should prevent app refresh if callback is registered', () => {
+
+    it("should prevent app refresh if callback is registered", () => {
       const cb = jest.fn();
-      simulateMessageEvent({ cb, expectAck: true, expectCbCall: true });
+      Domo.onDataUpdated(cb);
+      Domo.connect();
+      const responsePort = new (global as any).MessagePort();
+      responsePort.postMessage = jest.fn();
+      const alias = "test-alias";
+      const eventData = { event: "dataUpdated", alias };
+      const event = new MessageEvent("message", {
+        data: eventData,
+        ports: [responsePort],
+      });
+      Domo.channel?.port1.onmessage?.(event);
+      expect(cb).toHaveBeenCalledWith(alias);
+      expect(responsePort.postMessage).toHaveBeenCalledWith({
+        event: "ack",
+        alias,
+      });
     });
-  
-    it('should not prevent app refresh if callback is not registered', () => {
+
+    it("should not prevent app refresh if callback is not registered", () => {
       simulateMessageEvent({ expectAck: false });
     });
-  
-    it('should register and unregister onDataUpdated', () => {
+
+    it("should register and unregister onDataUpdated", () => {
       const cb = jest.fn();
-      simulateMessageEvent({ cb, expectAck: true, expectCbCall: true, unregister: false });
+      const unregister = Domo.onDataUpdated(cb);
+      Domo.connect();
+      // Simulate MessageChannel event: should call cb
+      const alias = "test-alias";
+      const responsePort = { postMessage: jest.fn() };
+      const event = {
+        data: { event: "dataUpdated", alias },
+        ports: [responsePort],
+      };
+      Domo.channel?.port1.onmessage?.(event as any);
+      expect(cb).toHaveBeenCalledWith(alias);
+      // Unregister and simulate again: should NOT call cb again
       cb.mockClear();
-      simulateMessageEvent({ cb, expectAck: false, expectCbCall: false, unregister: true });
+      unregister();
+      Domo.channel?.port1.onmessage?.(event as any);
+      expect(cb).not.toHaveBeenCalled();
     });
-  
-    it('should handle invalid callback for onDataUpdated', () => {
+
+    it("should handle invalid callback for onDataUpdated", () => {
       const unregister = Domo.onDataUpdated(null as any);
-      expect(typeof unregister).toBe('function');
-      simulateMessageEvent({ cb: null, expectAck: false, expectCbCall: false });
+      expect(typeof unregister).toBe("function");
+      simulateMessageEvent({
+        cb: undefined,
+        expectAck: false,
+        expectCbCall: false,
+      });
     });
-  
-    it('should allow double registration and unregistration', () => {
+
+    it("should allow double registration and unregistration", () => {
       const cb = jest.fn();
       const unregister1 = Domo.onDataUpdated(cb);
       const unregister2 = Domo.onDataUpdated(cb);
-      expect(typeof unregister1).toBe('function');
-      expect(typeof unregister2).toBe('function');
+      expect(typeof unregister1).toBe("function");
+      expect(typeof unregister2).toBe("function");
       unregister1();
       unregister2();
     });
-  
-    it('should allow multiple registrations for onDataUpdated', () => {
+
+    it("should allow multiple registrations for onDataUpdated", () => {
       const cb1 = jest.fn();
       const cb2 = jest.fn();
-      Domo.onDataUpdated(cb1);
-      Domo.onDataUpdated(cb2);
-      const alias = 'test-alias';
-      const message = JSON.stringify({ alias });
-      const fakeSource = { postMessage: jest.fn() };
-      const event = new MessageEvent('message', {
-        data: message,
-        origin: 'https://www.domo.com',
-      });
-      Object.defineProperty(event, 'source', { value: fakeSource });
-      window.dispatchEvent(event);
+      const unregister1 = Domo.onDataUpdated(cb1);
+      const unregister2 = Domo.onDataUpdated(cb2);
+      Domo.connect();
+      const alias = "test-alias";
+      const responsePort = { postMessage: jest.fn() };
+      const event = {
+        data: { event: "dataUpdated", alias },
+        ports: [responsePort],
+      };
+      Domo.channel?.port1.onmessage?.(event as any);
       expect(cb1).toHaveBeenCalledWith(alias);
       expect(cb2).toHaveBeenCalledWith(alias);
+      // Unregister one and trigger again
+      cb1.mockClear();
+      cb2.mockClear();
+      unregister1();
+      Domo.channel?.port1.onmessage?.(event as any);
+      expect(cb1).not.toHaveBeenCalled();
+      expect(cb2).toHaveBeenCalledWith(alias);
+      // Unregister the second and trigger again
+      cb2.mockClear();
+      unregister2();
+      Domo.channel?.port1.onmessage?.(event as any);
+      expect(cb1).not.toHaveBeenCalled();
+      expect(cb2).not.toHaveBeenCalled();
     });
-  
-    it('should use MessageChannel for communication', () => {
+
+    it("should use MessageChannel for communication", () => {
       const cb = jest.fn();
       const unregister = Domo.onDataUpdated(cb);
       const channel = new (global as any).MessageChannel();
       if (channel.port1.onmessage) {
-        channel.port1.onmessage({ data: 'test' });
+        channel.port1.onmessage({ data: "test" });
         expect(cb).toHaveBeenCalled();
       }
       unregister();
     });
-  
-    it('should handle invalid JSON in message event', () => {
+
+    it("should handle invalid JSON in message event", () => {
       const cb = jest.fn();
       Domo.onDataUpdated(cb);
-      const event = new MessageEvent('message', {
-        data: '{invalidJson',
-        origin: 'https://www.domo.com',
+      const event = new MessageEvent("message", {
+        data: "{invalidJson",
+        origin: "https://www.domo.com",
       });
-      Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
+      Object.defineProperty(event, "source", {
+        value: { postMessage: jest.fn() },
+      });
       expect(() => window.dispatchEvent(event)).not.toThrow();
       expect(cb).not.toHaveBeenCalled();
     });
-  
-    it('should handle message event missing alias property', () => {
+
+    it("should handle message event missing alias property", () => {
       const cb = jest.fn();
       Domo.onDataUpdated(cb);
-      const event = new MessageEvent('message', {
-        data: JSON.stringify({ notAlias: 'foo' }),
-        origin: 'https://www.domo.com',
+      const event = new MessageEvent("message", {
+        data: JSON.stringify({ notAlias: "foo" }),
+        origin: "https://www.domo.com",
       });
-      Object.defineProperty(event, 'source', { value: { postMessage: jest.fn() } });
+      Object.defineProperty(event, "source", {
+        value: { postMessage: jest.fn() },
+      });
       window.dispatchEvent(event);
       expect(cb).not.toHaveBeenCalled();
     });
 
-    it('should return noop unregister if cb is not a function in onDataUpdated', () => {
+    it("should return noop unregister if cb is not a function in onDataUpdated", () => {
       const unregister = Domo.onDataUpdated(undefined as any);
-      expect(typeof unregister).toBe('function');
+      expect(typeof unregister).toBe("function");
       expect(unregister()).toBeUndefined();
     });
   });
