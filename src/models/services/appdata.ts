@@ -3,7 +3,7 @@
  *
  * @param appData - The app data to send, as a string.
  */
-export function sendAppData(appData: string) {
+export function requestAppDataUpdate(appData: string) {
   const message = JSON.stringify({
     event: "appData",
     appData,

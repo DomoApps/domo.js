@@ -1,8 +1,8 @@
 import { handleNode } from "./utils/domoutils";
 import { onDataUpdated } from "./models/services/dataset";
-import { filterContainer, onFiltersUpdated } from "./models/services/filters";
-import { onVariablesUpdated, sendVariables } from "./models/services/variables";
-import { onAppDataUpdated, sendAppData } from "./models/services/appdata";
+import { requestFiltersUpdate, onFiltersUpdated } from "./models/services/filters";
+import { onVariablesUpdated, requestVariablesUpdate } from "./models/services/variables";
+import { onAppDataUpdated, requestAppDataUpdate } from "./models/services/appdata";
 import { navigate } from "./models/services/navigation";
 import {
   get,
@@ -19,6 +19,7 @@ import {
   setFormatHeaders,
 } from "./utils/general";
 import { eventToListenerMap, getToken } from "./models/constants/general";
+import { EventType } from "./models/enums/askReply";
 
 /**
  * The Domo class provides a unified API for interacting with Domo platform features in client applications.
@@ -42,6 +43,9 @@ class Domo {
     onAppDataUpdated: [],
     onVariablesUpdated: [],
   };
+
+  private static ackCallbacks: Record<string, Function> = {};
+  private static replyCallbacks: Record<string, Function> = {};
 
   ////////////////////////////////////
   // DOMO API
@@ -75,10 +79,17 @@ class Domo {
   //
   // These send messages to the parent window via port2 of the MessageChannel
   ///////////////////////////////////////////
-  static filterContainer = filterContainer;
-  static sendVariables = sendVariables;
-  static sendAppData = sendAppData;
+  static requestFiltersUpdate = requestFiltersUpdate;
+  static requestVariablesUpdate = requestVariablesUpdate;
+  static requestAppDataUpdate = requestAppDataUpdate;
   static navigate = navigate;
+
+  /* @deprecated */
+  static readonly filterContainer = requestFiltersUpdate;
+  /* @deprecated */
+  static readonly sendVariables = requestVariablesUpdate;
+  /* @deprecated */
+  static readonly sendAppData = requestAppDataUpdate;
 
   ///////////////////////////////////////////
   // General
@@ -98,7 +109,7 @@ class Domo {
    *
    * @param skipFilters - If true, skips the initial filter updates.
    */
-  static connect = (skipFilters = false) => {
+  private static connect = (skipFilters = false) => {
     if (this.connected) return;
     this.connected = true;
     this.channel = new MessageChannel();
@@ -111,8 +122,16 @@ class Domo {
     const eventHandlers: {
       [event: string]: (data: any, responsePort: MessagePort) => void;
     } = {
+      ack: (message, responsePort) => {
+        this.ackCallbacks[message.requestId]?.(message);
+        delete this.ackCallbacks?.[message.requestId];
+      },
+      reply: (message, responsePort) => {
+        this.replyCallbacks[message.requestId]?.(message);
+        delete this.replyCallbacks?.[message.requestId];
+      },
       dataUpdated: (message, responsePort) => {
-        responsePort.postMessage({ event: "ack", alias: message.alias });
+        responsePort.postMessage({ type: "ACK", requestId: message.requestId });
         this.listeners.onDataUpdated.forEach((cb) => cb(message.alias));
       },
       filtersUpdated: (message, responsePort) => {
@@ -137,7 +156,8 @@ class Domo {
 
       const listenerKey = eventToListenerMap[e.data.event];
       const handler = eventHandlers[e.data.event];
-      if (handler && listenerKey && this.listeners[listenerKey]?.length > 0) {
+      const shouldExecute = (listenerKey && this.listeners[listenerKey]?.length > 0) || [EventType.ACK, EventType.REPLY].includes(e.data.type);
+      if (shouldExecute && handler) {
         handler(e.data, responsePort);
       }
     };
