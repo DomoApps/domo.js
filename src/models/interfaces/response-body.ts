@@ -1,5 +1,4 @@
-import { DomoDataTypes } from '../enums/domo-data-types';
-import { Json } from './json';
+import { DomoDataFormats, RequestOptions, QueryParams, RequestBody } from './request';
 
 /**
  * This comes from the documentation:
@@ -16,7 +15,7 @@ export interface ArrayResponseBody {
   numRows: number;
   metadata: {
     dataSourceId: string;
-    type: DomoDataTypes;
+    type: DomoDataFormats;
     maxLength?: number;
     minLength?: number;
   }[];
@@ -26,9 +25,3 @@ export interface ArrayResponseBody {
 export interface ObjectResponseBody {
   [columnName: string]: string | number | Date | null;
 }
-
-export type ResponseBody =
-  | Json
-  | Blob
-  | ArrayResponseBody
-  | ObjectResponseBody[];

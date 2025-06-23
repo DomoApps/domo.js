@@ -1,6 +1,5 @@
 import { DataFormats } from '../models/enums/data-formats';
-import { QueryParams } from '../models/interfaces/query-params';
-import { RequestOptions } from '../models/interfaces/request-options';
+import { QueryParams, RequestOptions } from '../models/interfaces/request';
 import { domoFormatToRequestFormat } from './data-helpers';
 
 const HOST_WHITELIST = /^(?:[\w-]+\.)*(domo|domotech|domorig)\.(com|io)$/i;

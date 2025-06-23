@@ -9,6 +9,7 @@ export * from './models/interfaces/query-params';
 export * from './models/interfaces/request-body';
 export * from './models/interfaces/request-options';
 export * from './models/interfaces/response-body';
+export * from './models/interfaces/request';
 export * from './models/services/appdata';
 export * from './models/services/dataset';
 export * from './models/services/filters';

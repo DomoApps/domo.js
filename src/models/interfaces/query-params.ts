@@ -1,3 +1,5 @@
+import { DomoDataFormats, RequestOptions, QueryParams, RequestBody, ArrayResponseBody, ObjectResponseBody, ResponseBody } from './request';
+
 /**
  * Query parameters for Domo requests.
  *

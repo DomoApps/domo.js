@@ -3,9 +3,7 @@ import { setAuthTokenHeader, setContentHeaders } from "../../utils/domoutils";
 import { setFormatHeaders } from "../../utils/general";
 import { DataFormats } from "../enums/data-formats";
 import { RequestMethods } from "../enums/request-methods";
-import { RequestBody } from "../interfaces/request-body";
-import { RequestOptions } from "../interfaces/request-options";
-import { ObjectResponseBody, ArrayResponseBody, ResponseBody } from "../interfaces/response-body";
+import { RequestBody, RequestOptions, ObjectResponseBody, ArrayResponseBody, ResponseBody } from "../interfaces/request";
 
 function domoHttp(method: RequestMethods, url: string, options: RequestOptions<'array-of-objects'>, body?: RequestBody): Promise<ObjectResponseBody[]>;
 function domoHttp(method: RequestMethods, url: string, options: RequestOptions<'array-of-arrays'>, body?: RequestBody): Promise<ArrayResponseBody>;

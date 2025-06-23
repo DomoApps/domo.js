@@ -1,3 +1,4 @@
+import { DomoDataFormats, RequestOptions, QueryParams, RequestBody, ArrayResponseBody, ObjectResponseBody, ResponseBody } from './request';
 import { Json } from './json';
 /**
  * This is from the XMLHttpRequest Documentation:
