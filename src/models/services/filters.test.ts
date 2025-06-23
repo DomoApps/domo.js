@@ -1,6 +1,5 @@
 import Domo from '../../domo';
-import { FilterOperatorsString } from '../interfaces/filter-operators';
-import { FilterDataTypes } from '../interfaces/filter-data-types';
+import { FilterDataTypes, FilterOperatorsString } from '../interfaces/filter';
 
 class MockMessagePort {
   onmessage: ((event: any) => void) | null = null;
@@ -109,7 +108,7 @@ describe('Filters Service', () => {
       Domo.onFiltersUpdated(cb);
       const port = makeMockPort();
       const filters = [{ foo: 'bar' }];
-      Domo.channel.port1.onmessage(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
+      Domo.channel?.port1.onmessage?.(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
       expect(port.postMessage).toHaveBeenCalled();
       expect(cb).toHaveBeenCalledWith(filters);
     });

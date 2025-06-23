@@ -3,8 +3,6 @@ export * from './models/enums/data-formats';
 export * from './models/enums/domo-data-types';
 export * from './models/enums/request-methods';
 export * from './models/interfaces/domo-data-formats';
-export * from './models/interfaces/filter-data-types';
-export * from './models/interfaces/filter-operators';
 export * from './models/interfaces/filter';
 export * from './models/interfaces/json';
 export * from './models/interfaces/query-params';
