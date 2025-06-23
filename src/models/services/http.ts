@@ -4,11 +4,11 @@ import { setFormatHeaders } from "../../utils/general";
 import { DataFormats } from "../enums/data-formats";
 import { RequestMethods } from "../enums/request-methods";
 import { RequestBody } from "../interfaces/request-body";
-import { ObjectRequestOptions, ArrayRequestOptions, RequestOptions } from "../interfaces/request-options";
+import { RequestOptions } from "../interfaces/request-options";
 import { ObjectResponseBody, ArrayResponseBody, ResponseBody } from "../interfaces/response-body";
 
-function domoHttp(method: RequestMethods, url: string, options: ObjectRequestOptions, body?: RequestBody): Promise<ObjectResponseBody[]>;
-function domoHttp(method: RequestMethods, url: string, options: ArrayRequestOptions, body?: RequestBody): Promise<ArrayResponseBody>;
+function domoHttp(method: RequestMethods, url: string, options: RequestOptions<'array-of-objects'>, body?: RequestBody): Promise<ObjectResponseBody[]>;
+function domoHttp(method: RequestMethods, url: string, options: RequestOptions<'array-of-arrays'>, body?: RequestBody): Promise<ArrayResponseBody>;
 function domoHttp(method: RequestMethods, url: string, options?: RequestOptions, body?: RequestBody): Promise<ResponseBody>;
 function domoHttp<T>(method: RequestMethods, url: string, options?: RequestOptions, body?: RequestBody): Promise<T>;
 async function domoHttp<T>(method: RequestMethods, url: string, options: RequestOptions = {}, body?: RequestBody): Promise<T> {
@@ -53,8 +53,8 @@ async function domoHttp<T>(method: RequestMethods, url: string, options: Request
     }
 }
 
-function get(url: string, options: ObjectRequestOptions): Promise<ObjectResponseBody[]>;
-function get(url: string, options: ArrayRequestOptions): Promise<ArrayResponseBody>;
+function get(url: string, options: RequestOptions<'array-of-objects'>): Promise<ObjectResponseBody[]>;
+function get(url: string, options: RequestOptions<'array-of-arrays'>): Promise<ArrayResponseBody>;
 function get(url: string, options?: RequestOptions): Promise<ResponseBody>;
 function get<T>(url: string, options?: RequestOptions): Promise<T>;
 function get<T>(url: string, options?: RequestOptions): Promise<T> {
@@ -62,8 +62,8 @@ function get<T>(url: string, options?: RequestOptions): Promise<T> {
   return handle(RequestMethods.GET, url, options);
 }
 
-function getAll(urls: string[], options: ObjectRequestOptions): Promise<ObjectResponseBody[][]>;
-function getAll(urls: string[], options: ArrayRequestOptions): Promise<ArrayResponseBody[]>;
+function getAll(urls: string[], options: RequestOptions<'array-of-objects'>): Promise<ObjectResponseBody[][]>;
+function getAll(urls: string[], options: RequestOptions<'array-of-arrays'>): Promise<ArrayResponseBody[]>;
 function getAll(urls: string[], options?: RequestOptions): Promise<ResponseBody[]>;
 function getAll<T>(urls: string[], options?: RequestOptions): Promise<T[]>;
 function getAll<T = ResponseBody>(urls: string[], options?: RequestOptions): Promise<T[]> {
