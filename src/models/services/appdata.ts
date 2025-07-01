@@ -28,3 +28,8 @@ export function onAppDataUpdated(callback: Function) {
     if (index >= 0) this.listeners.onAppDataUpdated.splice(index, 1);
   };
 }
+
+export function handleAppData(message: any, responsePort: MessagePort) {
+  responsePort.postMessage({});
+  this.listeners.onAppDataUpdated.forEach((cb: Function) => cb(message.appData));
+}

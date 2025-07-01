@@ -43,3 +43,8 @@ export function onVariablesUpdated(callback: Function) {
     if (index >= 0) this.listeners.onVariablesUpdated.splice(index, 1);
   };
 }
+
+export function handleVariablesUpdated(message: any, responsePort: MessagePort) {
+  responsePort.postMessage({});
+  this.listeners.onVariablesUpdated.forEach((cb: Function) => cb(message.variables));
+}

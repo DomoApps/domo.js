@@ -74,3 +74,8 @@ export function onFiltersUpdated(callback: Function) {
     if (index >= 0) this.listeners.onFiltersUpdated.splice(index, 1);
   };
 }
+
+export function handleFiltersUpdated(message: any, responsePort: MessagePort) {
+  responsePort.postMessage({});
+  this.listeners.onFiltersUpdated.forEach((cb: Function) => cb(message.filters));
+}

@@ -1,13 +1,24 @@
 /**
+ * The DomoEvent object defines a set of constants representing
+ * different event names used in the Domo class for event handling.
+ */
+export const DomoEvent = {
+  appData: "appData",
+  dataUpdated: "dataUpdated",
+  filtersUpdated: "filtersUpdated",
+  variablesUpdated: "variablesUpdated",
+} as const;
+
+/**
  * The eventToListenerKey object maps event names to their corresponding listener
  * method names. This is used to route events received from the parent window
  * to the appropriate listener methods in the Domo class.
  */
-export const eventToListenerMap: { [event: string]: string } = {
-  dataUpdated: "onDataUpdated",
-  filtersUpdated: "onFiltersUpdated",
-  appData: "onAppDataUpdated",
-  variablesUpdated: "onVariablesUpdated",
+export const eventToListenerMap: { [event in keyof typeof DomoEvent]: string } = {
+  [DomoEvent.appData]: "onAppDataUpdated",
+  [DomoEvent.dataUpdated]: "onDataUpdated",
+  [DomoEvent.filtersUpdated]: "onFiltersUpdated",
+  [DomoEvent.variablesUpdated]: "onVariablesUpdated",
 };
 
 /**

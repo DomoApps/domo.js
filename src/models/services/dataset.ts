@@ -15,3 +15,8 @@ export function onDataUpdated(callback: (alias: string) => void) {
     if (index >= 0) this.listeners.onDataUpdated.splice(index, 1);
   };
 }
+
+export function handleDataUpdated(message: any, responsePort: MessagePort) {
+  responsePort.postMessage({ event: "ack", alias: message.alias });
+  this.listeners.onDataUpdated.forEach((cb: Function) => cb(message.alias));
+}

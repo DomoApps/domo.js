@@ -68,3 +68,12 @@ export function setFormatHeaders(
 
   headers["Accept"] = requestFormat;
 }
+
+/**
+ * Generates a unique identifier using the crypto API.
+ * 
+ * @returns A unique identifier as a string.
+ */
+export function generateUniqueId(): string {
+  return crypto.randomUUID();
+}
