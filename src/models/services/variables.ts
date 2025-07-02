@@ -1,17 +1,35 @@
+import { generateUniqueId } from "../../utils/general";
+
 /**
  * Sends variables to the parent window or to the iOS webkit message handler.
  *
+ * @this {Domo} - The Domo instance context.
  * @param variables - The variables to send, as a string.
+ * @param onAck - Optional callback to invoke when the message is acknowledged.
+ * @param onReply - Optional callback to invoke when a reply is received.
+ * @returns void
  */
-export function sendVariables(variables: string) {
+export function sendVariables(variables: string, onAck?: Function, onReply?: Function) {
+  const requestId = generateUniqueId();
   const userAgent = window.navigator.userAgent.toLowerCase();
   const ios = /iphone|ipod|ipad/.test(userAgent);
-  const message = JSON.stringify({
-    event: "variables",
+  const message = {
+    requestId,
+    event: "variable",
     variables,
-  });
+  };
 
-  if (!ios) return window.parent.postMessage(message, "*");
+  this.requests[requestId] = {
+    request: {
+      payload: message,
+      onAck,
+      onReply,
+      status: "pending",
+      sentAt: Date.now(),
+    },
+  };
+
+  if (!ios) return window.parent.postMessage(JSON.stringify(message), "*");
 
   if (
     typeof (window as any).webkit?.messageHandlers?.domovariable
@@ -44,7 +62,19 @@ export function onVariablesUpdated(callback: Function) {
   };
 }
 
-export function handleVariablesUpdated(message: any, responsePort: MessagePort) {
-  responsePort.postMessage({});
+/**
+ * Handles the updated variables message.
+ * 
+ * @this {Domo} - The Domo instance context.
+ * @param message - The message containing updated variables.
+ * @param responsePort - The port to send the response back.
+ * @returns void
+ */
+export function handleVariablesUpdated(message: any, responsePort?: MessagePort) {
+  if (!message) return;
+  
+  responsePort?.postMessage({});
   this.listeners.onVariablesUpdated.forEach((cb: Function) => cb(message.variables));
+
+  this.handleReply(message.requestId, message.variables, message.error);
 }

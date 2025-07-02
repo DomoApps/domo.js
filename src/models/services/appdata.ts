@@ -1,15 +1,33 @@
+import { generateUniqueId } from "../../utils/general";
+
 /**
  * Sends app data to the parent window.
  *
+ * @this {Domo} - The Domo instance context.
  * @param appData - The app data to send, as a string.
+ * @param onAck - Optional callback to invoke when the message is acknowledged.
+ * @param onReply - Optional callback to invoke when a reply is received.
  */
-export function sendAppData(appData: string) {
-  const message = JSON.stringify({
+export function sendAppData(appData: string, onAck?: Function, onReply?: Function) {
+  const requestId = generateUniqueId();
+
+  const payload = {
+    requestId,
     event: "appData",
     appData,
-  });
+  };
 
-  window.parent.postMessage(message, "*");
+  this.requests[requestId] = {
+    request: {
+      payload,
+      onAck,
+      onReply,
+      status: "pending",
+      sentAt: Date.now(),
+    },
+  };
+
+  window.parent.postMessage(JSON.stringify(payload), "*");
 }
 
 /**
@@ -29,7 +47,20 @@ export function onAppDataUpdated(callback: Function) {
   };
 }
 
+/**
+ * Handles incoming app data messages and invokes registered callbacks.
+ * 
+ * @param message - The message containing app data.
+ * @param responsePort - The port to send the response back.
+ * @returns void
+ */
 export function handleAppData(message: any, responsePort: MessagePort) {
+  if (!message || !responsePort) return;
+
   responsePort.postMessage({});
-  this.listeners.onAppDataUpdated.forEach((cb: Function) => cb(message.appData));
+  this.listeners.onAppDataUpdated.forEach((cb: Function) =>
+    cb(message.appData)
+  );
+
+  this.handleReply(message.requestId, message.appData, message.error);
 }

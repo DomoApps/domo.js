@@ -88,6 +88,8 @@ class Domo {
   /////////////////////////////////////////
   static handleAck = handleAck;
   static handleReply = handleReply;
+  static getRequests = () => this.requests;
+  static getRequest = (requestId: string) => this.requests[requestId];
   static readonly env = getQueryParams();
   static readonly __util = {
     isVerifiedOrigin,
@@ -120,17 +122,13 @@ class Domo {
       [DomoEvent.filtersUpdated]: handleFiltersUpdated.bind(this),
       [DomoEvent.appData]: handleAppData.bind(this),
       [DomoEvent.variablesUpdated]: handleVariablesUpdated.bind(this),
+      [DomoEvent.ack]: handleAck.bind(this),
     };
   
     this.channel.port1.onmessage = (e: MessageEvent) => {
       const [responsePort] = e.ports;
-      if (!responsePort) return;
-  
-      const listenerKey = eventToListenerMap[e.data.event as keyof typeof eventToListenerMap];
       const handler = eventHandlers[e.data.event as keyof typeof DomoEvent];
-      if (handler && listenerKey && this.listeners[listenerKey]?.length > 0) {
-        handler(e.data, responsePort);
-      }
+      handler?.(e.data, responsePort);
     };
   };
 

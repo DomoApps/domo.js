@@ -7,6 +7,7 @@ export const DomoEvent = {
   dataUpdated: "dataUpdated",
   filtersUpdated: "filtersUpdated",
   variablesUpdated: "variablesUpdated",
+  ack: "ack",
 } as const;
 
 /**
@@ -14,7 +15,7 @@ export const DomoEvent = {
  * method names. This is used to route events received from the parent window
  * to the appropriate listener methods in the Domo class.
  */
-export const eventToListenerMap: { [event in keyof typeof DomoEvent]: string } = {
+export const eventToListenerMap: { [event in keyof Omit<typeof DomoEvent, 'ack'>]: string } = {
   [DomoEvent.appData]: "onAppDataUpdated",
   [DomoEvent.dataUpdated]: "onDataUpdated",
   [DomoEvent.filtersUpdated]: "onFiltersUpdated",

@@ -70,10 +70,17 @@ export function setFormatHeaders(
 }
 
 /**
- * Generates a unique identifier using the crypto API.
+ * Generates a unique identifier using the crypto API if available, otherwise falls back to a random string.
  * 
  * @returns A unique identifier as a string.
  */
 export function generateUniqueId(): string {
-  return crypto.randomUUID();
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+    return crypto.randomUUID();
+  
+  // Fallback: simple random string (not RFC4122 compliant, but sufficient for test environments)
+  return 'xxxxxxxxyxxxxyxxxyxxxxyxxxxyxxxxy'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    return r.toString(16);
+  });
 }

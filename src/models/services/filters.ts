@@ -1,3 +1,4 @@
+import { generateUniqueId } from "../../utils/general";
 import { Filter } from "../interfaces/filter";
 
 declare global {
@@ -15,17 +16,22 @@ declare global {
 /**
  * Sends filter data to the parent window or to the iOS webkit message handler.
  *
+ * @this {Domo} - The Domo instance context.
  * @param filters - An array of Filter objects or null.
  * @param pageStateUpdate - Optional boolean indicating if the page state should be updated.
  */
 export function filterContainer(
   filters: Filter[] | null,
-  pageStateUpdate: boolean | null = null
-): void {
+  pageStateUpdate: boolean | null = null,
+  onAck?: Function,
+  onReply?: Function
+): string {
+  const requestId = generateUniqueId();
   const userAgent = window.navigator.userAgent.toLowerCase();
   const ios = /iphone|ipod|ipad/.test(userAgent);
 
-  const message = JSON.stringify({
+  const request = {
+    requestId,
     event: "filter",
     filter: filters?.map((filter) => ({
       columnName: filter.column,
@@ -34,7 +40,17 @@ export function filterContainer(
       dataType: filter.dataType,
     })),
     pageStateUpdate,
-  });
+  };
+
+  this.requests[requestId] = {
+    request: {
+      payload: request,
+      onAck,
+      onReply,
+      status: "pending",
+      sentAt: Date.now(),
+    },
+  };
 
   if (
     ios &&
@@ -54,14 +70,17 @@ export function filterContainer(
       console.error("Failed to post message to iOS handler:", err);
     }
   } else {
-    window.parent.postMessage(message, "*");
+    window.parent.postMessage(JSON.stringify(request), "*");
   }
+
+  return request.requestId;
 }
 
 /**
  * Registers a callback to be invoked when filters are updated.
  * NOTE: this references the Domo object, so it should be called in the context of Domo.
  *
+ * @this {Domo} - The Domo instance context.
  * @param callback - The function to call when filters are updated.
  * @returns A function to unregister the callback.
  */
@@ -75,7 +94,21 @@ export function onFiltersUpdated(callback: Function) {
   };
 }
 
-export function handleFiltersUpdated(message: any, responsePort: MessagePort) {
-  responsePort.postMessage({});
-  this.listeners.onFiltersUpdated.forEach((cb: Function) => cb(message.filters));
+/**
+ * Handles the updated filters message.
+ * 
+ * @this {Domo} - The Domo instance context.
+ * @param message - The message containing updated filters.
+ * @param responsePort - The port to send the response back.
+ * @returns void
+ */
+export function handleFiltersUpdated(message: any, responsePort?: MessagePort): void {
+  if (!message) return;
+
+  responsePort?.postMessage({});
+  this.listeners.onFiltersUpdated.forEach((cb: Function) =>
+    cb(message.filters)
+  );
+
+  this.handleReply(message.requestId, message.filters, message.error);
 }

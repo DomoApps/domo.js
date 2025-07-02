@@ -7,7 +7,8 @@
  * @param requestId - The ID of the request to acknowledge.
  * @returns void
  */
-export function handleAck(requestId: string) {
+export function handleAck(data: any, responsePort: MessagePort) {
+  const { requestId } = data;
   if (!requestId) return;
 
   const entry = this.requests[requestId];
@@ -37,7 +38,7 @@ export function handleAck(requestId: string) {
  */
 export function handleReply(requestId: string, payload: any, error?: Error) {
   if (!requestId) return;
-  
+
   const entry = this.requests[requestId];
   if (!entry) return console.warn(`No request found for ID: ${requestId}`);
 
