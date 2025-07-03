@@ -3,11 +3,11 @@
  *
  * @param variables - The variables to send, as a string.
  */
-export function sendVariables(variables: string) {
+export function requestVariablesUpdate(variables: string) {
   const userAgent = window.navigator.userAgent.toLowerCase();
   const ios = /iphone|ipod|ipad/.test(userAgent);
   const message = JSON.stringify({
-    event: "variables",
+    event: "variable",
     variables,
   });
 

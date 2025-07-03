@@ -17,16 +17,27 @@ declare global {
  *
  * @param filters - An array of Filter objects or null.
  * @param pageStateUpdate - Optional boolean indicating if the page state should be updated.
+ * @param onAck - Callback function to be called when the filters are acknowledged.
+ * @param onReply - Callback function to be called when the filters are replied.
  */
-export function filterContainer(
+export function requestFiltersUpdate(
   filters: Filter[] | null,
-  pageStateUpdate: boolean | null = null
+  pageStateUpdate: boolean | null = null,
+  onAck: (filters: Filter[] | null) => void = () => {},
+  onReply: (filters: Filter[] | null) => void = () => {}
 ): void {
+  const requestId = Math.random().toString(36).slice(2);
+  if (onAck) this.ackCallbacks[requestId] = onAck;
+  if (onReply) this.replyCallbacks[requestId] = onReply;
+
   const userAgent = window.navigator.userAgent.toLowerCase();
   const ios = /iphone|ipod|ipad/.test(userAgent);
 
   const message = JSON.stringify({
-    event: "filter",
+    event: "filter", // <-- Old way: Support for legacy systems
+    type: "ASK",
+    action: "filtersUpdate",
+    requestId,
     filter: filters?.map((filter) => ({
       columnName: filter.column,
       operator: filter.operator ?? (filter as any).operand,
