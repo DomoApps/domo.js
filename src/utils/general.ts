@@ -79,8 +79,9 @@ export function generateUniqueId(): string {
     return crypto.randomUUID();
   
   // Fallback: simple random string (not RFC4122 compliant, but sufficient for test environments)
+  const BASE_HEX = 16;
   return 'xxxxxxxxyxxxxyxxxyxxxxyxxxxyxxxxy'.replace(/[xy]/g, function (c) {
-    const r = (Math.random() * 16) | 0;
-    return r.toString(16);
+    const r = (Math.random() * BASE_HEX) | 0;
+    return r.toString(BASE_HEX);
   });
 }
