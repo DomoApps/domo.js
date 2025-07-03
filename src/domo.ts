@@ -1,8 +1,8 @@
 import { handleNode } from "./utils/domoutils";
 import { handleDataUpdated, onDataUpdated } from "./models/services/dataset";
-import { filterContainer, handleFiltersUpdated, onFiltersUpdated } from "./models/services/filters";
-import { handleVariablesUpdated, onVariablesUpdated, sendVariables } from "./models/services/variables";
-import { handleAppData, onAppDataUpdated, sendAppData } from "./models/services/appdata";
+import { handleFiltersUpdated, onFiltersUpdated, requestFiltersUpdate } from "./models/services/filters";
+import { handleVariablesUpdated, onVariablesUpdated, requestVariablesUpdate } from "./models/services/variables";
+import { handleAppData, onAppDataUpdated, requestAppDataUpdate } from "./models/services/appdata";
 import { navigate } from "./models/services/navigation";
 import {
   get,
@@ -46,6 +46,9 @@ class Domo {
     onVariablesUpdated: [],
   };
 
+  private static ackCallbacks: Record<string, Function> = {};
+  private static replyCallbacks: Record<string, Function> = {};
+
   ////////////////////////////////////
   // DOMO API
   //////////////////////////////////
@@ -78,10 +81,17 @@ class Domo {
   //
   // These send messages to the parent window via port2 of the MessageChannel
   ///////////////////////////////////////////
-  static filterContainer = filterContainer;
-  static sendVariables = sendVariables;
-  static sendAppData = sendAppData;
+  static requestFiltersUpdate = requestFiltersUpdate;
+  static requestVariablesUpdate = requestVariablesUpdate;
+  static requestAppDataUpdate = requestAppDataUpdate;
   static navigate = navigate;
+
+  /* @deprecated */
+  static readonly filterContainer = this.requestFiltersUpdate;
+  /* @deprecated */
+  static readonly sendVariables = this.requestVariablesUpdate;
+  /* @deprecated */
+  static readonly sendAppData = this.requestAppDataUpdate;
 
   ///////////////////////////////////////////
   // General
@@ -105,7 +115,7 @@ class Domo {
    *
    * @param skipFilters - If true, skips the initial filter updates.
    */
-  static connect = (skipFilters = false) => {
+  private static connect = (skipFilters = false) => {
     if (this.connected) return;
     this.connected = true;
     this.channel = new MessageChannel();

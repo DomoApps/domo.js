@@ -55,7 +55,11 @@
           return;
         }
 
-        const STATUS_LABELS = { success: "Success", fail: "Fail", pending: "Pending" };
+        const STATUS_LABELS = {
+          success: "Success",
+          fail: "Fail",
+          pending: "Pending",
+        };
         const EVENT_FEATURES = [
           "onDataUpdated",
           "onFiltersUpdated",
@@ -102,7 +106,9 @@
             name: "http-get",
             fn: async () => {
               if (!domo.get) throw new Error("Not implemented");
-              return domo.get("/domo/datastores/v1/collections/SanityTest/documents/");
+              return domo.get(
+                "/domo/datastores/v1/collections/SanityTest/documents/"
+              );
             },
           },
           {
@@ -116,7 +122,8 @@
             name: "sendVariables",
             fn: () => {
               if (!domo.sendVariables) throw new Error("Not implemented");
-              return domo.sendVariables({ test: 1 });
+              console.log("DomoApp: sendVariables", { 83942: 1 });
+              return domo.sendVariables({ 83942: 1 });
             },
           },
           {
@@ -128,12 +135,14 @@
           {
             name: "onFiltersUpdated",
             fn: () => new Promise(),
-            pendingMsg: "This will run when you add or modify any filter on this page.",
+            pendingMsg:
+              "This will run when you add or modify any filter on this page.",
           },
           {
             name: "onVariablesUpdated",
             fn: () => new Promise(),
-            pendingMsg: "To trigger this, change the variable at the top of this page.",
+            pendingMsg:
+              "To trigger this, change the variable at the top of this page.",
           },
           {
             name: "onAppDataUpdated",
@@ -213,15 +222,18 @@
         // 4) Run non-event tests sequentially
         async function runAllTests() {
           for (const { name } of features) {
-            if (EVENT_FEATURES.includes(name) || name === "sendAppData") continue;
+            if (EVENT_FEATURES.includes(name) || name === "sendAppData")
+              continue;
             updateRow(name, "pending", ""); // reset status
           }
           for (const feat of features) {
             const { name, fn } = feat;
-            if (EVENT_FEATURES.includes(name) || name === "sendAppData") continue;
+            if (EVENT_FEATURES.includes(name) || name === "sendAppData")
+              continue;
             try {
               const res = await fn();
-              const detail = typeof res === "string" ? res : JSON.stringify(res);
+              const detail =
+                typeof res === "string" ? res : JSON.stringify(res);
               updateRow(name, "success", detail);
             } catch (e) {
               updateRow(name, "fail", e.message || String(e));
@@ -242,7 +254,9 @@
           }
         }
 
-        document.getElementById("runTests").addEventListener("click", runAllTests);
+        document
+          .getElementById("runTests")
+          .addEventListener("click", runAllTests);
       })();
     </script>
   </body>

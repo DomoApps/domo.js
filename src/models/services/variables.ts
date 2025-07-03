@@ -9,7 +9,7 @@ import { generateUniqueId } from "../../utils/general";
  * @param onReply - Optional callback to invoke when a reply is received.
  * @returns void
  */
-export function sendVariables(variables: string, onAck?: Function, onReply?: Function) {
+export function requestVariablesUpdate(variables: string, onAck?: Function, onReply?: Function) {
   const requestId = generateUniqueId();
   const userAgent = window.navigator.userAgent.toLowerCase();
   const ios = /iphone|ipod|ipad/.test(userAgent);

@@ -8,7 +8,7 @@ import { generateUniqueId } from "../../utils/general";
  * @param onAck - Optional callback to invoke when the message is acknowledged.
  * @param onReply - Optional callback to invoke when a reply is received.
  */
-export function sendAppData(appData: string, onAck?: Function, onReply?: Function) {
+export function requestAppDataUpdate(appData: string, onAck?: Function, onReply?: Function) {
   const requestId = generateUniqueId();
 
   const payload = {

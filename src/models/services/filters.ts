@@ -19,8 +19,10 @@ declare global {
  * @this {Domo} - The Domo instance context.
  * @param filters - An array of Filter objects or null.
  * @param pageStateUpdate - Optional boolean indicating if the page state should be updated.
+ * @param onAck - Callback function to be called when the filters are acknowledged.
+ * @param onReply - Callback function to be called when the filters are replied.
  */
-export function filterContainer(
+export function requestFiltersUpdate(
   filters: Filter[] | null,
   pageStateUpdate: boolean | null = null,
   onAck?: Function,
