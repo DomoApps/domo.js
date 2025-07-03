@@ -18,7 +18,7 @@ import {
   getQueryParams,
   setFormatHeaders,
 } from "./utils/general";
-import { DomoEvent, eventToListenerMap, getToken } from "./models/constants/general";
+import { DomoEvent, getToken } from "./models/constants/general";
 import { AskReplyMap } from "./models/interfaces/ask-reply";
 import { handleAck, handleReply } from "./utils/ask-reply";
 
@@ -45,9 +45,6 @@ class Domo {
     onAppDataUpdated: [],
     onVariablesUpdated: [],
   };
-
-  private static ackCallbacks: Record<string, Function> = {};
-  private static replyCallbacks: Record<string, Function> = {};
 
   ////////////////////////////////////
   // DOMO API
