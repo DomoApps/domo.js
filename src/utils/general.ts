@@ -1,6 +1,5 @@
 import { DataFormats } from '../models/enums/data-formats';
-import { QueryParams } from '../models/interfaces/query-params';
-import { RequestOptions } from '../models/interfaces/request-options';
+import { QueryParams, RequestOptions } from '../models/interfaces/request';
 import { domoFormatToRequestFormat } from './data-helpers';
 
 const HOST_WHITELIST = /^(?:[\w-]+\.)*(domo|domotech|domorig)\.(com|io)$/i;
@@ -68,4 +67,21 @@ export function setFormatHeaders(
       : DataFormats.ARRAY_OF_OBJECTS;
 
   headers["Accept"] = requestFormat;
+}
+
+/**
+ * Generates a unique identifier using the crypto API if available, otherwise falls back to a random string.
+ * 
+ * @returns A unique identifier as a string.
+ */
+export function generateUniqueId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+    return crypto.randomUUID();
+  
+  // Fallback: simple random string (not RFC4122 compliant, but sufficient for test environments)
+  const BASE_HEX = 16;
+  return 'xxxxxxxxyxxxxyxxxyxxxxyxxxxyxxxxy'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * BASE_HEX) | 0;
+    return r.toString(BASE_HEX);
+  });
 }

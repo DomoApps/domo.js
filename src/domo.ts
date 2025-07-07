@@ -1,8 +1,8 @@
 import { handleNode } from "./utils/domoutils";
-import { onDataUpdated } from "./models/services/dataset";
-import { requestFiltersUpdate, onFiltersUpdated } from "./models/services/filters";
-import { onVariablesUpdated, requestVariablesUpdate } from "./models/services/variables";
-import { onAppDataUpdated, requestAppDataUpdate } from "./models/services/appdata";
+import { handleDataUpdated, onDataUpdated } from "./models/services/dataset";
+import { handleFiltersUpdated, onFiltersUpdated, requestFiltersUpdate } from "./models/services/filters";
+import { handleVariablesUpdated, onVariablesUpdated, requestVariablesUpdate } from "./models/services/variables";
+import { handleAppData, onAppDataUpdated, requestAppDataUpdate } from "./models/services/appdata";
 import { navigate } from "./models/services/navigation";
 import {
   get,
@@ -18,8 +18,9 @@ import {
   getQueryParams,
   setFormatHeaders,
 } from "./utils/general";
-import { eventToListenerMap, getToken } from "./models/constants/general";
-import { EventType } from "./models/enums/askReply";
+import { DomoEvent, getToken } from "./models/constants/general";
+import { AskReplyMap } from "./models/interfaces/ask-reply";
+import { handleAck, handleReply } from "./utils/ask-reply";
 
 /**
  * The Domo class provides a unified API for interacting with Domo platform features in client applications.
@@ -35,6 +36,7 @@ import { EventType } from "./models/enums/askReply";
  * - Handles cross-frame communication and DOM mutation observation for token injection
  */
 class Domo {
+  private static requests: AskReplyMap = {};
   public static channel?: MessageChannel;
   public static connected = false;
   public static listeners: { [index: string]: Function[] } = {
@@ -43,9 +45,6 @@ class Domo {
     onAppDataUpdated: [],
     onVariablesUpdated: [],
   };
-
-  private static ackCallbacks: Record<string, Function> = {};
-  private static replyCallbacks: Record<string, Function> = {};
 
   ////////////////////////////////////
   // DOMO API
@@ -85,15 +84,19 @@ class Domo {
   static navigate = navigate;
 
   /* @deprecated */
-  static readonly filterContainer = requestFiltersUpdate;
+  static readonly filterContainer = this.requestFiltersUpdate;
   /* @deprecated */
-  static readonly sendVariables = requestVariablesUpdate;
+  static readonly sendVariables = this.requestVariablesUpdate;
   /* @deprecated */
-  static readonly sendAppData = requestAppDataUpdate;
+  static readonly sendAppData = this.requestAppDataUpdate;
 
   ///////////////////////////////////////////
   // General
   /////////////////////////////////////////
+  static handleAck = handleAck;
+  static handleReply = handleReply;
+  static getRequests = () => this.requests;
+  static getRequest = (requestId: string) => this.requests[requestId];
   static readonly env = getQueryParams();
   static readonly __util = {
     isVerifiedOrigin,
@@ -118,48 +121,21 @@ class Domo {
       "*",
       [this.channel.port2]
     );
-
+  
     const eventHandlers: {
-      [event: string]: (data: any, responsePort: MessagePort) => void;
+      [event in keyof typeof DomoEvent]: (data: any, responsePort: MessagePort) => void;
     } = {
-      ack: (message, responsePort) => {
-        this.ackCallbacks[message.requestId]?.(message);
-        delete this.ackCallbacks?.[message.requestId];
-      },
-      reply: (message, responsePort) => {
-        this.replyCallbacks[message.requestId]?.(message);
-        delete this.replyCallbacks?.[message.requestId];
-      },
-      dataUpdated: (message, responsePort) => {
-        responsePort.postMessage({ type: "ACK", requestId: message.requestId });
-        this.listeners.onDataUpdated.forEach((cb) => cb(message.alias));
-      },
-      filtersUpdated: (message, responsePort) => {
-        responsePort.postMessage({});
-        this.listeners.onFiltersUpdated.forEach((cb) => cb(message.filters));
-      },
-      appData: (message, responsePort) => {
-        responsePort.postMessage({});
-        this.listeners.onAppDataUpdated.forEach((cb) => cb(message.appData));
-      },
-      variablesUpdated: (message, responsePort) => {
-        responsePort.postMessage({});
-        this.listeners.onVariablesUpdated.forEach((cb) =>
-          cb(message.variables)
-        );
-      },
+      [DomoEvent.dataUpdated]: handleDataUpdated.bind(this),
+      [DomoEvent.filtersUpdated]: handleFiltersUpdated.bind(this),
+      [DomoEvent.appData]: handleAppData.bind(this),
+      [DomoEvent.variablesUpdated]: handleVariablesUpdated.bind(this),
+      [DomoEvent.ack]: handleAck.bind(this),
     };
-
+  
     this.channel.port1.onmessage = (e: MessageEvent) => {
       const [responsePort] = e.ports;
-      if (!responsePort) return;
-
-      const listenerKey = eventToListenerMap[e.data.event];
-      const handler = eventHandlers[e.data.event];
-      const shouldExecute = (listenerKey && this.listeners[listenerKey]?.length > 0) || [EventType.ACK, EventType.REPLY].includes(e.data.type);
-      if (shouldExecute && handler) {
-        handler(e.data, responsePort);
-      }
+      const handler = eventHandlers[e.data.event as keyof typeof DomoEvent];
+      handler?.(e.data, responsePort);
     };
   };
 

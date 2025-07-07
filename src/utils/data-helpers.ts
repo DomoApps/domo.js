@@ -1,5 +1,5 @@
 import { DataFormats } from "../models/enums/data-formats";
-import { DomoDataFormats } from "../models/interfaces/domo-data-formats";
+import { DomoDataFormats } from "../models/interfaces/request";
 
 /**
  * Converts a DomoDataFormats value to the corresponding DataFormats enum value for HTTP requests.
