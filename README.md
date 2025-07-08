@@ -1,4 +1,4 @@
----
+--- 
 stoplight-id: e947d87e17547
 ---
 
@@ -11,6 +11,35 @@ stoplight-id: e947d87e17547
 > If you are new to JavaScript programming, we recommend reviewing a JavaScript tutorial before proceeding. A basic understanding of JavaScript is required to use domo.js effectively.
 
 The `domo.js` library provides convenient utilities for building Custom Apps. The documentation below provides instructions on how to use each of these major utilities when building a Custom App.
+
+---
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Global API Overview](#global-api-overview)
+- [Usage](#usage)
+  - [HTTP Methods](#http-methods)
+    - [domo.get](#domoget)
+    - [domo.getAll](#domogetall)
+    - [domo.post](#domopost)
+    - [domo.put](#domoput)
+    - [domo.delete](#domodelete)
+  - [Navigation](#domonavigate)
+  - [Environment](#domoenv)
+  - [Data & Event Handling](#data--event-handling)
+    - [domo.onDataUpdated](#domoondataupdated)
+    - [domo.filterContainer](#domofiltercontainer)
+    - [domo.onFiltersUpdate](#domoonfiltersupdate)
+    - [domo.onVariablesUpdated](#domoonvariablesupdated)
+    - [domo.sendVariables](#domosendvariables)
+    - [domo.onAppDataUpdated](#domoonappdataupdated)
+    - [domo.sendAppData](#domosendappdata)
+- [Error Handling](#error-handling)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
 
 ## Installation
 
@@ -38,13 +67,30 @@ title: Script Tag
 
 <!-- type: tab-end -->
 
+## Global API Overview
+
+The `domo` object is available globally in your app and provides the following methods and properties:
+
+- **HTTP Methods:** `get`, `getAll`, `post`, `put`, `delete`
+- **Navigation:** `navigate`
+- **Environment:** `env`
+- **Filters:** `filterContainer`, `onFiltersUpdate`
+- **Variables:** `onVariablesUpdated`, `sendVariables`
+- **App Data:** `onAppDataUpdated`, `sendAppData`
+- **Events:** `onDataUpdated`
+- **Utilities:** (internal use, not all are public)
+
+---
+
 ## Usage
 
 ---
 
 Once installed, you can use the `domo.js` library in your Custom App. The library is available as a global variable named `domo`.
 
-### domo.get()
+### HTTP Methods
+
+#### domo.get()
 
 ---
 
@@ -52,9 +98,15 @@ Once installed, you can use the `domo.js` library in your Custom App. The librar
 call the data endpoint with your DataSet's alias (`sales` in this example):
 
 ```js
-domo.get('/data/v1/sales').then(function (data) {
-  console.log('data', data);
-});
+const data = await domo.get('/data/v1/sales');
+console.log('data', data);
+
+/**
+ * [
+ *   {... defined props in manifest.json ...},
+ *   ...
+ * ]
+ */
 ```
 
 <!-- theme: info -->
@@ -66,9 +118,9 @@ domo.get('/data/v1/sales').then(function (data) {
 Domo supports a few different data formats. To specify the one you want, pass an options argument to `domo.get`:
 
 ```js
-domo.get('/data/v1/sales', { format: 'csv' }).then(function (data) {
-  console.log('data', data);
-});
+const format = 'csv';
+const data = await domo.get('/data/v1/sales', { format });
+console.log('data', data);
 ```
 
 The supported data formats are:
@@ -92,6 +144,72 @@ function uploadFile(name, description = '', isPublic = true, file) {
   return domo.post(url, formData, options);
 }
 ```
+
+#### domo.getAll()
+
+Fetch multiple datasets or endpoints in parallel. Returns a Promise resolving to an array of results.
+
+```js
+const [sales, inventory] = await domo.getAll(['/data/v1/sales', '/data/v1/inventory']);
+```
+
+#### domo.post()
+
+Send a POST request. Takes a URL, a body (object or FormData), and optional options.
+
+```js
+// This is an AppDB endpoint, view that documentation to learn more about payloads
+const url = '/domo/datastores/v1/collections/Users/documents/';
+const data = await domo.post(url, { foo: 'bar' });
+
+/** 
+ * Response Payload
+ * { 
+ *   id: abc123,
+ *   ...
+ *   content: {
+ *     foo: 'bar'
+ *   }
+ * }
+ */
+```
+
+#### domo.put()
+
+Send a PUT request. Takes a URL, a body, and optional options.
+
+```js
+// This is an AppDB endpoint, view that documentation to learn more about payloads
+const url = '/domo/datastores/v1/collections/Users/documents/abc123';
+const data = await domo.put(url, { foo: 'baz' });
+
+/** 
+ * Response Payload
+ * { 
+ *   id: abc123,
+ *   ...
+ *   content: {
+ *     foo: 'baz'
+ *   }
+ * }
+ */
+```
+
+#### domo.delete()
+
+Send a DELETE request. Takes a URL and optional options.
+
+```js
+// This is an AppDB endpoint, view that documentation to learn more about payloads
+const url = '/domo/datastores/v1/collections/Users/documents/abc123';
+const data = await domo.delete(url);
+/** 
+ * Response Payload
+ * true | false
+ */
+```
+
+---
 
 ### domo.navigate()
 
@@ -129,6 +247,8 @@ For mobile web, the routes are currently prefixed with `/m#`. For example: `/m#/
 >
 > For security reasons, Custom Apps can link only to approved, whitelisted domains by default. You can whitelist domains or authorize linking to all domains in "Admin" > "Network Security" > "Custom Apps authorized domains". If you don't see this option, you may need the "Domo Apps Whitelisting" feature switch enabled in your Domo instance.
 
+---
+
 ### domo.env
 
 ---
@@ -149,7 +269,7 @@ The domo.js library parses and exposes these in the `domo.env` object.
 
 An id to identify the page in Domo that the app is currently living on.
 
-```
+```js
 domo.env.pageId // Example: 943487158
 ```
 
@@ -157,7 +277,7 @@ domo.env.pageId // Example: 943487158
 
 An id unique to the user that is viewing the card.
 
-```
+```js
 domo.env.userId // Example: 2133179061
 ```
 
@@ -165,7 +285,7 @@ domo.env.userId // Example: 2133179061
 
 The name of the customer on which the app has been installed.
 
-```
+```js
 domo.env.customer // Example: domo-instance
 ```
 
@@ -173,7 +293,7 @@ domo.env.customer // Example: domo-instance
 
 The locale set on the customer that the app is installed with.
 
-```
+```js
 domo.env.locale // Example: en-US
 ```
 
@@ -181,7 +301,7 @@ domo.env.locale // Example: en-US
 
 The environment that the app is running on. This may be useful for hiding features that are not ready for production yet.
 
-```
+```js
 domo.env.environment // Example: dev3
 ```
 
@@ -189,15 +309,25 @@ domo.env.environment // Example: dev3
 
 The platform that the user is using to view the app. Currently only `desktop` is supported, but there are plans for `mobile` to be implemented as well.
 
-```
+```js
 domo.env.platform // Example: desktop
 ```
 
-### domo.onDataUpdate()
+---
+
+## Data & Event Handling
+
+### domo.onDataUpdated()
 
 ---
 
-If your app needs to respond to data updates without performing a full app reload, you can use `domo.onDataUpdate`. See [Handling Data Updates](../Guides/handling-data-updates.md).
+Registers a callback to be called when the underlying dataset changes. Useful for live-updating apps. The parameter passed to the callback will be the alias of the dataset that was updated.
+
+```js
+domo.onDataUpdated((datasetAlias) => {
+  // handle updated data
+});
+```
 
 ### domo.filterContainer()
 
@@ -300,3 +430,56 @@ domo.onVariablesUpdated(console.log);
 //   }
 // }
 ```
+
+### domo.sendVariables()
+
+Programmatically update variables on the page.
+
+```js
+domo.sendVariables({ variableId: "value" });
+```
+
+### domo.onAppDataUpdated()
+
+Registers a callback for when app data changes.
+
+```js
+domo.onAppDataUpdated((data) => {
+  // handle app data update
+});
+```
+
+### domo.sendAppData()
+
+Send custom app data to the Domo platform.
+
+```js
+domo.sendAppData({ key: "value" });
+```
+
+---
+
+## Error Handling
+
+All HTTP methods return Promises. Use `.catch` to handle errors:
+
+```js
+domo.get('/data/v1/sales')
+  .then(data => { /* ... */ })
+  .catch(err => {
+    // handle error
+    console.error(err);
+  });
+```
+
+---
+
+## Contributing
+
+Contributions are welcome! Please open issues or pull requests on GitHub.
+
+---
+
+## License
+
+MIT License. See [LICENSE](./LICENSE) for details.
