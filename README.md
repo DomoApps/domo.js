@@ -6,66 +6,55 @@ stoplight-id: e947d87e17547
 
 <!-- theme: info -->
 
-> #### Prerequisites
->
+> **Prerequisites:**
 > If you are new to JavaScript programming, we recommend reviewing a JavaScript tutorial before proceeding. A basic understanding of JavaScript is required to use domo.js effectively.
-
-The `domo.js` library provides convenient utilities for building Custom Apps. The documentation below provides instructions on how to use each of these major utilities when building a Custom App.
 
 ---
 
 ## Table of Contents
-
+- [Quick Start](#quick-start)
 - [Installation](#installation)
 - [Global API Overview](#global-api-overview)
+- [Deprecated API](#deprecated-api)
 - [Usage](#usage)
   - [HTTP Methods](#http-methods)
-    - [domo.get](#domoget)
-    - [domo.getAll](#domogetall)
-    - [domo.post](#domopost)
-    - [domo.put](#domoput)
-    - [domo.delete](#domodelete)
-  - [Navigation](#domonavigate)
-  - [Environment](#domoenv)
+  - [Navigation](#navigation)
+  - [Environment](#environment)
   - [Data & Event Handling](#data--event-handling)
-    - [domo.onDataUpdated](#domoondataupdated)
-    - [domo.filterContainer](#domofiltercontainer)
-    - [domo.onFiltersUpdate](#domoonfiltersupdate)
-    - [domo.onVariablesUpdated](#domoonvariablesupdated)
-    - [domo.sendVariables](#domosendvariables)
-    - [domo.onAppDataUpdated](#domoonappdataupdated)
-    - [domo.sendAppData](#domosendappdata)
 - [Error Handling](#error-handling)
 - [Contributing](#contributing)
 - [License](#license)
 
 ---
 
-## Installation
+## Quick Start
+
+```js
+// Import or include domo.js in your app
+// npm install ryuu.js OR use <script src="https://unpkg.com/ryuu.js"></script>
+
+// Fetch data from a dataset
+const data = await domo.get('/data/v1/sales');
+console.log(data);
+
+// Listen for dataset updates
+// domo.onDataUpdated((alias) => { ... });
+```
 
 ---
 
-There are several ways to install the `domo.js` library in your Custom App. The most common methods are using npm or including it in your HTML with a script tag.
+## Installation
 
-<!--
-type: tab
-title: npm
--->
-
+Install via npm:
+```sh
+npm install ryuu.js
 ```
-  npm install ryuu.js
-```
-
-<!--
-type: tab
-title: Script Tag
--->
-
-```
-  <script src="https://unpkg.com/ryuu.js"></script>
+Or include via script tag:
+```html
+<script src="https://unpkg.com/ryuu.js"></script>
 ```
 
-<!-- type: tab-end -->
+---
 
 ## Global API Overview
 
@@ -79,6 +68,22 @@ The `domo` object is available globally in your app and provides the following m
 - **App Data:** `onAppDataUpdated`, `sendAppData`
 - **Events:** `onDataUpdated`
 - **Utilities:** (internal use, not all are public)
+
+---
+
+## Deprecated API
+
+> **Migration Guide:**
+> The following methods are deprecated and will be removed in a future release. Please use the new names instead for future compatibility.
+
+- `domo.onDataUpdate` → `domo.onDataUpdated`
+- `domo.onFiltersUpdate` → `domo.onFiltersUpdated`
+- `domo.onAppData` → `domo.onAppDataUpdated`
+- `domo.filterContainer` → `domo.requestFiltersUpdate`
+- `domo.sendVariables` → `domo.requestVariablesUpdate`
+- `domo.sendAppData` → `domo.requestAppDataUpdate`
+
+> The new names are more consistent and descriptive. Update your code to use the new names for future compatibility.
 
 ---
 
@@ -211,7 +216,7 @@ const data = await domo.delete(url);
 
 ---
 
-### domo.navigate()
+### Navigation
 
 ---
 
@@ -249,7 +254,7 @@ For mobile web, the routes are currently prefixed with `/m#`. For example: `/m#/
 
 ---
 
-### domo.env
+### Environment
 
 ---
 
@@ -483,18 +488,3 @@ Contributions are welcome! Please open issues or pull requests on GitHub.
 ## License
 
 MIT License. See [LICENSE](./LICENSE) for details.
-
----
-
-## Deprecated API
-
-The following methods are deprecated and will be removed in a future release. Please use the new names instead.
-
-- `domo.onDataUpdate` → `domo.onDataUpdated`
-- `domo.onFiltersUpdate` → `domo.onFiltersUpdated`
-- `domo.onAppData` → `domo.onAppDataUpdated`
-- `domo.filterContainer` → `domo.requestFiltersUpdate`
-- `domo.sendVariables` → `domo.requestVariablesUpdate`
-- `domo.sendAppData` → `domo.requestAppDataUpdate`
-
-> **Note:** The new names are more consistent and descriptive. Update your code to use the new names for future compatibility.
