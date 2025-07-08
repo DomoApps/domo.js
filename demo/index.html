@@ -122,8 +122,18 @@
             name: "sendVariables",
             fn: () => {
               if (!domo.sendVariables) throw new Error("Not implemented");
-              console.log("DomoApp: sendVariables", { 83942: 1 });
-              return domo.sendVariables({ 83942: 1 });
+
+              const payload = {
+                "83942": {
+                  "parsedExpression": {
+                    "exprType": "NUMERIC_VALUE",
+                    "value": "1"
+                  }
+                }
+              };
+
+              console.log("DomoApp: sendVariables", payload);
+              return domo.sendVariables(payload);
             },
           },
           {
@@ -181,6 +191,7 @@
         EVENT_FEATURES.forEach((eventName) => {
           try {
             domo[eventName]((arg) => {
+              console.log(`Event ${eventName} triggered with:`, arg);
               const msg =
                 eventName === "onDataUpdated"
                   ? `Callback ran with alias: ${arg}`

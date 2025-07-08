@@ -1,80 +1,60 @@
-# Domo.js
-
-A unified API for interacting with Domo platform features in client applications.
-
-## Table of Contents
-- [Overview](#overview)
-- [Installation](#installation)
-- [Usage](#usage)
-- [API Reference](#api-reference)
-  - [HTTP Methods](#http-methods)
-  - [Event Listeners](#event-listeners)
-  - [Emitters](#emitters)
-  - [Utilities](#utilities)
-  - [Extending Domo](#extending-domo)
-  - [Mutation Observer](#mutation-observer)
-- [Full Example](#full-example)
-- [License](#license)
-
+---
+stoplight-id: e947d87e17547
 ---
 
-## Overview
+# domo.js
 
-The `Domo` class provides a unified API for interacting with Domo platform features in client applications. It exposes HTTP methods, event listeners, emitters, and utility functions for working with datasets, filters, variables, app data, and navigation.
+<!-- theme: info -->
 
-**Key features:**
-- HTTP request methods (`get`, `post`, `put`, `delete`, `domoHttp`)
-- Batch request support via `getAll`
-- Event listeners for data, filters, variables, and app data updates
-- Emitters for sending variables, app data, and navigation events
-- Utility functions for environment, origin verification, and query parsing
-- Handles cross-frame communication and DOM mutation observation for token injection
+> #### Prerequisites
+>
+> If you are new to JavaScript programming, we recommend reviewing a JavaScript tutorial before proceeding. A basic understanding of JavaScript is required to use domo.js effectively.
 
----
+The `domo.js` library provides convenient utilities for building Custom Apps. The documentation below provides instructions on how to use each of these major utilities when building a Custom App.
 
 ## Installation
 
-```bash
-npm install ryuu.js
-```
-
-or include the built file in your HTML:
-
-```html
-<script src="ryuu.js"></script>
-```
-
 ---
+
+There are several ways to install the `domo.js` library in your Custom App. The most common methods are using npm or including it in your HTML with a script tag.
+
+<!--
+type: tab
+title: npm
+-->
+
+```
+  npm install ryuu.js
+```
+
+<!--
+type: tab
+title: Script Tag
+-->
+
+```
+  <script src="https://unpkg.com/ryuu.js"></script>
+```
+
+<!-- type: tab-end -->
 
 ## Usage
 
-```js
-import Domo from 'ryuu.js';
+---
 
-// Example: GET request
-const data = await Domo.get('/data/v1/sales');
-console.log(data);
-```
+Once installed, you can use the `domo.js` library in your Custom App. The library is available as a global variable named `domo`.
+
+### domo.get()
 
 ---
 
-## API Reference
+`domo.js` makes it easy to request data from Domo. Simply
+call the data endpoint with your DataSet's alias (`sales` in this example):
 
-### HTTP Methods
-
-#### `Domo.get(url: string, options?: RequestOptions)`
-Fetches data from the given URL.
-
-**Example:**
 ```js
-const result = await Domo.get('/data/v1/exampleDataset');
-/*
-Sample response:
-[
-  { id: "123", foo: "bar" },
-  { id: "456", foo: "baz" }
-]
-*/
+domo.get('/data/v1/sales').then(function (data) {
+  console.log('data', data);
+});
 ```
 
 <!-- theme: info -->
@@ -83,63 +63,12 @@ Sample response:
 >
 > The code above will fetch the entire DataSet. We highly recommend filtering and paginating the data to avoid app crashes, slow response, and other issues. See the [Getting Data Guide](../Guides/getting-data.md) to learn how to do this.
 
-#### `Domo.post(url: string, body: any, options?: RequestOptions)`
-Creates a new resource.
-
-**Example:**
-```js
-const res = await Domo.post('/domo/datastores/v1/collections/exampleCollection/documents/', { foo: "bar" });
-/*
-Sample response:
-{ id: "789", foo: "bar" }
-*/
-```
-
-#### `Domo.put(url: string, body: any, options?: RequestOptions)`
-Updates a resource.
-
-**Example:**
-```js
-const res = await Domo.put('/domo/datastores/v1/collections/exampleCollection/documents/789', { foo: "baz" });
-/*
-Sample response:
-{ id: "789", foo: "baz" }
-*/
-```
-
-#### `Domo.delete(url: string, options?: RequestOptions)`
-Deletes a resource.
-
-**Example:**
-```js
-await Domo.delete('/domo/datastores/v1/collections/exampleCollection/documents/789');
-```
-
-#### `Domo.getAll(urls: string[], options?: RequestOptions)`
-Batch fetch.
-
-**Example:**
-```js
-const results = await Domo.getAll([
-  '/domo/datastores/v1/collections/exampleCollection/documents/123',
-  '/domo/datastores/v1/collections/exampleCollection/documents/456'
-]);
-```
-
-#### `Domo.domoHttp(method, url, options?, body?)`
-Low-level HTTP method. The API methods above wrap this function.
-
-**Example:**
-```js
-const res = await Domo.domoHttp('POST', '/domo/datastores/v1/collections/exampleCollection/documents/', {}, { foo: "bar" });
-```
-
-### Supported Data Formats
 Domo supports a few different data formats. To specify the one you want, pass an options argument to `domo.get`:
 
 ```js
-const data = await Domo.get('/data/v1/exampleDataset', { format: 'csv' });
-console.log('data', data);
+domo.get('/data/v1/sales', { format: 'csv' }).then(function (data) {
+  console.log('data', data);
+});
 ```
 
 The supported data formats are:
@@ -164,104 +93,210 @@ function uploadFile(name, description = '', isPublic = true, file) {
 }
 ```
 
----
-
-### Event Listeners
-
-Domo offers multiple events that you can register to listen to--and execute functionality when those events occur.
-
-#### `Domo.onDataUpdated(callback)`
-This event fires whenever a DataSet mapped in your manifest.json file is updated (not Collections).  
-By default, if your application does not register to this event then Domo will force a refresh on your app to ensure it has the latest data.  To avoid this, you can register an empty function.
-```js
-Domo.onDataUpdated((data) => {
-  console.log('Data updated:', data);
-});
-```
-
-#### `Domo.onFiltersUpdated(callback)`
-Custom Apps can be housed on pages in Domo.  This event fires when a page filter, on the page rendering the app, is changed.  
-```js
-Domo.onFiltersUpdated((filters) => {
-  console.log('Filters updated:', filters);
-});
-```
-
-#### `Domo.onVariablesUpdated(callback)`
-Custom Apps can also be housed in App Studio--within Domo. This event fires whenever an App Studio variable changes.
-```js
-Domo.onVariablesUpdated((variables) => {
-  console.log('Variables updated:', variables);
-});
-```
-
-#### `Domo.onAppDataUpdated(callback)`
-Sometimes Custom Apps need to be embedded, and therefor can't communicate with Domo's message channels natively. This event fires whenever app data changes.
-```js
-Domo.onAppDataUpdated((appData) => {
-  console.log('App data updated:', appData);
-});
-```
+### domo.navigate()
 
 ---
 
-### Emitters
+<!-- theme: warning -->
 
-Send messages to the parent Domo app.
+> #### Known Limitation
+>
+> Regular HTML link syntax will not work in Domo Apps. Use the domo.navigate javascript function below to create a link.
+> Custom Apps can navigate the main window to other locations in Domo. For example, when the user clicks on a user profile image in a Custom App, the page could navigate to that user's profile page.
 
-#### `Domo.requestFiltersUpdate(filters)`
-This emits a request, to Domo, to update the Filters as requested.
-
-```js
-Domo.requestFiltersUpdate([{ column: "foo", operator: "EQUALS", values: ["bar"] }]);
-```
-
-#### `Domo.requestVariablesUpdate(variables)`
-This emits a request, to Domo, to update the Variables as requested.
+Using the `domo.js` library, your app can request a navigation change to a specific URL:
 
 ```js
-Domo.requestVariablesUpdate({ myVar: 42 });
+domo.navigate('/profile/3234');
 ```
 
-#### `Domo.requestAppDataUpdate(appData)`
-This emits a request, to Domo, to update the App Data as requested.
+If you want the navigation to open a new tab or window, rather than navigating away from the current Domo page, pass `true` as the second argument:
 
 ```js
-Domo.requestAppDataUpdate({ theme: "dark" });
+domo.navigate('/profile/3234', true);
 ```
 
-#### `Domo.navigate(url)`
-This emits a request, to Domo, to navigate the user somewhere else. This can open a new window or change the existing one.
+#### Mobile Web
 
-```js
-const openNewWindow = true;
-Domo.navigate('/some/other/page', openNewWindow);
-```
+The Domo URLs for mobile web are not always the same as those for desktop web. Use the `domo.env.platform` variable to determine which environment your app is running in.
+For mobile web, the routes are currently prefixed with `/m#`. For example: `/m#/profile/3234`.
+
+#### External Links
+
+<!-- theme: info -->
+
+> #### Info
+>
+> For security reasons, Custom Apps can link only to approved, whitelisted domains by default. You can whitelist domains or authorize linking to all domains in "Admin" > "Network Security" > "Custom Apps authorized domains". If you don't see this option, you may need the "Domo Apps Whitelisting" feature switch enabled in your Domo instance.
+
+### domo.env
 
 ---
 
-### Utilities
+Some meta-data specific to Domo is passed into the card as query parameters in the iframe.
 
-#### `Domo.env`
-Environment variables (e.g., userId, instance, etc.)
-
----
-
-### Extending Domo
-
-Override static methods for testing or customization.
-
-```js
-Domo.extend({
-  get: async (url, options) => {
-    // custom logic
-    return [{ id: "mock", foo: "mocked" }];
-  }
-});
+```html
+<iframe
+  src="//85992d26-6d77-4c99-95e2-7284ecbbdcb0.domoapps.prod2.domo.com?userId=2133179061&customer=dev&locale=en-US&environment=dev3&platform=desktop&size=large"
+></iframe>
 ```
 
+The domo.js library parses and exposes these in the `domo.env` object.
+
+**Note:** This same information is also available by performing a `GET` request to `/domo/environment/v1/`. This is the preferred method as it will always return the currently logged in user information rather than whatever is in the URL (which can be modified by a user or copied and pasted when users share links). The downside is that this is an asynchronous HTTP call instead of simply being available as soon as your application loads. As the developer, you will need to weigh these factors when considering which method to use.
+
+#### pageId
+
+An id to identify the page in Domo that the app is currently living on.
+
+```
+domo.env.pageId // Example: 943487158
+```
+
+#### userId
+
+An id unique to the user that is viewing the card.
+
+```
+domo.env.userId // Example: 2133179061
+```
+
+#### customer
+
+The name of the customer on which the app has been installed.
+
+```
+domo.env.customer // Example: domo-instance
+```
+
+#### locale
+
+The locale set on the customer that the app is installed with.
+
+```
+domo.env.locale // Example: en-US
+```
+
+#### environment
+
+The environment that the app is running on. This may be useful for hiding features that are not ready for production yet.
+
+```
+domo.env.environment // Example: dev3
+```
+
+#### platform
+
+The platform that the user is using to view the app. Currently only `desktop` is supported, but there are plans for `mobile` to be implemented as well.
+
+```
+domo.env.platform // Example: desktop
+```
+
+### domo.onDataUpdate()
+
 ---
 
-### Mutation Observer
+If your app needs to respond to data updates without performing a full app reload, you can use `domo.onDataUpdate`. See [Handling Data Updates](../Guides/handling-data-updates.md).
 
-The Domo class automatically injects authentication tokens into any newly added HTML elements in the DOM using a MutationObserver. This ensures that dynamically created elements have the necessary authentication context.
+### domo.filterContainer()
+
+---
+
+If you want to add filters to the page that your domo app lives on, you can do so using the `domo.filterContainer` method. The method takes an array of objects that make up a filter configuration.
+
+#### Code example
+
+```js
+domo.filterContainer([
+  {
+    column: 'category',
+    operator: 'IN',
+    values: ['ALERT'],
+    dataType: 'string',
+  },
+]);
+```
+
+This example will programmatically add a page filter for any column that is named 'category' and has a value of 'ALERT' to only show rows in the dataset who are in an "alert" state.
+
+#### Filter Configuration
+
+**column** a string representing the column name
+
+**operator** the comparison operator that the filter will use. Possible values include:
+
+- 'EQUALS'
+- 'NOT_EQUALS'
+- 'IN'
+- 'NOT_IN'
+- 'GREATER_THAN'
+- 'GREAT_THAN_EQUALS_TO'
+- 'LESS_THAN'
+- 'LESS_THAN_EQUALS_TO'
+- 'BETWEEN'
+- 'NOT_BETWEEN'
+- 'LIKE'
+- 'NOT_LIKE'
+
+**values** an array of values to compare against.
+
+**dataType** the type of data that is contained in the values array. Possible values include:
+
+- 'date'
+- 'datetime'
+- 'numeric'
+- 'string'
+
+### domo.onFiltersUpdate()
+
+---
+
+If a page filter is applied and a dataset wired to the Domo app is affected by this filter, the Domo app will be refreshed by default. In some cases, you may not want the app to refresh because it is in the middle of a stateful operation that needs to continue. In this scenario, you can manually handle the filter event in your app and disable the default refresh behavior by using the `domo.onFiltersUpdate` method.
+
+#### Code Example
+
+```js
+domo.onFiltersUpdate(console.log);
+
+// results:
+//[
+//	{
+//	  affectedCardUrns: undefined
+//	  aggregated: undefined
+//	  aggregation: undefined
+//	  cardURN: undefined
+//	  column: "category"
+//	  dataSourceId: "46d91556-1317-253c-bd99-7e845f98f146"
+//	  dataType: "string"
+//	  dateJoinColumn: undefined
+//	  fiscal: undefined
+//	  label: "category"
+//	  operand: "IN"
+//	  values: ["ALERT"]
+//	}
+//]
+```
+
+### domo.onVariablesUpdated()
+
+---
+
+This method registers a callback function that executes whenever a variable on the page changes. This method is not required, but is useful when you have variables on the page you want to synchronize the application to.
+
+#### Code Example
+
+```js
+domo.onVariablesUpdated(console.log);
+
+// Example Output
+// NOTE: 391 is the variable ID that the value is associated with
+// {
+//   "391": {
+//     "parsedExpression": {
+//       "exprType": "NUMERIC_VALUE",
+//       "value": "9"
+//     }
+//   }
+// }
+```
