@@ -483,3 +483,18 @@ Contributions are welcome! Please open issues or pull requests on GitHub.
 ## License
 
 MIT License. See [LICENSE](./LICENSE) for details.
+
+---
+
+## Deprecated API
+
+The following methods are deprecated and will be removed in a future release. Please use the new names instead.
+
+- `domo.onDataUpdate` → `domo.onDataUpdated`
+- `domo.onFiltersUpdate` → `domo.onFiltersUpdated`
+- `domo.onAppData` → `domo.onAppDataUpdated`
+- `domo.filterContainer` → `domo.requestFiltersUpdate`
+- `domo.sendVariables` → `domo.requestVariablesUpdate`
+- `domo.sendAppData` → `domo.requestAppDataUpdate`
+
+> **Note:** The new names are more consistent and descriptive. Update your code to use the new names for future compatibility.
