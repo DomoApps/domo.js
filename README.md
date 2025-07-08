@@ -65,9 +65,9 @@ The `domo` object is available globally and provides these main features:
 - **HTTP Methods:** Fetch and modify data (`get`, `getAll`, `post`, `put`, `delete`)
 - **Navigation:** Change the current Domo page (`navigate`)
 - **Environment:** Access app and user context (`env`)
-- **Filters:** Listen for and set page filters (`filterContainer`, `onFiltersUpdate`)
-- **Variables:** Listen for and update page variables (`onVariablesUpdated`, `sendVariables`)
-- **App Data:** Listen for and send custom app data (`onAppDataUpdated`, `sendAppData`)
+- **Filters:** Listen for and set page filters (`requestFiltersUpdate`, `onFiltersUpdate`)
+- **Variables:** Listen for and update page variables (`requestVariablesUpdate`, `onVariablesUpdated`)
+- **App Data:** Listen for and send custom app data (`requestAppDataUpdate`, `onAppDataUpdated`)
 - **Events:** Listen for dataset changes (`onDataUpdated`)
 
 ---
@@ -215,10 +215,10 @@ domo.onDataUpdated((datasetAlias) => {
 });
 ```
 
-#### domo.filterContainer()
+#### domo.requestFiltersUpdate()
 Programmatically add or update page filters.
 ```js
-domo.filterContainer([
+domo.requestFiltersUpdate([
   { column: 'category', operator: 'IN', values: ['ALERT'], dataType: 'string' },
 ]);
 ```
@@ -235,10 +235,10 @@ Register a callback for when page variables change.
 domo.onVariablesUpdated(console.log);
 ```
 
-#### domo.sendVariables()
+#### domo.requestVariablesUpdate()
 Update page variables programmatically.
 ```js
-domo.sendVariables({ variableId: 'value' });
+domo.requestVariablesUpdate({ variableId: 'value' });
 ```
 
 #### domo.onAppDataUpdated()
@@ -249,10 +249,10 @@ domo.onAppDataUpdated((data) => {
 });
 ```
 
-#### domo.sendAppData()
+#### domo.requestAppDataUpdate()
 Send custom app data to the Domo platform.
 ```js
-domo.sendAppData({ key: 'value' });
+domo.requestAppDataUpdate({ key: 'value' });
 ```
 
 ---
