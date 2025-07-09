@@ -207,7 +207,7 @@ This will provide the same information about the authenticated user.
 ### Data & Event Handling
 
 #### domo.onDataUpdated()
-Register a callback for when the dataset changes.
+Register a callback for when the dataset changes. This is useful in handling data updates without a full refresh--or to simply prevent a full refresh when a dataset updates.
 
 > The callback receives the alias (string) of the updated dataset.
 
@@ -220,9 +220,40 @@ domo.onDataUpdated((datasetAlias) => {
 
 #### domo.requestFiltersUpdate()
 Programmatically add or update page filters.
+
+Each filter object can include the following properties:
+- `column` (string): The column name to filter on (required)
+- `operator` (string): The comparison operator to use. Possible values:
+  - 'EQUALS'
+  - 'NOT_EQUALS'
+  - 'IN'
+  - 'NOT_IN'
+  - 'GREATER_THAN'
+  - 'GREAT_THAN_EQUALS_TO'
+  - 'LESS_THAN'
+  - 'LESS_THAN_EQUALS_TO'
+  - 'BETWEEN'
+  - 'NOT_BETWEEN'
+  - 'LIKE'
+  - 'NOT_LIKE'
+- `values` (array): The values to compare against (required)
+- `dataType` (string): The type of data in the values array. Possible values:
+  - 'date'
+  - 'datetime'
+  - 'numeric'
+  - 'string'
+
+> Note: For legacy support, a filter object may use `operand` instead of `operator`, but `operator` is preferred for new code.
+
+Example:
 ```js
 domo.requestFiltersUpdate([
-  { column: 'category', operator: 'IN', values: ['ALERT'], dataType: 'string' },
+  {
+    column: 'category',         // string: column name
+    operator: 'IN',             // string: filter operator (preferred)
+    values: ['ALERT'],          // array: filter values
+    dataType: 'string'          // string: data type
+  }
 ]);
 ```
 
