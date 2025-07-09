@@ -339,15 +339,16 @@ domo.requestAppDataUpdate({ key: 'value' });
 
 ## Error Handling
 
-All HTTP methods return Promises. Use `.catch` to handle errors:
+All HTTP methods return Promises. Use try/catch with async/await to handle errors:
 
 ```js
-domo.get('/data/v1/sales')
-  .then(data => { /* ... */ })
-  .catch(err => {
-    // handle error
-    console.error(err);
-  });
+try {
+  const data = await domo.get('/data/v1/sales');
+  // ... use data ...
+} catch (err) {
+  // handle error
+  console.error(err);
+}
 ```
 
 ---
