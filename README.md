@@ -65,7 +65,7 @@ The `domo` object is available globally and provides these main features:
 - **HTTP Methods:** Fetch and modify data (`get`, `getAll`, `post`, `put`, `delete`)
 - **Navigation:** Change the current Domo page (`navigate`)
 - **Environment:** Access app and user context (`env`)
-- **Filters:** Listen for and set page filters (`requestFiltersUpdate`, `onFiltersUpdate`)
+- **Filters:** Listen for and set page filters (`requestFiltersUpdate`, `onFiltersUpdated`)
 - **Variables:** Listen for and update page variables (`requestVariablesUpdate`, `onVariablesUpdated`)
 - **App Data:** Listen for and send custom app data (`requestAppDataUpdate`, `onAppDataUpdated`)
 - **Events:** Listen for dataset changes (`onDataUpdated`)
@@ -78,7 +78,7 @@ The `domo` object is available globally and provides these main features:
 > The following methods are deprecated for consistency and clarity. Please use the new names for future compatibility.
 
 - `domo.onDataUpdate` → `domo.onDataUpdated` — Listen for dataset changes
-- `domo.onFiltersUpdate` → `domo.onFiltersUpdated` — Listen for filter changes
+- `domo.onFiltersUpdated` → `domo.onFiltersUpdatedd` — Listen for filter changes
 - `domo.onAppData` → `domo.onAppDataUpdated` — Listen for app data changes
 - `domo.filterContainer` → `domo.requestFiltersUpdate` — Set page filters
 - `domo.sendVariables` → `domo.requestVariablesUpdate` — Update page variables
@@ -223,10 +223,10 @@ domo.requestFiltersUpdate([
 ]);
 ```
 
-#### domo.onFiltersUpdate()
+#### domo.onFiltersUpdated()
 Register a callback for when filters change.
 ```js
-domo.onFiltersUpdate(console.log);
+domo.onFiltersUpdated(console.log);
 ```
 
 #### domo.onVariablesUpdated()
