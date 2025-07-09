@@ -265,6 +265,23 @@ Register a callback for when filters change.
 ```js
 domo.onFiltersUpdated((filters) => {
   // filters: array - the updated filters
+  // Example structure of filters:
+  // [
+  //   {
+  //     affectedCardUrns: undefined,
+  //     aggregated: undefined,
+  //     aggregation: undefined,
+  //     cardURN: undefined,
+  //     column: "category",
+  //     dataSourceId: "46d91556-1317-253c-bd99-7e845f98f146",
+  //     dataType: "string",
+  //     dateJoinColumn: undefined,
+  //     fiscal: undefined,
+  //     label: "category",
+  //     operand: "IN",
+  //     values: ["ALERT"]
+  //   }
+  // ]
   console.log(filters);
 });
 ```
@@ -277,9 +294,22 @@ Register a callback for when page variables change.
 ```js
 domo.onVariablesUpdated((variables) => {
   // variables: object - the updated variables
+  // Example Output:
+  // {
+  //   "391": {
+  //     "parsedExpression": {
+  //       "exprType": "NUMERIC_VALUE",
+  //       "value": "9"
+  //     }
+  //   }
+  // }
   console.log(variables);
 });
 ```
+
+<!-- theme: info -->
+> **Important Note:**
+> 391 is the variable ID and is defined by Domo--so presently you'll have to snoop to retrieve that value. 
 
 #### domo.requestVariablesUpdate()
 Update page variables programmatically.
