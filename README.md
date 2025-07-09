@@ -147,7 +147,7 @@ const data = await domo.put(url, { foo: 'baz' });
 Send a DELETE request. Takes a URL and optional options.
 ```js
 const url = '/domo/datastores/v1/collections/Users/documents/abc123';
-const result = await domo.delete(url); // true or false
+const result = await domo.delete(url);
 ```
 
 ---
@@ -170,7 +170,6 @@ domo.navigate('/profile/3234', true);
 
 #### Mobile Web
 
-The Domo URLs for mobile web are not always the same as those for desktop web. Use the `domo.env.platform` variable to determine which environment your app is running in.
 For mobile web, the routes are currently prefixed with `/m#`. For example: `/m#/profile/3234`.
 
 #### External Links
@@ -179,7 +178,7 @@ For mobile web, the routes are currently prefixed with `/m#`. For example: `/m#/
 
 > #### Info
 >
-> For security reasons, Custom Apps can link only to approved, whitelisted domains by default. You can whitelist domains or authorize linking to all domains in "Admin" > "Network Security" > "Custom Apps authorized domains". If you don't see this option, you may need the "Domo Apps Whitelisting" feature switch enabled in your Domo instance.
+> For security reasons, Custom Apps can link only to approved, whitelisted domains. You can whitelist domains or authorize linking to all domains in "Admin" > "Network Security" > "Custom Apps authorized domains". If you don't see this option, you may need the "Domo Apps Whitelisting" feature switch enabled in your Domo instance.
 
 ---
 
@@ -209,8 +208,12 @@ This will provide the same information about the authenticated user.
 
 #### domo.onDataUpdated()
 Register a callback for when the dataset changes.
+
+> The callback receives the alias (string) of the updated dataset.
+
 ```js
 domo.onDataUpdated((datasetAlias) => {
+  // datasetAlias: string - the alias of the dataset that was updated
   // Handle updated data
 });
 ```
@@ -225,14 +228,26 @@ domo.requestFiltersUpdate([
 
 #### domo.onFiltersUpdated()
 Register a callback for when filters change.
+
+> The callback receives the updated filters array.
+
 ```js
-domo.onFiltersUpdated(console.log);
+domo.onFiltersUpdated((filters) => {
+  // filters: array - the updated filters
+  console.log(filters);
+});
 ```
 
 #### domo.onVariablesUpdated()
 Register a callback for when page variables change.
+
+> The callback receives the updated variables object.
+
 ```js
-domo.onVariablesUpdated(console.log);
+domo.onVariablesUpdated((variables) => {
+  // variables: object - the updated variables
+  console.log(variables);
+});
 ```
 
 #### domo.requestVariablesUpdate()
@@ -243,8 +258,12 @@ domo.requestVariablesUpdate({ variableId: 'value' });
 
 #### domo.onAppDataUpdated()
 Register a callback for when app data changes.
+
+> The callback receives the updated app data object.
+
 ```js
 domo.onAppDataUpdated((data) => {
+  // data: object - the updated app data
   // Handle app data update
 });
 ```
