@@ -40,7 +40,7 @@ const data = await domo.get('/data/v1/sales');
 console.log(data); // Logs the dataset rows
 
 // Listen for dataset updates
-// domo.onDataUpdated((alias) => { ... });
+domo.onDataUpdated((alias) => { ... });
 ```
 
 ---
