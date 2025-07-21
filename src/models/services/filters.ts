@@ -87,8 +87,12 @@ export function requestFiltersUpdate(
  * @returns A function to unregister the callback.
  */
 export function onFiltersUpdated(callback: Function) {
+  const hasHandlers = this.listeners.onFiltersUpdated.length > 0;
+
   this.connect();
   this.listeners.onFiltersUpdated.push(callback);
+  if (!hasHandlers)
+    this.requestFiltersUpdate(null, false);
 
   return () => {
     const index = this.listeners.onFiltersUpdated.indexOf(callback);
