@@ -112,16 +112,16 @@
             },
           },
           {
-            name: "filterContainer",
+            name: "requestFiltersUpdate",
             fn: () => {
-              if (!domo.filterContainer) throw new Error("Not implemented");
-              return domo.filterContainer();
+              if (!domo.requestFiltersUpdate) throw new Error("Not implemented");
+              return domo.requestFiltersUpdate();
             },
           },
           {
-            name: "sendVariables",
+            name: "requestVariablesUpdate",
             fn: () => {
-              if (!domo.sendVariables) throw new Error("Not implemented");
+              if (!domo.requestVariablesUpdate) throw new Error("Not implemented");
 
               const payload = {
                 "83942": {
@@ -132,8 +132,8 @@
                 }
               };
 
-              console.log("DomoApp: sendVariables", payload);
-              return domo.sendVariables(payload);
+              console.log("DomoApp: requestVariablesUpdate", payload);
+              return domo.requestVariablesUpdate(payload);
             },
           },
           {
@@ -161,10 +161,10 @@
               "To trigger this, click the 'Send App Data' button—this app must be embedded.",
           },
           {
-            name: "sendAppData",
+            name: "requestAppDataUpdate",
             fn: () => {
-              if (!domo.sendAppData) throw new Error("Not implemented");
-              return domo.sendAppData("onAppDataUpdated works");
+              if (!domo.requestAppDataUpdate) throw new Error("Not implemented");
+              return domo.requestAppDataUpdate("onAppDataUpdated works");
             },
             customButton: true,
           },
@@ -184,7 +184,7 @@
             <td>${pendingMsg || ""}</td>
           `;
           tbody.appendChild(tr);
-          if (customButton) setupSendAppData();
+          if (customButton) setuprequestAppDataUpdate();
         });
 
         // 2) Register domo event callbacks in a loop
@@ -207,20 +207,20 @@
         });
 
         // 3) Wire up "Send App Data" button once
-        function setupSendAppData() {
-          const row = document.getElementById("row-sendAppData");
+        function setuprequestAppDataUpdate() {
+          const row = document.getElementById("row-requestAppDataUpdate");
           const cell = row.children[2];
-          if (cell.querySelector("#sendAppDataBtn")) return;
+          if (cell.querySelector("#requestAppDataUpdateBtn")) return;
 
           const btn = document.createElement("button");
-          btn.id = "sendAppDataBtn";
+          btn.id = "requestAppDataUpdateBtn";
           btn.textContent = "Send App Data";
           const resultSpan = document.createElement("span");
-          resultSpan.id = "sendAppDataResult";
+          resultSpan.id = "requestAppDataUpdateResult";
 
           btn.addEventListener("click", async () => {
             try {
-              await features.find((f) => f.name === "sendAppData").fn();
+              await features.find((f) => f.name === "requestAppDataUpdate").fn();
               resultSpan.textContent = "Sent!";
             } catch (e) {
               resultSpan.textContent = `Failed: ${e?.message || e}`;
@@ -233,13 +233,13 @@
         // 4) Run non-event tests sequentially
         async function runAllTests() {
           for (const { name } of features) {
-            if (EVENT_FEATURES.includes(name) || name === "sendAppData")
+            if (EVENT_FEATURES.includes(name) || name === "requestAppDataUpdate")
               continue;
             updateRow(name, "pending", ""); // reset status
           }
           for (const feat of features) {
             const { name, fn } = feat;
-            if (EVENT_FEATURES.includes(name) || name === "sendAppData")
+            if (EVENT_FEATURES.includes(name) || name === "requestAppDataUpdate")
               continue;
             try {
               const res = await fn();
@@ -259,8 +259,8 @@
           row.children[1].innerHTML = `<span class="${status}">${
             STATUS_LABELS[status] || STATUS_LABELS.pending
           }</span>`;
-          // Don’t overwrite details for event-driven features or "sendAppData"
-          if (!EVENT_FEATURES.includes(name) && name !== "sendAppData") {
+          // Don’t overwrite details for event-driven features or "requestAppDataUpdate"
+          if (!EVENT_FEATURES.includes(name) && name !== "requestAppDataUpdate") {
             row.children[2].textContent = details;
           }
         }
