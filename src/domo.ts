@@ -17,6 +17,7 @@ import {
   isVerifiedOrigin,
   getQueryParams,
   setFormatHeaders,
+  generateUniqueId,
 } from "./utils/general";
 import { DomoEvent, getToken } from "./models/constants/general";
 import { AskReplyMap } from "./models/interfaces/ask-reply";
@@ -117,11 +118,11 @@ class Domo {
     this.connected = true;
     this.channel = new MessageChannel();
     window.parent.postMessage(
-      JSON.stringify({ event: "subscribe", skipFilters }),
+      JSON.stringify({ requestId: generateUniqueId(), event: "subscribe", skipFilters }),
       "*",
       [this.channel.port2]
     );
-  
+
     const eventHandlers: {
       [event in keyof typeof DomoEvent]: (data: any, responsePort: MessagePort) => void;
     } = {
