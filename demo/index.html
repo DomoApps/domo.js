@@ -184,12 +184,13 @@
             <td>${pendingMsg || ""}</td>
           `;
           tbody.appendChild(tr);
-          if (customButton) setuprequestAppDataUpdate();
+          if (customButton) setupRequestAppDataUpdate();
         });
 
         // 2) Register domo event callbacks in a loop
         EVENT_FEATURES.forEach((eventName) => {
           try {
+            console.log(`Registering event: ${eventName}`);
             domo[eventName]((arg) => {
               console.log(`Event ${eventName} triggered with:`, arg);
               const msg =
