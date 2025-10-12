@@ -55,12 +55,14 @@ export function onAppDataUpdated(callback: Function) {
  * @returns void
  */
 export function handleAppData(message: any, responsePort: MessagePort) {
-  if (!message || !responsePort) return;
+  if (!message) return;
 
-  responsePort.postMessage({});
-  this.listeners.onAppDataUpdated.forEach((cb: Function) =>
-    cb(message.appData)
-  );
+  if (this.listeners.onAppDataUpdated.length) {
+    responsePort?.postMessage({ requestId: message.requestId, event: "ack" });
+    this.listeners.onAppDataUpdated.forEach((cb: Function) =>
+      cb(message.appData)
+    );
+  }
 
   this.handleReply(message.requestId, message.appData, message.error);
 }
