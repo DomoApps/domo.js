@@ -57,7 +57,7 @@ export function onAppDataUpdated(callback: Function) {
 export function handleAppData(message: any, responsePort: MessagePort) {
   if (!message) return;
 
-  if (this.listeners.onAppDataUpdated.length !== 0) {
+  if (this.listeners.onAppDataUpdated.length) {
     responsePort?.postMessage({ requestId: message.requestId, event: "ack" });
     this.listeners.onAppDataUpdated.forEach((cb: Function) =>
       cb(message.appData)
