@@ -28,7 +28,7 @@ export function handleDataUpdated(message: any, responsePort: MessagePort) {
   if (!message || !responsePort) return;
 
   if (this.listeners.onDataUpdated.length) {
-    responsePort.postMessage({ event: "ack", alias: message.alias });
+    responsePort.postMessage({ requestId: message.requestId, event: "ack", alias: message.alias });
     this.listeners.onDataUpdated.forEach((cb: Function) => cb(message.alias));
   }
 }

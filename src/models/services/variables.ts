@@ -73,8 +73,12 @@ export function onVariablesUpdated(callback: Function) {
 export function handleVariablesUpdated(message: any, responsePort?: MessagePort) {
   if (!message) return;
   
-  responsePort?.postMessage({});
-  this.listeners.onVariablesUpdated.forEach((cb: Function) => cb(message.variables));
+  if (this.listeners.onVariablesUpdated.length) {
+    responsePort?.postMessage({ requestId: message.requestId, event: "ack", variables: message.variables });
+    this.listeners.onVariablesUpdated.forEach((cb: Function) =>
+      cb(message.variables)
+    );
+  }
 
   this.handleReply(message.requestId, message.variables, message.error);
 }

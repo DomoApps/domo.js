@@ -111,10 +111,12 @@ export function onFiltersUpdated(callback: Function) {
 export function handleFiltersUpdated(message: any, responsePort?: MessagePort): void {
   if (!message) return;
 
-  responsePort?.postMessage({});
-  this.listeners.onFiltersUpdated.forEach((cb: Function) =>
-    cb(message.filters)
-  );
+  if (this.listeners.onFiltersUpdated.length) {
+    responsePort?.postMessage({ requestId: message.requestId, event: "ack", filters: message.filters });
+    this.listeners.onFiltersUpdated.forEach((cb: Function) =>
+      cb(message.filters)
+    );
+  }
 
   this.handleReply(message.requestId, message.filters, message.error);
 }
