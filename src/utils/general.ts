@@ -85,3 +85,62 @@ export function generateUniqueId(): string {
     return r.toString(BASE_HEX);
   });
 }
+
+/**
+ * Detects if the current device is running iOS using multiple detection methods.
+ * This function provides more reliable iOS detection than simple user agent matching.
+ * 
+ * @returns True if the device is running iOS, false otherwise.
+ */
+export function isIOS(): boolean {
+  // Early return if not in browser environment
+  if (globalThis.window === undefined || globalThis.navigator === undefined) {
+    return false;
+  }
+
+  // Use the navigator that's actually available (in tests, globalThis.navigator might be mocked)
+  const navigator = globalThis.navigator;
+  const userAgent = navigator.userAgent.toLowerCase();
+  
+  // Primary iOS device detection via user agent
+  // Covers iPhone, iPad, iPod touch, and iPad in desktop mode
+  const hasIOSUserAgent = /(?:iphone|ipad|ipod)/.test(userAgent);
+  
+  // Detect iPad in desktop mode (iOS 13+)
+  // iPad in desktop mode reports as macOS but has touch capabilities
+  const isPossibleIPadDesktopMode = /mac os x/.test(userAgent) && 
+    'ontouchend' in document &&
+    navigator.maxTouchPoints > 1;
+  
+  // Check for iOS-specific APIs
+  const hasIOSAPIs = (globalThis as any).webkit?.messageHandlers !== undefined;
+  
+  // Additional check for standalone mode (PWA on iOS)
+  const isStandalone = (navigator as any).standalone === true;
+  
+  // iOS devices typically have specific screen dimensions and pixel ratios
+  // This helps catch edge cases where user agent might be modified
+  const hasIOSScreenCharacteristics = globalThis.screen && (
+    // iPhone dimensions (various models)
+    (globalThis.screen.width === 375 && globalThis.screen.height === 667) || // iPhone 6/7/8
+    (globalThis.screen.width === 414 && globalThis.screen.height === 736) || // iPhone 6/7/8 Plus
+    (globalThis.screen.width === 375 && globalThis.screen.height === 812) || // iPhone X/XS/11 Pro
+    (globalThis.screen.width === 414 && globalThis.screen.height === 896) || // iPhone XR/XS Max/11/11 Pro Max
+    (globalThis.screen.width === 390 && globalThis.screen.height === 844) || // iPhone 12/12 Pro/13/13 Pro
+    (globalThis.screen.width === 428 && globalThis.screen.height === 926) || // iPhone 12/13 Pro Max
+    (globalThis.screen.width === 393 && globalThis.screen.height === 852) || // iPhone 14 Pro
+    (globalThis.screen.width === 430 && globalThis.screen.height === 932) || // iPhone 14 Pro Max
+    // iPad dimensions
+    (globalThis.screen.width === 768 && globalThis.screen.height === 1024) || // iPad
+    (globalThis.screen.width === 834 && globalThis.screen.height === 1112) || // iPad Pro 10.5"
+    (globalThis.screen.width === 834 && globalThis.screen.height === 1194) || // iPad Pro 11"
+    (globalThis.screen.width === 1024 && globalThis.screen.height === 1366) || // iPad Pro 12.9"
+    // Consider high pixel density
+    globalThis.devicePixelRatio >= 2
+  );
+  
+  // Combine all detection methods
+  return hasIOSUserAgent || 
+         isPossibleIPadDesktopMode || 
+         (hasIOSAPIs && (isStandalone || hasIOSScreenCharacteristics));
+}

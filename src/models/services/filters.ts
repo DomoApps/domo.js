@@ -1,17 +1,5 @@
-import { generateUniqueId } from "../../utils/general";
+import { generateUniqueId, isIOS } from "../../utils/general";
 import { Filter } from "../interfaces/filter";
-
-declare global {
-  interface Window {
-    webkit?: {
-      messageHandlers?: {
-        domofilter?: {
-          postMessage?: (message: any) => void;
-        };
-      };
-    };
-  }
-}
 
 /**
  * Sends filter data to the parent window or to the iOS webkit message handler.
@@ -29,8 +17,7 @@ export function requestFiltersUpdate(
   onReply?: Function
 ): string {
   const requestId = generateUniqueId();
-  const userAgent = window.navigator.userAgent.toLowerCase();
-  const ios = /iphone|ipod|ipad/.test(userAgent);
+  const ios = isIOS();
 
   const request = {
     requestId,
@@ -54,25 +41,27 @@ export function requestFiltersUpdate(
     },
   };
 
-  if (
-    ios &&
-    typeof window.webkit?.messageHandlers?.domofilter?.postMessage ===
-      "function"
-  ) {
-    try {
-      window.webkit.messageHandlers.domofilter.postMessage(
-        filters?.map((filter) => ({
-          column: filter.column,
-          operand: filter.operator || (filter as any).operand,
-          values: filter.values,
-          dataType: filter.dataType,
-        }))
-      );
-    } catch (err) {
-      console.error("Failed to post message to iOS handler:", err);
-    }
-  } else {
+  if (!ios) {
     window.parent.postMessage(JSON.stringify(request), "*");
+    return request.requestId;
+  }
+
+  try {
+    const sanitizedFilters = filters?.map((filter) => ({
+      column: filter.column,
+      operand: filter.operator || (filter as any).operand,
+      values: filter.values,
+      dataType: filter.dataType,
+    }));
+
+    if (typeof domofilter?.postMessage === 'function') {
+      domofilter.postMessage(sanitizedFilters);
+      return request.requestId;
+    }
+
+    window.webkit?.messageHandlers?.domofilter?.postMessage(sanitizedFilters);
+  } catch (err) {
+    console.error("Failed to post message to iOS handler:", err);
   }
 
   return request.requestId;

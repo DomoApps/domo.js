@@ -45,10 +45,10 @@ describe('sendAppData', () => {
   it('should handle appData event', () => {
     const cb = jest.fn();
     Domo.onAppDataUpdated(cb);
-    Domo.connect();
+    (Domo as any).connect();
     const port = makeMockPort();
     const appData = { foo: 'bar' };
-    Domo.channel.port1.onmessage(makeMessageEvent({ event: 'appData', appData }, [port]));
+    Domo.channel?.port1.onmessage?.(makeMessageEvent({ event: 'appData', appData }, [port]));
     expect(port.postMessage).toHaveBeenCalled();
     expect(cb).toHaveBeenCalledWith(appData);
   });

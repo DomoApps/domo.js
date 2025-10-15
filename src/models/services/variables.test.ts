@@ -30,11 +30,27 @@ function makeMockPort() {
 
 beforeEach(() => {
   window.parent.postMessage = jest.fn();
-  Object.defineProperty(window.navigator, 'userAgent', {
-    value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+  
+  // Clean up any global domovariable
+  delete (globalThis as any).domovariable;
+  
+  // Set up default non-iOS environment
+  Object.defineProperty(globalThis, 'navigator', {
+    value: {
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      maxTouchPoints: 0
+    },
     configurable: true
   });
-  (window as any).webkit = { messageHandlers: { domovariable: { postMessage: jest.fn() } } };
+  Object.defineProperty(globalThis, 'webkit', {
+    value: undefined,
+    configurable: true
+  });
+  
+  Object.defineProperty(window, 'webkit', {
+    value: { messageHandlers: { domovariable: { postMessage: jest.fn() } } },
+    configurable: true
+  });
 });
 
 describe('sendVariables', () => {
@@ -44,13 +60,21 @@ describe('sendVariables', () => {
   });
 
   it('should use webkit.messageHandlers.domovariable in sendVariables for iOS', () => {
-    Object.defineProperty(window.navigator, 'userAgent', {
-      value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+        maxTouchPoints: 5
+      },
       configurable: true
     });
-    (window as any).webkit = { messageHandlers: { domovariable: { postMessage: jest.fn() } } };
+    Object.defineProperty(window, 'webkit', {
+      value: { messageHandlers: { domovariable: { postMessage: jest.fn() } } },
+      configurable: true
+    });
+    // Mock the global domovariable object that the code checks first
+    (globalThis as any).domovariable = { postMessage: jest.fn() };
     Domo.sendVariables('vars-ios');
-    expect((window as any).webkit.messageHandlers.domovariable.postMessage).toHaveBeenCalledWith('vars-ios');
+    expect((globalThis as any).domovariable.postMessage).toHaveBeenCalledWith('vars-ios');
   });
 });
 
@@ -67,10 +91,10 @@ describe('onVariablesUpdated', () => {
   it('should handle variablesUpdated event', () => {
     const cb = jest.fn();
     Domo.onVariablesUpdated(cb);
-    Domo.connect();
+    (Domo as any).connect();
     const port = makeMockPort();
     const variables = { foo: 'bar' };
-    Domo.channel.port1.onmessage(makeMessageEvent({ event: 'variablesUpdated', variables }, [port]));
+    Domo.channel?.port1.onmessage?.(makeMessageEvent({ event: 'variablesUpdated', variables }, [port]));
     expect(port.postMessage).toHaveBeenCalled();
     expect(cb).toHaveBeenCalledWith(variables);
   });

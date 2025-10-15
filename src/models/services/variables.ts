@@ -1,4 +1,4 @@
-import { generateUniqueId } from "../../utils/general";
+import { generateUniqueId, isIOS } from "../../utils/general";
 
 /**
  * Sends variables to the parent window or to the iOS webkit message handler.
@@ -11,8 +11,7 @@ import { generateUniqueId } from "../../utils/general";
  */
 export function requestVariablesUpdate(variables: string, onAck?: Function, onReply?: Function) {
   const requestId = generateUniqueId();
-  const userAgent = window.navigator.userAgent.toLowerCase();
-  const ios = /iphone|ipod|ipad/.test(userAgent);
+  const ios = isIOS();
   const message = {
     requestId,
     event: "variable",
@@ -29,20 +28,23 @@ export function requestVariablesUpdate(variables: string, onAck?: Function, onRe
     },
   };
 
-  if (!ios) return window.parent.postMessage(JSON.stringify(message), "*");
-
-  if (
-    typeof (window as any).webkit?.messageHandlers?.domovariable
-      ?.postMessage === "function"
-  ) {
-    try {
-      (window as any).webkit.messageHandlers.domovariable.postMessage(
-        variables
-      );
-    } catch (err) {
-      console.error("Failed to post message to iOS handler:", err);
-    }
+  if (!ios) {
+    window.parent.postMessage(JSON.stringify(message), "*");
+    return requestId;
   }
+
+  try {
+    if (typeof domovariable?.postMessage === 'function') {
+      domovariable.postMessage(variables);
+      return requestId;
+    }
+
+    window.webkit?.messageHandlers?.domovariable?.postMessage(variables);
+  } catch (err) {
+    console.error("Failed to post message to iOS handler:", err);
+  }
+
+  return requestId;
 }
 
 /**

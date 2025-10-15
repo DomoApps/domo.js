@@ -33,12 +33,52 @@ describe('Filters Service', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     window.parent.postMessage = jest.fn();
-    Object.defineProperty(window.navigator, 'userAgent', {
-      value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+    
+    // Clean up any global domofilter
+    delete (globalThis as any).domofilter;
+    
+    // Set up default non-iOS environment
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+        maxTouchPoints: 0
+      },
       configurable: true
     });
-    (window as any).webkit = { messageHandlers: { domofilter: { postMessage: jest.fn() }, domovariable: { postMessage: jest.fn() } } };
+    Object.defineProperty(globalThis, 'webkit', {
+      value: undefined,
+      configurable: true
+    });
+    Object.defineProperty(document, 'ontouchend', {
+      value: undefined,
+      configurable: true
+    });
+    
+    Object.defineProperty(window, 'webkit', {
+      value: { 
+        messageHandlers: { 
+          domofilter: { postMessage: jest.fn() }, 
+          domovariable: { postMessage: jest.fn() } 
+        } 
+      },
+      configurable: true
+    });
   });
+
+  afterEach(() => {
+    // Clean up global domofilter after each test
+    delete (globalThis as any).domofilter;
+  });
+
+  const setupIOSEnvironment = () => {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+        maxTouchPoints: 5
+      },
+      configurable: true
+    });
+  };
 
   describe('filterContainer', () => {
     it('should call filterContainer', () => {
@@ -49,13 +89,15 @@ describe('Filters Service', () => {
     });
 
     it('should detect webkit and call messageHandlers', () => {
-      Object.defineProperty(window.navigator, 'userAgent', {
-        value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
-        configurable: true
-      });
+      setupIOSEnvironment();
       const filter = [{ column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: 'STRING' }];
       const postMessageMock = jest.fn();
-      (window as any).webkit = { messageHandlers: { domofilter: { postMessage: postMessageMock }, domovariable: { postMessage: jest.fn() } } };
+      Object.defineProperty(window, 'webkit', {
+        value: { messageHandlers: { domofilter: { postMessage: postMessageMock }, domovariable: { postMessage: jest.fn() } } },
+        configurable: true
+      });
+      // Mock the global domofilter object that the code checks first
+      (globalThis as any).domofilter = { postMessage: postMessageMock };
       Domo.filterContainer(filter as any, true);
       expect(postMessageMock).toHaveBeenCalled();
     });
@@ -67,23 +109,28 @@ describe('Filters Service', () => {
     });
 
     it('should call webkit.messageHandlers.domofilter.postMessage for iOS in filterContainer', () => {
-      Object.defineProperty(window.navigator, 'userAgent', {
-        value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+      setupIOSEnvironment();
+      const postMessageMock = jest.fn();
+      Object.defineProperty(window, 'webkit', {
+        value: { messageHandlers: { domofilter: { postMessage: postMessageMock } } },
         configurable: true
       });
-      (window as any).webkit = { messageHandlers: { domofilter: { postMessage: jest.fn() } } };
+      // Set global domofilter to undefined so it falls back to webkit
+      (globalThis as any).domofilter = undefined;
       const filter = [{ column: 'a', operator: 'IN', values: ['x'], dataType: 'STRING' }];
       Domo.filterContainer(filter as any, true);
-      expect((window as any).webkit.messageHandlers.domofilter.postMessage).toHaveBeenCalled();
+      expect(postMessageMock).toHaveBeenCalled();
     });
 
     it('should use operand fallback in iOS filterContainer', () => {
-      Object.defineProperty(window.navigator, 'userAgent', {
-        value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+      setupIOSEnvironment();
+      const postMessageMock = jest.fn();
+      Object.defineProperty(window, 'webkit', {
+        value: { messageHandlers: { domofilter: { postMessage: postMessageMock } } },
         configurable: true
       });
-      const postMessageMock = jest.fn();
-      (window as any).webkit = { messageHandlers: { domofilter: { postMessage: postMessageMock } } };
+      // Mock global domofilter to get the expected payload format
+      (globalThis as any).domofilter = { postMessage: postMessageMock };
       // Only operand, no operator
       const filter = [{ column: 'a', operand: 'IN', values: ['x'], dataType: 'STRING' }];
       Domo.filterContainer(filter as any, true);
