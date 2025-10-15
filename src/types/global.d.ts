@@ -13,7 +13,7 @@ declare global {
   } | undefined;
 
   var domofilter: {
-    postMessage: (message: { column: string, operand: string, values: any[], dataType: string }[]) => void;
+    postMessage: (message: string) => void;
   } | undefined;
 
   /**

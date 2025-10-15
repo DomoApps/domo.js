@@ -34,16 +34,18 @@ export function requestVariablesUpdate(variables: string, onAck?: Function, onRe
   }
 
   try {
-    if (typeof domovariable?.postMessage === 'function') {
-      domovariable.postMessage(variables);
-      return requestId;
-    }
-
-    window.webkit?.messageHandlers?.domovariable?.postMessage(variables);
-  } catch (err) {
-    console.error("Failed to post message to iOS handler:", err);
+    domovariable.postMessage(variables);
   }
-
+  catch (err) {
+    console.error("Failed to post message using domovariable:", err);
+    try {
+      window.webkit?.messageHandlers?.domovariable?.postMessage(variables);
+    } catch (error_) {
+      console.error("Failed to post message using webkit:", error_);
+      window.parent.postMessage(JSON.stringify(message), "*");
+    }
+  }
+  
   return requestId;
 }
 

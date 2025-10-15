@@ -46,25 +46,27 @@ export function requestFiltersUpdate(
     return request.requestId;
   }
 
+  const sanitizedFilters = filters?.map((filter) => ({
+    column: filter.column,
+    operand: filter.operator || (filter as any).operand,
+    values: filter.values,
+    dataType: filter.dataType,
+  }));
+
+
   try {
-    const sanitizedFilters = filters?.map((filter) => ({
-      column: filter.column,
-      operand: filter.operator || (filter as any).operand,
-      values: filter.values,
-      dataType: filter.dataType,
-    }));
-
-    if (typeof domofilter?.postMessage === 'function') {
-      domofilter.postMessage(sanitizedFilters);
-      return request.requestId;
+    domofilter.postMessage(JSON.stringify(sanitizedFilters));
+  } catch (error_) {
+    console.error("Failed to post message using domofilter:", error_);
+    try {
+      window.webkit?.messageHandlers?.domofilter?.postMessage(sanitizedFilters);
+    } catch (err) {
+      console.error("Failed to post message using webkit:", err);
+      window.parent.postMessage(JSON.stringify(request), "*");
     }
-
-    window.webkit?.messageHandlers?.domofilter?.postMessage(sanitizedFilters);
-  } catch (err) {
-    console.error("Failed to post message to iOS handler:", err);
   }
 
-  return request.requestId;
+  return requestId;
 }
 
 /**
