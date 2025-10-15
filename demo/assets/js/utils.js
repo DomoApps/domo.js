@@ -91,12 +91,17 @@ class StatisticsManager {
  * Test Result Formatter
  */
 class ResultFormatter {
-  static formatTestResult(result) {
+  static formatTestResult(result, testName) {
     if (typeof result === "string") {
       return result;
     }
     
     if (result && typeof result === "object") {
+      // Special formatting for iOS detection test
+      if (testName === "ios-detection" && result.data) {
+        return this.formatIOSDetectionResult(result);
+      }
+      
       let details = "";
       
       if (result.data) {
@@ -114,6 +119,47 @@ class ResultFormatter {
     }
     
     return JSON.stringify(result);
+  }
+
+  static formatIOSDetectionResult(result) {
+    const { data, timing } = result;
+    const { isIOS, userAgent, indicators } = data;
+    
+    let html = `
+      <div class="ios-detection-result">
+        <div class="ios-status">
+          <strong>iOS Detection:</strong> 
+          <span class="ios-badge ${isIOS ? 'ios-true' : 'ios-false'}">
+            ${isIOS ? '✅ iOS Device' : '❌ Not iOS'}
+          </span>
+        </div>
+        
+        <div class="device-info">
+          <div class="info-section">
+            <strong>Device Information:</strong>
+            <ul>
+              <li><strong>User Agent:</strong> <code class="user-agent">${userAgent}</code></li>
+              <li><strong>Screen:</strong> ${indicators.screenInfo} (${indicators.devicePixelRatio}x pixel ratio)</li>
+              <li><strong>Touch Points:</strong> ${indicators.maxTouchPoints}</li>
+            </ul>
+          </div>
+          
+          <div class="detection-indicators">
+            <strong>Detection Indicators:</strong>
+            <ul>
+              <li>iOS User Agent: ${indicators.hasIOSUserAgent ? '✅' : '❌'}</li>
+              <li>iPad Desktop Mode: ${indicators.isPossibleIPadDesktopMode ? '✅' : '❌'}</li>
+              <li>iOS APIs Available: ${indicators.hasIOSAPIs ? '✅' : '❌'}</li>
+              <li>Standalone Mode: ${indicators.isStandalone ? '✅' : '❌'}</li>
+            </ul>
+          </div>
+        </div>
+        
+        ${timing ? `<div class="timing">⏱️ ${timing}</div>` : ''}
+      </div>
+    `;
+    
+    return html;
   }
 
   static getStatusIcon(status) {

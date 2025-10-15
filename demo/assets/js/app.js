@@ -193,7 +193,7 @@ class DomoTestApp {
         this.updateRow(name, "running", "Test in progress...");
         
         const result = await fn();
-        const details = ResultFormatter.formatTestResult(result);
+        const details = ResultFormatter.formatTestResult(result, name);
         
         this.updateRow(name, "success", details);
         
@@ -261,7 +261,7 @@ class DomoTestApp {
       this.updateRow(testName, "running", "Test in progress...");
       
       const result = await feature.fn();
-      const details = ResultFormatter.formatTestResult(result);
+      const details = ResultFormatter.formatTestResult(result, testName);
       
       this.updateRow(testName, "success", details);
       
@@ -330,6 +330,63 @@ class DomoTestApp {
 document.addEventListener('DOMContentLoaded', () => {
   window.testApp = new DomoTestApp();
   window.testApp.init();
+  
+  // Initialize device detection in header
+  updateDeviceInfo();
 });
+
+/**
+ * Update the device information in the header
+ */
+function updateDeviceInfo() {
+  const deviceTypeElement = DOMUtils.getElementById('deviceType');
+  if (!deviceTypeElement) return;
+  
+  try {
+    const isIOSResult = GeneralUtils.isIOS();
+    const userAgent = navigator.userAgent;
+    
+    // Determine device type based on user agent and iOS detection
+    let deviceType = 'Unknown Device';
+    let deviceClass = 'non-ios-device';
+    
+    if (isIOSResult) {
+      if (/iphone/i.test(userAgent)) {
+        deviceType = '📱 iPhone';
+      } else if (/ipad/i.test(userAgent)) {
+        deviceType = '📱 iPad';
+      } else if (/ipod/i.test(userAgent)) {
+        deviceType = '📱 iPod Touch';
+      } else {
+        deviceType = '📱 iOS Device';
+      }
+      deviceClass = 'ios-device';
+    } else {
+      // Non-iOS device detection
+      if (/android/i.test(userAgent)) {
+        deviceType = '🤖 Android Device';
+      } else if (/windows/i.test(userAgent)) {
+        deviceType = '🖥️ Windows Device';
+      } else if (/mac/i.test(userAgent)) {
+        deviceType = '🖥️ Mac Device';
+      } else if (/linux/i.test(userAgent)) {
+        deviceType = '🐧 Linux Device';
+      } else {
+        deviceType = '🖥️ Desktop Device';
+      }
+    }
+    
+    deviceTypeElement.textContent = deviceType;
+    deviceTypeElement.className = `device-badge ${deviceClass}`;
+    
+    console.log("iOS detection result:", isIOSResult);
+    console.log("Device type:", deviceType);
+    
+  } catch (error) {
+    deviceTypeElement.textContent = 'Detection Error';
+    deviceTypeElement.className = 'device-badge';
+    console.error('Device detection error:', error);
+  }
+}
 
 console.log("iOS detection result:", GeneralUtils.isIOS());
