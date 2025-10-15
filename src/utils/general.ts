@@ -87,8 +87,8 @@ export function generateUniqueId(): string {
 }
 
 /**
- * Detects if the current device is running iOS using multiple detection methods.
- * This function provides more reliable iOS detection than simple user agent matching.
+ * Detects if the current device is running iOS using reliable detection methods.
+ * Uses a multi-factor approach to avoid false positives while removing brittle screen dimension checks.
  * 
  * @returns True if the device is running iOS, false otherwise.
  */
@@ -103,7 +103,7 @@ export function isIOS(): boolean {
   const userAgent = navigator.userAgent.toLowerCase();
   
   // Primary iOS device detection via user agent
-  // Covers iPhone, iPad, iPod touch, and iPad in desktop mode
+  // Covers iPhone, iPad, iPod touch
   const hasIOSUserAgent = /(?:iphone|ipad|ipod)/.test(userAgent);
   
   // Detect iPad in desktop mode (iOS 13+)
@@ -112,35 +112,23 @@ export function isIOS(): boolean {
     'ontouchend' in document &&
     navigator.maxTouchPoints > 1;
   
-  // Check for iOS-specific APIs
+  // For edge cases where user agent might be modified or unreliable,
+  // require MULTIPLE iOS-specific indicators to avoid false positives
   const hasIOSAPIs = (globalThis as any).webkit?.messageHandlers !== undefined;
-  
-  // Additional check for standalone mode (PWA on iOS)
   const isStandalone = (navigator as any).standalone === true;
+  const hasMobileScreenRatio = globalThis.screen && 
+    globalThis.devicePixelRatio && 
+    globalThis.devicePixelRatio >= 2 && 
+    (globalThis.screen.width < 1024 || globalThis.screen.height < 1024); // Mobile-like dimensions
   
-  // iOS devices typically have specific screen dimensions and pixel ratios
-  // This helps catch edge cases where user agent might be modified
-  const hasIOSScreenCharacteristics = globalThis.screen && (
-    // iPhone dimensions (various models)
-    (globalThis.screen.width === 375 && globalThis.screen.height === 667) || // iPhone 6/7/8
-    (globalThis.screen.width === 414 && globalThis.screen.height === 736) || // iPhone 6/7/8 Plus
-    (globalThis.screen.width === 375 && globalThis.screen.height === 812) || // iPhone X/XS/11 Pro
-    (globalThis.screen.width === 414 && globalThis.screen.height === 896) || // iPhone XR/XS Max/11/11 Pro Max
-    (globalThis.screen.width === 390 && globalThis.screen.height === 844) || // iPhone 12/12 Pro/13/13 Pro
-    (globalThis.screen.width === 428 && globalThis.screen.height === 926) || // iPhone 12/13 Pro Max
-    (globalThis.screen.width === 393 && globalThis.screen.height === 852) || // iPhone 14 Pro
-    (globalThis.screen.width === 430 && globalThis.screen.height === 932) || // iPhone 14 Pro Max
-    // iPad dimensions
-    (globalThis.screen.width === 768 && globalThis.screen.height === 1024) || // iPad
-    (globalThis.screen.width === 834 && globalThis.screen.height === 1112) || // iPad Pro 10.5"
-    (globalThis.screen.width === 834 && globalThis.screen.height === 1194) || // iPad Pro 11"
-    (globalThis.screen.width === 1024 && globalThis.screen.height === 1366) || // iPad Pro 12.9"
-    // Consider high pixel density
-    globalThis.devicePixelRatio >= 2
-  );
+  // Strong evidence: clear iOS user agent or iPad desktop mode
+  if (hasIOSUserAgent || isPossibleIPadDesktopMode) {
+    return true;
+  }
   
-  // Combine all detection methods
-  return hasIOSUserAgent || 
-         isPossibleIPadDesktopMode || 
-         (hasIOSAPIs && (isStandalone || hasIOSScreenCharacteristics));
+  // Weaker evidence: require multiple indicators to avoid false positives
+  // This prevents test environments from being detected as iOS unless they
+  // explicitly mock multiple iOS-specific features
+  const multipleIndicators = [hasIOSAPIs, isStandalone, hasMobileScreenRatio].filter(Boolean).length;
+  return multipleIndicators >= 2;
 }

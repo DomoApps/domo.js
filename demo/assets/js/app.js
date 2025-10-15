@@ -331,3 +331,5 @@ document.addEventListener('DOMContentLoaded', () => {
   window.testApp = new DomoTestApp();
   window.testApp.init();
 });
+
+console.log("iOS detection result:", GeneralUtils.isIOS());

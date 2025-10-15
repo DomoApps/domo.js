@@ -162,6 +162,13 @@ describe('general utilities', () => {
       devicePixelRatio?: number;
       ontouchend?: any;
     }) => {
+      // Always reset webkit to undefined first to prevent test interference
+      Object.defineProperty(globalThis, 'webkit', {
+        value: undefined,
+        configurable: true,
+        writable: true
+      });
+      
       if (config.navigator) {
         Object.defineProperty(globalThis, 'navigator', {
           value: config.navigator,
@@ -169,7 +176,7 @@ describe('general utilities', () => {
           writable: true
         });
       }
-      if (config.screen) {
+      if (config.screen !== undefined) {
         Object.defineProperty(globalThis, 'screen', {
           value: config.screen,
           configurable: true,
@@ -276,70 +283,27 @@ describe('general utilities', () => {
       expect(isIOS()).toBe(false);
     });
 
-    it('detects iOS through webkit messageHandlers API', () => {
+    it('detects iOS through webkit messageHandlers API with additional indicators', () => {
       mockEnvironment({
         navigator: { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
-        screen: { width: 375, height: 667 }, // iPhone dimensions
         webkit: { messageHandlers: { someHandler: {} } },
-        devicePixelRatio: 2 // High pixel ratio typical of iOS
+        screen: { width: 375, height: 667 }, // Mobile dimensions
+        devicePixelRatio: 2
       });
       expect(isIOS()).toBe(true);
     });
 
-    it('detects iOS through standalone mode (PWA)', () => {
+    it('detects iOS through standalone mode with additional indicators', () => {
       mockEnvironment({
         navigator: { 
           userAgent: 'Mozilla/5.0 (Unknown Device)', 
           maxTouchPoints: 0,
           standalone: true 
         },
-        screen: { width: 375, height: 667 }, // iPhone dimensions
-        webkit: { messageHandlers: { someHandler: {} } },
-        devicePixelRatio: 2
+        screen: { width: 414, height: 896 }, // Mobile dimensions
+        devicePixelRatio: 3
       });
       expect(isIOS()).toBe(true);
-    });
-
-    it('recognizes common iPhone screen dimensions', () => {
-      const iPhoneDimensions = [
-        { width: 375, height: 667 }, // iPhone 6/7/8
-        { width: 414, height: 736 }, // iPhone 6/7/8 Plus
-        { width: 375, height: 812 }, // iPhone X/XS/11 Pro
-        { width: 414, height: 896 }, // iPhone XR/XS Max/11/11 Pro Max
-        { width: 390, height: 844 }, // iPhone 12/12 Pro/13/13 Pro
-        { width: 428, height: 926 }, // iPhone 12/13 Pro Max
-        { width: 393, height: 852 }, // iPhone 14 Pro
-        { width: 430, height: 932 }  // iPhone 14 Pro Max
-      ];
-
-      for (const dimensions of iPhoneDimensions) {
-        mockEnvironment({
-          navigator: { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
-          screen: dimensions,
-          webkit: { messageHandlers: { someHandler: {} } },
-          devicePixelRatio: 2
-        });
-        expect(isIOS()).toBe(true);
-      }
-    });
-
-    it('recognizes common iPad screen dimensions', () => {
-      const iPadDimensions = [
-        { width: 768, height: 1024 }, // iPad
-        { width: 834, height: 1112 }, // iPad Pro 10.5"
-        { width: 834, height: 1194 }, // iPad Pro 11"
-        { width: 1024, height: 1366 } // iPad Pro 12.9"
-      ];
-
-      for (const dimensions of iPadDimensions) {
-        mockEnvironment({
-          navigator: { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
-          screen: dimensions,
-          webkit: { messageHandlers: { someHandler: {} } },
-          devicePixelRatio: 2
-        });
-        expect(isIOS()).toBe(true);
-      }
     });
 
     it('does not detect Android devices as iOS', () => {
@@ -362,24 +326,47 @@ describe('general utilities', () => {
       expect(isIOS()).toBe(false);
     });
 
-    it('requires multiple indicators for non-obvious cases', () => {
-      // High pixel ratio alone should not be enough
+    it('requires strong indicators for unknown devices', () => {
+      // Unknown user agent without any iOS indicators should not be iOS
       mockEnvironment({
-        navigator: { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
-        screen: { width: 1920, height: 1080 },
-        webkit: undefined,
-        devicePixelRatio: 3
+        navigator: { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 }
       });
       expect(isIOS()).toBe(false);
 
-      // Screen dimensions alone without webkit APIs should not be enough
+      // Single indicator (webkit API only) should not be enough
       mockEnvironment({
         navigator: { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
-        screen: { width: 375, height: 667 },
-        webkit: undefined,
-        devicePixelRatio: 1
+        webkit: { messageHandlers: { someHandler: {} } },
+        screen: { width: 1920, height: 1080 }, // Desktop dimensions
+        devicePixelRatio: 1 // Standard pixel ratio
       });
       expect(isIOS()).toBe(false);
+
+      // Single indicator (standalone only) should not be enough
+      mockEnvironment({
+        navigator: { 
+          userAgent: 'Mozilla/5.0 (Unknown Device)', 
+          maxTouchPoints: 0,
+          standalone: true 
+        },
+        webkit: undefined, // Explicitly no webkit
+        screen: { width: 1920, height: 1080 }, // Desktop dimensions
+        devicePixelRatio: 1 // Standard pixel ratio
+      });
+      expect(isIOS()).toBe(false);
+
+      // But multiple indicators together should be sufficient
+      mockEnvironment({
+        navigator: { 
+          userAgent: 'Mozilla/5.0 (Unknown Device)', 
+          maxTouchPoints: 0,
+          standalone: true 
+        },
+        webkit: { messageHandlers: { someHandler: {} } },
+        screen: { width: 375, height: 667 },
+        devicePixelRatio: 2
+      });
+      expect(isIOS()).toBe(true);
     });
   });
 });
