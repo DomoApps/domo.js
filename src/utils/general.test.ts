@@ -82,66 +82,141 @@ describe('general utilities', () => {
   });
 
   describe('isIOS', () => {
-    const originalGlobalThis = globalThis;
-    const originalDocument = document;
+    // Store original values
+    let originalNavigator: any;
+    let originalScreen: any;
+    let originalWebkit: any;
+    let originalDevicePixelRatio: any;
+    let originalOntouchend: any;
+
+    beforeAll(() => {
+      // Store original values once
+      originalNavigator = globalThis.navigator;
+      originalScreen = globalThis.screen;
+      originalWebkit = (globalThis as any).webkit;
+      originalDevicePixelRatio = globalThis.devicePixelRatio;
+      originalOntouchend = document.ontouchend;
+    });
 
     beforeEach(() => {
       // Reset to clean state before each test
-      Object.defineProperty(globalThis, 'navigator', {
-        value: originalGlobalThis.navigator,
-        configurable: true
-      });
-      Object.defineProperty(globalThis, 'screen', {
-        value: originalGlobalThis.screen,
-        configurable: true
-      });
-      Object.defineProperty(globalThis, 'webkit', {
-        value: (originalGlobalThis as any).webkit,
-        configurable: true
-      });
-      Object.defineProperty(globalThis, 'devicePixelRatio', {
-        value: originalGlobalThis.devicePixelRatio,
-        configurable: true
-      });
-      Object.defineProperty(document, 'ontouchend', {
-        value: originalDocument.ontouchend,
-        configurable: true
-      });
+      delete (globalThis as any).navigator;
+      delete (globalThis as any).screen;
+      delete (globalThis as any).webkit;
+      delete (globalThis as any).devicePixelRatio;
+      delete (document as any).ontouchend;
     });
 
-    const mockGlobalThis = (navigator?: any, screen?: any, webkit?: any, devicePixelRatio?: number) => {
-      Object.defineProperty(globalThis, 'navigator', {
-        value: navigator,
-        configurable: true
-      });
-      Object.defineProperty(globalThis, 'screen', {
-        value: screen,
-        configurable: true
-      });
-      Object.defineProperty(globalThis, 'webkit', {
-        value: webkit,
-        configurable: true
-      });
-      if (devicePixelRatio !== undefined) {
+    afterEach(() => {
+      // Clean up after each test
+      delete (globalThis as any).navigator;
+      delete (globalThis as any).screen;
+      delete (globalThis as any).webkit;
+      delete (globalThis as any).devicePixelRatio;
+      delete (document as any).ontouchend;
+    });
+
+    afterAll(() => {
+      // Restore original values after all tests
+      if (originalNavigator !== undefined) {
+        Object.defineProperty(globalThis, 'navigator', {
+          value: originalNavigator,
+          configurable: true,
+          writable: true
+        });
+      }
+      if (originalScreen !== undefined) {
+        Object.defineProperty(globalThis, 'screen', {
+          value: originalScreen,
+          configurable: true,
+          writable: true
+        });
+      }
+      if (originalWebkit !== undefined) {
+        Object.defineProperty(globalThis, 'webkit', {
+          value: originalWebkit,
+          configurable: true,
+          writable: true
+        });
+      }
+      if (originalDevicePixelRatio !== undefined) {
         Object.defineProperty(globalThis, 'devicePixelRatio', {
-          value: devicePixelRatio,
-          configurable: true
+          value: originalDevicePixelRatio,
+          configurable: true,
+          writable: true
+        });
+      }
+      if (originalOntouchend !== undefined) {
+        Object.defineProperty(document, 'ontouchend', {
+          value: originalOntouchend,
+          configurable: true,
+          writable: true
+        });
+      }
+    });
+
+    const mockEnvironment = (config: {
+      navigator?: any;
+      screen?: any;
+      webkit?: any;
+      devicePixelRatio?: number;
+      ontouchend?: any;
+    }) => {
+      if (config.navigator) {
+        Object.defineProperty(globalThis, 'navigator', {
+          value: config.navigator,
+          configurable: true,
+          writable: true
+        });
+      }
+      if (config.screen) {
+        Object.defineProperty(globalThis, 'screen', {
+          value: config.screen,
+          configurable: true,
+          writable: true
+        });
+      }
+      if (config.webkit !== undefined) {
+        Object.defineProperty(globalThis, 'webkit', {
+          value: config.webkit,
+          configurable: true,
+          writable: true
+        });
+      }
+      if (config.devicePixelRatio !== undefined) {
+        Object.defineProperty(globalThis, 'devicePixelRatio', {
+          value: config.devicePixelRatio,
+          configurable: true,
+          writable: true
+        });
+      }
+      if (config.ontouchend !== undefined) {
+        Object.defineProperty(document, 'ontouchend', {
+          value: config.ontouchend,
+          configurable: true,
+          writable: true
+        });
+      }
+      
+      // Ensure window is defined
+      if (!globalThis.window) {
+        Object.defineProperty(globalThis, 'window', {
+          value: globalThis,
+          configurable: true,
+          writable: true
         });
       }
     };
 
-    const mockDocument = (touchSupport = false) => {
-      Object.defineProperty(document, 'ontouchend', {
-        value: touchSupport ? () => {} : undefined,
-        configurable: true
-      });
-    };
-
     it('returns false when window or navigator is undefined', () => {
-      mockGlobalThis(undefined);
+      mockEnvironment({
+        navigator: undefined
+      });
       expect(isIOS()).toBe(false);
       
-      mockGlobalThis({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)' });
+      mockEnvironment({
+        navigator: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)' }
+      });
       Object.defineProperty(globalThis, 'window', {
         value: undefined,
         configurable: true
@@ -149,73 +224,83 @@ describe('general utilities', () => {
       expect(isIOS()).toBe(false);
     });
 
-    it.skip('detects iPhone user agents', () => {
-      mockGlobalThis({
-        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
-        maxTouchPoints: 5
+    it('detects iPhone user agents', () => {
+      mockEnvironment({
+        navigator: {
+          userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+          maxTouchPoints: 5
+        }
       });
       expect(isIOS()).toBe(true);
     });
 
-    it.skip('detects iPad user agents', () => {
-      mockGlobalThis({
-        userAgent: 'Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X)',
-        maxTouchPoints: 5
+    it('detects iPad user agents', () => {
+      mockEnvironment({
+        navigator: {
+          userAgent: 'Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X)',
+          maxTouchPoints: 5
+        }
       });
       expect(isIOS()).toBe(true);
     });
 
-    it.skip('detects iPod user agents', () => {
-      mockGlobalThis({
-        userAgent: 'Mozilla/5.0 (iPod touch; CPU iPhone OS 14_0 like Mac OS X)',
-        maxTouchPoints: 5
+    it('detects iPod user agents', () => {
+      mockEnvironment({
+        navigator: {
+          userAgent: 'Mozilla/5.0 (iPod touch; CPU iPhone OS 14_0 like Mac OS X)',
+          maxTouchPoints: 5
+        }
       });
       expect(isIOS()).toBe(true);
     });
 
-    it.skip('detects iPad in desktop mode (Safari requesting desktop site)', () => {
-      mockDocument(true);
-      mockGlobalThis({
-        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15',
-        maxTouchPoints: 5
+    it('detects iPad in desktop mode (Safari requesting desktop site)', () => {
+      mockEnvironment({
+        navigator: {
+          userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15',
+          maxTouchPoints: 5
+        },
+        ontouchend: () => {}
       });
       expect(isIOS()).toBe(true);
     });
 
     it('does not detect macOS Safari as iOS when no touch support', () => {
-      mockDocument(false);
-      mockGlobalThis({
-        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15',
-        maxTouchPoints: 0
+      mockEnvironment({
+        navigator: {
+          userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15',
+          maxTouchPoints: 0
+        },
+        ontouchend: undefined
       });
       expect(isIOS()).toBe(false);
     });
 
-    it.skip('detects iOS through webkit messageHandlers API', () => {
-      mockGlobalThis(
-        { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
-        { width: 375, height: 667 }, // iPhone dimensions
-        { messageHandlers: { someHandler: {} } },
-        2 // High pixel ratio typical of iOS
-      );
+    it('detects iOS through webkit messageHandlers API', () => {
+      mockEnvironment({
+        navigator: { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
+        screen: { width: 375, height: 667 }, // iPhone dimensions
+        webkit: { messageHandlers: { someHandler: {} } },
+        devicePixelRatio: 2 // High pixel ratio typical of iOS
+      });
       expect(isIOS()).toBe(true);
     });
 
-    it.skip('detects iOS through standalone mode (PWA)', () => {
-      mockGlobalThis(
-        { 
+    it('detects iOS through standalone mode (PWA)', () => {
+      mockEnvironment({
+        navigator: { 
           userAgent: 'Mozilla/5.0 (Unknown Device)', 
           maxTouchPoints: 0,
           standalone: true 
         },
-        { width: 375, height: 667 }, // iPhone dimensions
-        { messageHandlers: { someHandler: {} } },
-        2
-      );
+        screen: { width: 375, height: 667 }, // iPhone dimensions
+        webkit: { messageHandlers: { someHandler: {} } },
+        devicePixelRatio: 2
+      });
       expect(isIOS()).toBe(true);
     });
 
-    it.skip('recognizes common iPhone screen dimensions', () => {
+    it('recognizes common iPhone screen dimensions', () => {
       const iPhoneDimensions = [
         { width: 375, height: 667 }, // iPhone 6/7/8
         { width: 414, height: 736 }, // iPhone 6/7/8 Plus
@@ -228,17 +313,17 @@ describe('general utilities', () => {
       ];
 
       for (const dimensions of iPhoneDimensions) {
-        mockGlobalThis(
-          { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
-          dimensions,
-          { messageHandlers: { someHandler: {} } },
-          2
-        );
+        mockEnvironment({
+          navigator: { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
+          screen: dimensions,
+          webkit: { messageHandlers: { someHandler: {} } },
+          devicePixelRatio: 2
+        });
         expect(isIOS()).toBe(true);
       }
     });
 
-    it.skip('recognizes common iPad screen dimensions', () => {
+    it('recognizes common iPad screen dimensions', () => {
       const iPadDimensions = [
         { width: 768, height: 1024 }, // iPad
         { width: 834, height: 1112 }, // iPad Pro 10.5"
@@ -247,49 +332,53 @@ describe('general utilities', () => {
       ];
 
       for (const dimensions of iPadDimensions) {
-        mockGlobalThis(
-          { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
-          dimensions,
-          { messageHandlers: { someHandler: {} } },
-          2
-        );
+        mockEnvironment({
+          navigator: { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
+          screen: dimensions,
+          webkit: { messageHandlers: { someHandler: {} } },
+          devicePixelRatio: 2
+        });
         expect(isIOS()).toBe(true);
       }
     });
 
     it('does not detect Android devices as iOS', () => {
-      mockGlobalThis({
-        userAgent: 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
-        maxTouchPoints: 5
+      mockEnvironment({
+        navigator: {
+          userAgent: 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
+          maxTouchPoints: 5
+        }
       });
       expect(isIOS()).toBe(false);
     });
 
     it('does not detect Windows devices as iOS', () => {
-      mockGlobalThis({
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        maxTouchPoints: 0
+      mockEnvironment({
+        navigator: {
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          maxTouchPoints: 0
+        }
       });
       expect(isIOS()).toBe(false);
     });
 
     it('requires multiple indicators for non-obvious cases', () => {
       // High pixel ratio alone should not be enough
-      mockGlobalThis(
-        { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
-        { width: 1920, height: 1080 },
-        undefined,
-        3
-      );
+      mockEnvironment({
+        navigator: { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
+        screen: { width: 1920, height: 1080 },
+        webkit: undefined,
+        devicePixelRatio: 3
+      });
       expect(isIOS()).toBe(false);
 
       // Screen dimensions alone without webkit APIs should not be enough
-      mockGlobalThis(
-        { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
-        { width: 375, height: 667 },
-        undefined,
-        1
-      );
+      mockEnvironment({
+        navigator: { userAgent: 'Mozilla/5.0 (Unknown Device)', maxTouchPoints: 0 },
+        screen: { width: 375, height: 667 },
+        webkit: undefined,
+        devicePixelRatio: 1
+      });
       expect(isIOS()).toBe(false);
     });
   });
