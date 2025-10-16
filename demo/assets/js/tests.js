@@ -102,11 +102,21 @@ const features = [
     description: "Request an update to page filters",
     fn: () => {
       if (!domo.requestFiltersUpdate) throw new Error("Not implemented");
+      const filters = [
+        {
+          "column": "id",
+          "operand": "GREAT_THAN_EQUALS_TO",
+          "values": [
+            1
+          ],
+          "dataType": "numeric"
+        }
+      ];
       const startTime = performance.now();
-      domo.requestFiltersUpdate();
+      domo.requestFiltersUpdate(filters);
       const endTime = performance.now();
       return {
-        data: "Filter update requested",
+        data: `Filter update requested with filters: ${JSON.stringify(filters)}`,
         timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
