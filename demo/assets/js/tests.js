@@ -127,16 +127,9 @@ const features = [
     description: "Send variable updates to the dashboard",
     fn: () => {
       if (!domo.requestVariablesUpdate) throw new Error("Not implemented");
-      const payload = {
-        "83942": {
-          "parsedExpression": {
-            "exprType": "NUMERIC_VALUE",
-            "value": "1"
-          }
-        }
-      };
+      const payload = [{ "functionId": 83942, "value": 1 }];
       const startTime = performance.now();
-      domo.requestVariablesUpdate(payload);
+      domo.requestVariablesUpdate(JSON.stringify(payload));
       const endTime = performance.now();
       console.log("DomoApp: requestVariablesUpdate", payload);
       return {

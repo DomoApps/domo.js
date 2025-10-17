@@ -134,9 +134,9 @@ describe('Filters Service', () => {
       // Only operand, no operator
       const filter = [{ column: 'a', operand: 'IN', values: ['x'], dataType: 'STRING' }];
       Domo.filterContainer(filter as any, true);
-      expect(postMessageMock).toHaveBeenCalledWith([
+      expect(postMessageMock).toHaveBeenCalledWith(JSON.stringify([
         { column: 'a', operand: 'IN', values: ['x'], dataType: 'STRING' }
-      ]);
+      ]));
     });
   });
 

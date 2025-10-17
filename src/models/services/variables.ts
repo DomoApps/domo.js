@@ -9,13 +9,14 @@ import { generateUniqueId, isIOS } from "../../utils/general";
  * @param onReply - Optional callback to invoke when a reply is received.
  * @returns void
  */
-export function requestVariablesUpdate(variables: string, onAck?: Function, onReply?: Function) {
+export function requestVariablesUpdate(variables: string | {}[], onAck?: Function, onReply?: Function) {
+  const sanitizedVariables = typeof variables === 'string' ? JSON.parse(variables) : variables;
   const requestId = generateUniqueId();
   const ios = isIOS();
   const message = {
     requestId,
     event: "variable",
-    variables,
+    variables: sanitizedVariables,
   };
 
   this.requests[requestId] = {
@@ -34,12 +35,12 @@ export function requestVariablesUpdate(variables: string, onAck?: Function, onRe
   }
 
   try {
-    domovariable.postMessage(variables);
+    domovariable.postMessage(JSON.stringify(sanitizedVariables));
   }
   catch (err) {
     console.error("Failed to post message using domovariable:", err);
     try {
-      window.webkit?.messageHandlers?.domovariable?.postMessage(variables);
+      window.webkit?.messageHandlers?.domovariable?.postMessage(JSON.stringify(sanitizedVariables));
     } catch (error_) {
       console.error("Failed to post message using webkit:", error_);
       window.parent.postMessage(JSON.stringify(message), "*");
