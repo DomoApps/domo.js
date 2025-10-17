@@ -118,10 +118,10 @@ console.log(arrayData.rows);    // Data rows
 ```
 
 Supported formats:
-- `array-of-objects` (default)
-- `array-of-arrays`
-- `csv` - Returns CSV string
-- `excel` - Returns Excel blob
+- `array-of-objects` (default) - Returns `ObjectResponseBody[]` (array of objects with column names as keys)
+- `array-of-arrays` - Returns `ArrayResponseBody` (object with metadata, columns array, and rows as arrays)
+- `csv` - Returns `string` (CSV formatted text)
+- `excel` - Returns `Blob` (Excel file binary data)
 
 #### Domo.getAll()
 
