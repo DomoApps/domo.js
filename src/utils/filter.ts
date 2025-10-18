@@ -16,14 +16,14 @@ export function isFilter(obj: any): obj is Filter {
     obj.hasOwnProperty('dataType') &&
     (
       Object.values(FilterDataTypes).includes(obj.dataType) ||
-      (typeof obj.dataType === 'string' && ['NUMERIC', 'DATE', 'DATETIME', 'STRING'].includes(obj.dataType))
+      (typeof obj.dataType === 'string' && ['NUMERIC', 'DATE', 'DATETIME', 'STRING'].includes(obj.dataType.toUpperCase()))
     ) &&
     (
       Object.values(FilterOperatorsString).includes(obj.operator || obj.operand) ||
       Object.values(FilterOperatorsNumeric).includes(obj.operator || obj.operand) ||
       (typeof (obj.operator || obj.operand) === 'string' && 
        ['IN', 'NOT_IN', 'CONTAINS', 'NOT_CONTAINS', 'STARTS_WITH', 'NOT_STARTS_WITH', 'ENDS_WITH', 'NOT_ENDS_WITH',
-        'GREATER_THAN', 'GREAT_THAN_EQUALS_TO', 'LESS_THAN', 'LESS_THAN_EQUALS_TO', 'BETWEEN', 'EQUALS', 'NOT_EQUALS'].includes(obj.operator || obj.operand))
+        'GREATER_THAN', 'GREAT_THAN_EQUALS_TO', 'LESS_THAN', 'LESS_THAN_EQUALS_TO', 'BETWEEN', 'EQUALS', 'NOT_EQUALS'].includes((obj.operator || obj.operand).toUpperCase()))
     )
   );
 }

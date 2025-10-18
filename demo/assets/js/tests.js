@@ -105,7 +105,7 @@ const features = [
       const filters = [
         {
           "column": "id",
-          "operand": "GREAT_THAN_EQUALS_TO",
+          "operator": "GREAT_THAN_EQUALS_TO",
           "values": [
             1
           ],

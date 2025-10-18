@@ -24,6 +24,36 @@ describe('Filter Utilities', () => {
       expect(isFilter(legacyFilter)).toBe(true);
     });
 
+    it('should accept both operator and operand properties for the same filter', () => {
+      const baseFilter = { column: 'category', values: ['A', 'B'], dataType: 'STRING' };
+      
+      // Test with operator
+      const filterWithOperator = { ...baseFilter, operator: 'IN' };
+      expect(isFilter(filterWithOperator)).toBe(true);
+      
+      // Test with operand (legacy)
+      const filterWithOperand = { ...baseFilter, operand: 'IN' };
+      expect(isFilter(filterWithOperand)).toBe(true);
+      
+      // Test with both (should still work - operator takes precedence)
+      const filterWithBoth = { ...baseFilter, operator: 'IN', operand: 'NOT_IN' };
+      expect(isFilter(filterWithBoth)).toBe(true);
+    });
+
+    it('should return true for case-insensitive dataType and operator values', () => {
+      const caseInsensitiveFilters = [
+        { column: 'name', operator: 'in', values: ['test'], dataType: 'string' },
+        { column: 'age', operator: 'greater_than', values: [18], dataType: 'numeric' },
+        { column: 'date', operator: 'BETWEEN', values: [new Date(), new Date()], dataType: 'date' },
+        { column: 'category', operand: 'contains', values: ['test'], dataType: 'STRING' },
+        { column: 'amount', operator: 'Great_Than_Equals_To', values: [100], dataType: 'Numeric' }
+      ];
+
+      for (const filter of caseInsensitiveFilters) {
+        expect(isFilter(filter)).toBe(true);
+      }
+    });
+
     it('should return false for invalid Filter objects', () => {
       const invalidFilters = [
         null,
