@@ -102,11 +102,21 @@ const features = [
     description: "Request an update to page filters",
     fn: () => {
       if (!domo.requestFiltersUpdate) throw new Error("Not implemented");
+      const filters = [
+        {
+          "column": "id",
+          "operator": "GREAT_THAN_EQUALS_TO",
+          "values": [
+            1
+          ],
+          "dataType": "numeric"
+        }
+      ];
       const startTime = performance.now();
-      domo.requestFiltersUpdate();
+      domo.requestFiltersUpdate(filters);
       const endTime = performance.now();
       return {
-        data: "Filter update requested",
+        data: `Filter update requested with filters: ${JSON.stringify(filters)}`,
         timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
@@ -117,16 +127,9 @@ const features = [
     description: "Send variable updates to the dashboard",
     fn: () => {
       if (!domo.requestVariablesUpdate) throw new Error("Not implemented");
-      const payload = {
-        "83942": {
-          "parsedExpression": {
-            "exprType": "NUMERIC_VALUE",
-            "value": "1"
-          }
-        }
-      };
+      const payload = [{ "functionId": 83942, "value": 1 }];
       const startTime = performance.now();
-      domo.requestVariablesUpdate(payload);
+      domo.requestVariablesUpdate(JSON.stringify(payload));
       const endTime = performance.now();
       console.log("DomoApp: requestVariablesUpdate", payload);
       return {
@@ -178,6 +181,44 @@ const features = [
       };
     },
     customButton: true,
+  },
+  {
+    name: "ios-detection",
+    category: "utils",
+    description: "Detect if the current device is running iOS",
+    fn: () => {
+      if (!GeneralUtils.isIOS) throw new Error("Not implemented");
+      const startTime = performance.now();
+      const isIOSResult = GeneralUtils.isIOS();
+      const endTime = performance.now();
+      
+      // Gather detailed information for display
+      const userAgent = navigator.userAgent;
+      const hasIOSUserAgent = /(?:iphone|ipad|ipod)/.test(userAgent.toLowerCase());
+      const isPossibleIPadDesktopMode = /mac os x/.test(userAgent.toLowerCase()) && 
+        'ontouchend' in document && navigator.maxTouchPoints > 1;
+      const hasIOSAPIs = window.webkit?.messageHandlers !== undefined;
+      const isStandalone = navigator.standalone === true;
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      const screenInfo = window.screen ? `${window.screen.width}x${window.screen.height}` : 'unknown';
+      
+      return {
+        data: {
+          isIOS: isIOSResult,
+          userAgent: userAgent,
+          indicators: {
+            hasIOSUserAgent,
+            isPossibleIPadDesktopMode,
+            hasIOSAPIs,
+            isStandalone,
+            devicePixelRatio,
+            screenInfo,
+            maxTouchPoints: navigator.maxTouchPoints || 0
+          }
+        },
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
   },
 ];
 

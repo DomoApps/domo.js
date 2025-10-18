@@ -117,7 +117,7 @@ describe("Dataset Service", () => {
     it("should prevent app refresh if callback is registered", () => {
       const cb = jest.fn();
       Domo.onDataUpdated(cb);
-      Domo.connect();
+      (Domo as any).connect();
       const responsePort = new (global as any).MessagePort();
       responsePort.postMessage = jest.fn();
       const alias = "test-alias";
@@ -141,7 +141,7 @@ describe("Dataset Service", () => {
     it("should register and unregister onDataUpdated", () => {
       const cb = jest.fn();
       const unregister = Domo.onDataUpdated(cb);
-      Domo.connect();
+      (Domo as any).connect();
       // Simulate MessageChannel event: should call cb
       const alias = "test-alias";
       const responsePort = { postMessage: jest.fn() };
@@ -183,7 +183,7 @@ describe("Dataset Service", () => {
       const cb2 = jest.fn();
       const unregister1 = Domo.onDataUpdated(cb1);
       const unregister2 = Domo.onDataUpdated(cb2);
-      Domo.connect();
+      (Domo as any).connect();
       const alias = "test-alias";
       const responsePort = { postMessage: jest.fn() };
       const event = {

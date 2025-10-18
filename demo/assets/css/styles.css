@@ -47,6 +47,41 @@ body {
   font-size: 1.1rem;
 }
 
+.device-detection-header {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.device-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-size: 1rem;
+}
+
+.device-badge {
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.device-badge.ios-device {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.device-badge.non-ios-device {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
 .controls {
   padding: 1.5rem 2rem;
   background: #f8fafc;
@@ -305,5 +340,113 @@ tr:hover {
   
   th, td {
     padding: 0.75rem 0.5rem;
+  }
+}
+
+/* ==========================================================================
+   iOS Detection Styles
+   ========================================================================== */
+
+.ios-detection-result {
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.ios-status {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border-left: 4px solid #3b82f6;
+}
+
+.ios-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-left: 0.5rem;
+}
+
+.ios-badge.ios-true {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.ios-badge.ios-false {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.device-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.info-section,
+.detection-indicators {
+  background: #f9fafb;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.info-section strong,
+.detection-indicators strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.info-section ul,
+.detection-indicators ul {
+  margin: 0;
+  padding-left: 1rem;
+  list-style: none;
+}
+
+.info-section li,
+.detection-indicators li {
+  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.info-section li strong,
+.detection-indicators li strong {
+  display: inline;
+  margin: 0;
+  color: #374151;
+}
+
+.user-agent {
+  background: #f3f4f6;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 0.75rem;
+  word-break: break-all;
+  display: block;
+  margin-top: 0.25rem;
+  border: 1px solid #d1d5db;
+}
+
+@media (max-width: 768px) {
+  .device-info {
+    grid-template-columns: 1fr;
+  }
+  
+  .ios-detection-result {
+    font-size: 0.8rem;
+  }
+  
+  .user-agent {
+    font-size: 0.7rem;
   }
 }

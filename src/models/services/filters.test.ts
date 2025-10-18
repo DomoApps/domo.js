@@ -1,5 +1,5 @@
 import Domo from '../../domo';
-import { FilterDataTypes, FilterOperatorsString } from '../interfaces/filter';
+import { FilterDataTypes, FilterOperatorsString, FilterOperatorsNumeric } from '../interfaces/filter';
 
 class MockMessagePort {
   onmessage: ((event: any) => void) | null = null;
@@ -33,12 +33,52 @@ describe('Filters Service', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     window.parent.postMessage = jest.fn();
-    Object.defineProperty(window.navigator, 'userAgent', {
-      value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+    
+    // Clean up any global domofilter
+    delete (globalThis as any).domofilter;
+    
+    // Set up default non-iOS environment
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+        maxTouchPoints: 0
+      },
       configurable: true
     });
-    (window as any).webkit = { messageHandlers: { domofilter: { postMessage: jest.fn() }, domovariable: { postMessage: jest.fn() } } };
+    Object.defineProperty(globalThis, 'webkit', {
+      value: undefined,
+      configurable: true
+    });
+    Object.defineProperty(document, 'ontouchend', {
+      value: undefined,
+      configurable: true
+    });
+    
+    Object.defineProperty(window, 'webkit', {
+      value: { 
+        messageHandlers: { 
+          domofilter: { postMessage: jest.fn() }, 
+          domovariable: { postMessage: jest.fn() } 
+        } 
+      },
+      configurable: true
+    });
   });
+
+  afterEach(() => {
+    // Clean up global domofilter after each test
+    delete (globalThis as any).domofilter;
+  });
+
+  const setupIOSEnvironment = () => {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+        maxTouchPoints: 5
+      },
+      configurable: true
+    });
+  };
 
   describe('filterContainer', () => {
     it('should call filterContainer', () => {
@@ -49,13 +89,15 @@ describe('Filters Service', () => {
     });
 
     it('should detect webkit and call messageHandlers', () => {
-      Object.defineProperty(window.navigator, 'userAgent', {
-        value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
-        configurable: true
-      });
+      setupIOSEnvironment();
       const filter = [{ column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: 'STRING' }];
       const postMessageMock = jest.fn();
-      (window as any).webkit = { messageHandlers: { domofilter: { postMessage: postMessageMock }, domovariable: { postMessage: jest.fn() } } };
+      Object.defineProperty(window, 'webkit', {
+        value: { messageHandlers: { domofilter: { postMessage: postMessageMock }, domovariable: { postMessage: jest.fn() } } },
+        configurable: true
+      });
+      // Mock the global domofilter object that the code checks first
+      (globalThis as any).domofilter = { postMessage: postMessageMock };
       Domo.filterContainer(filter as any, true);
       expect(postMessageMock).toHaveBeenCalled();
     });
@@ -67,29 +109,34 @@ describe('Filters Service', () => {
     });
 
     it('should call webkit.messageHandlers.domofilter.postMessage for iOS in filterContainer', () => {
-      Object.defineProperty(window.navigator, 'userAgent', {
-        value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+      setupIOSEnvironment();
+      const postMessageMock = jest.fn();
+      Object.defineProperty(window, 'webkit', {
+        value: { messageHandlers: { domofilter: { postMessage: postMessageMock } } },
         configurable: true
       });
-      (window as any).webkit = { messageHandlers: { domofilter: { postMessage: jest.fn() } } };
+      // Set global domofilter to undefined so it falls back to webkit
+      (globalThis as any).domofilter = undefined;
       const filter = [{ column: 'a', operator: 'IN', values: ['x'], dataType: 'STRING' }];
       Domo.filterContainer(filter as any, true);
-      expect((window as any).webkit.messageHandlers.domofilter.postMessage).toHaveBeenCalled();
+      expect(postMessageMock).toHaveBeenCalled();
     });
 
     it('should use operand fallback in iOS filterContainer', () => {
-      Object.defineProperty(window.navigator, 'userAgent', {
-        value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+      setupIOSEnvironment();
+      const postMessageMock = jest.fn();
+      Object.defineProperty(window, 'webkit', {
+        value: { messageHandlers: { domofilter: { postMessage: postMessageMock } } },
         configurable: true
       });
-      const postMessageMock = jest.fn();
-      (window as any).webkit = { messageHandlers: { domofilter: { postMessage: postMessageMock } } };
+      // Mock global domofilter to get the expected payload format
+      (globalThis as any).domofilter = { postMessage: postMessageMock };
       // Only operand, no operator
       const filter = [{ column: 'a', operand: 'IN', values: ['x'], dataType: 'STRING' }];
       Domo.filterContainer(filter as any, true);
-      expect(postMessageMock).toHaveBeenCalledWith([
+      expect(postMessageMock).toHaveBeenCalledWith(JSON.stringify([
         { column: 'a', operand: 'IN', values: ['x'], dataType: 'STRING' }
-      ]);
+      ]));
     });
   });
 
@@ -111,6 +158,80 @@ describe('Filters Service', () => {
       Domo.channel?.port1.onmessage?.(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
       expect(port.postMessage).toHaveBeenCalled();
       expect(cb).toHaveBeenCalledWith(filters);
+    });
+  });
+
+  describe('Filter type validation', () => {
+    it('should accept valid Filter array', () => {
+      const validFilters = [
+        { column: 'name', operator: FilterOperatorsString.IN, values: ['John', 'Jane'], dataType: FilterDataTypes.STRING as FilterDataTypes.STRING },
+        { column: 'age', operator: FilterOperatorsNumeric.GREATER_THAN, values: [18], dataType: FilterDataTypes.NUMERIC as FilterDataTypes.NUMERIC },
+        { column: 'date', operator: FilterOperatorsNumeric.BETWEEN, values: [new Date('2023-01-01'), new Date('2023-12-31')], dataType: FilterDataTypes.DATE as FilterDataTypes.DATE }
+      ];
+      
+      expect(() => {
+        Domo.requestFiltersUpdate(validFilters);
+      }).not.toThrow();
+      
+      expect(window.parent.postMessage).toHaveBeenCalled();
+    });
+
+    it('should accept null filters', () => {
+      expect(() => {
+        Domo.requestFiltersUpdate(null);
+      }).not.toThrow();
+      
+      expect(window.parent.postMessage).toHaveBeenCalled();
+    });
+
+    it('should throw TypeError for non-array filters', () => {
+      expect(() => {
+        Domo.requestFiltersUpdate({ invalid: 'object' } as any);
+      }).toThrow(TypeError);
+      
+      expect(() => {
+        Domo.requestFiltersUpdate('invalid string' as any);
+      }).toThrow(TypeError);
+      
+      expect(() => {
+        Domo.requestFiltersUpdate(123 as any);
+      }).toThrow(TypeError);
+    });
+
+    it('should throw TypeError for invalid Filter objects', () => {
+      const invalidFilters = [
+        { column: 'name', operator: FilterOperatorsString.IN, values: ['test'] }, // missing dataType
+        { operator: FilterOperatorsString.IN, values: ['test'], dataType: FilterDataTypes.STRING }, // missing column
+        { column: 'name', values: ['test'], dataType: FilterDataTypes.STRING }, // missing operator
+        { column: 'name', operator: FilterOperatorsString.IN, dataType: FilterDataTypes.STRING }, // missing values
+        { column: 123, operator: FilterOperatorsString.IN, values: ['test'], dataType: FilterDataTypes.STRING }, // column not string
+        { column: 'name', operator: 'INVALID_OPERATOR', values: ['test'], dataType: FilterDataTypes.STRING }, // invalid operator
+        { column: 'name', operator: FilterOperatorsString.IN, values: 'not-array', dataType: FilterDataTypes.STRING }, // values not array
+        { column: 'name', operator: FilterOperatorsString.IN, values: ['test'], dataType: 'INVALID_TYPE' } // invalid dataType
+      ];
+      
+      for (const invalidFilter of invalidFilters) {
+        expect(() => {
+          Domo.requestFiltersUpdate([invalidFilter as any]);
+        }).toThrow(TypeError);
+      }
+    });
+
+    it('should throw TypeError for empty Filter array', () => {
+      expect(() => {
+        Domo.requestFiltersUpdate([]);
+      }).toThrow(TypeError);
+    });
+
+    it('should throw TypeError for mixed valid/invalid filters', () => {
+      const mixedFilters = [
+        { column: 'valid', operator: FilterOperatorsString.IN, values: ['test'], dataType: FilterDataTypes.STRING }, // valid
+        { column: 'invalid', operator: 'INVALID_OPERATOR', values: ['test'], dataType: FilterDataTypes.STRING } // invalid
+      ];
+      
+      expect(() => {
+        Domo.requestFiltersUpdate(mixedFilters as any);
+      }).toThrow(TypeError);
     });
   });
 });

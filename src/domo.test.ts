@@ -54,7 +54,7 @@ describe('Domo Connect & MessageChannel', () => {
 
   it('should early return if responsePort is undefined', () => {
     const data = { event: 'filtersUpdated', filters: [] } as any;
-    Domo.connect();
+    (Domo as any).connect();
     expect(() => Domo.channel?.port1?.onmessage?.(makeMessageEvent(data, []))).not.toThrow();
   });
   

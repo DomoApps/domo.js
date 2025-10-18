@@ -91,12 +91,17 @@ class StatisticsManager {
  * Test Result Formatter
  */
 class ResultFormatter {
-  static formatTestResult(result) {
+  static formatTestResult(result, testName) {
     if (typeof result === "string") {
       return result;
     }
     
     if (result && typeof result === "object") {
+      // Special formatting for iOS detection test
+      if (testName === "ios-detection" && result.data) {
+        return this.formatIOSDetectionResult(result);
+      }
+      
       let details = "";
       
       if (result.data) {
@@ -114,6 +119,47 @@ class ResultFormatter {
     }
     
     return JSON.stringify(result);
+  }
+
+  static formatIOSDetectionResult(result) {
+    const { data, timing } = result;
+    const { isIOS, userAgent, indicators } = data;
+    
+    let html = `
+      <div class="ios-detection-result">
+        <div class="ios-status">
+          <strong>iOS Detection:</strong> 
+          <span class="ios-badge ${isIOS ? 'ios-true' : 'ios-false'}">
+            ${isIOS ? '✅ iOS Device' : '❌ Not iOS'}
+          </span>
+        </div>
+        
+        <div class="device-info">
+          <div class="info-section">
+            <strong>Device Information:</strong>
+            <ul>
+              <li><strong>User Agent:</strong> <code class="user-agent">${userAgent}</code></li>
+              <li><strong>Screen:</strong> ${indicators.screenInfo} (${indicators.devicePixelRatio}x pixel ratio)</li>
+              <li><strong>Touch Points:</strong> ${indicators.maxTouchPoints}</li>
+            </ul>
+          </div>
+          
+          <div class="detection-indicators">
+            <strong>Detection Indicators:</strong>
+            <ul>
+              <li>iOS User Agent: ${indicators.hasIOSUserAgent ? '✅' : '❌'}</li>
+              <li>iPad Desktop Mode: ${indicators.isPossibleIPadDesktopMode ? '✅' : '❌'}</li>
+              <li>iOS APIs Available: ${indicators.hasIOSAPIs ? '✅' : '❌'}</li>
+              <li>Standalone Mode: ${indicators.isStandalone ? '✅' : '❌'}</li>
+            </ul>
+          </div>
+        </div>
+        
+        ${timing ? `<div class="timing">⏱️ ${timing}</div>` : ''}
+      </div>
+    `;
+    
+    return html;
   }
 
   static getStatusIcon(status) {
@@ -210,5 +256,50 @@ class GeneralUtils {
 
   static logInfo(context, message, data = null) {
     console.log(`${context}:`, message, data || '');
+  }
+
+  /**
+   * Detects if the current device is running iOS using reliable detection methods.
+   * Uses a multi-factor approach to avoid false positives while removing brittle screen dimension checks.
+   * 
+   * @returns {boolean} True if the device is running iOS, false otherwise.
+   */
+  static isIOS() {
+    // Early return if not in browser environment
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return false;
+    }
+
+    const userAgent = navigator.userAgent.toLowerCase();
+    
+    // Primary iOS device detection via user agent
+    // Covers iPhone, iPad, iPod touch
+    const hasIOSUserAgent = /(?:iphone|ipad|ipod)/.test(userAgent);
+    
+    // Detect iPad in desktop mode (iOS 13+)
+    // iPad in desktop mode reports as macOS but has touch capabilities
+    const isPossibleIPadDesktopMode = /mac os x/.test(userAgent) && 
+      'ontouchend' in document &&
+      navigator.maxTouchPoints > 1;
+    
+    // For edge cases where user agent might be modified or unreliable,
+    // require MULTIPLE iOS-specific indicators to avoid false positives
+    const hasIOSAPIs = window.webkit?.messageHandlers !== undefined;
+    const isStandalone = navigator.standalone === true;
+    const hasMobileScreenRatio = window.screen && 
+      window.devicePixelRatio && 
+      window.devicePixelRatio >= 2 && 
+      (window.screen.width < 1024 || window.screen.height < 1024); // Mobile-like dimensions
+    
+    // Strong evidence: clear iOS user agent or iPad desktop mode
+    if (hasIOSUserAgent || isPossibleIPadDesktopMode) {
+      return true;
+    }
+    
+    // Weaker evidence: require multiple indicators to avoid false positives
+    // This prevents test environments from being detected as iOS unless they
+    // explicitly mock multiple iOS-specific features
+    const multipleIndicators = [hasIOSAPIs, isStandalone, hasMobileScreenRatio].filter(Boolean).length;
+    return multipleIndicators >= 2;
   }
 }
