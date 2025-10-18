@@ -1,15 +1,18 @@
 import { generateUniqueId, isIOS } from "../../utils/general";
+import { guardAgainstInvalidVariables } from "../../utils/variable";
+import { Variable } from "../interfaces/variable";
 
 /**
  * Sends variables to the parent window or to the iOS webkit message handler.
  *
  * @this {Domo} - The Domo instance context.
- * @param variables - The variables to send, as a string.
+ * @param variables - The variables to send, either as a stringified Variable[] or Variable[].
  * @param onAck - Optional callback to invoke when the message is acknowledged.
  * @param onReply - Optional callback to invoke when a reply is received.
- * @returns void
+ * @returns The request ID for tracking the request.
  */
-export function requestVariablesUpdate(variables: string | {}[], onAck?: Function, onReply?: Function) {
+export function requestVariablesUpdate(variables: string | Variable[], onAck?: Function, onReply?: Function): string {
+  guardAgainstInvalidVariables(variables);
   const sanitizedVariables = typeof variables === 'string' ? JSON.parse(variables) : variables;
   const requestId = generateUniqueId();
   const ios = isIOS();
@@ -35,12 +38,14 @@ export function requestVariablesUpdate(variables: string | {}[], onAck?: Functio
   }
 
   try {
-    domovariable.postMessage(JSON.stringify(sanitizedVariables));
+    const messagePayload = typeof sanitizedVariables === 'string' ? sanitizedVariables : JSON.stringify(sanitizedVariables);
+    domovariable.postMessage(messagePayload);
   }
   catch (err) {
     console.error("Failed to post message using domovariable:", err);
     try {
-      window.webkit?.messageHandlers?.domovariable?.postMessage(JSON.stringify(sanitizedVariables));
+      const messagePayload = typeof sanitizedVariables === 'string' ? sanitizedVariables : JSON.stringify(sanitizedVariables);
+      window.webkit?.messageHandlers?.domovariable?.postMessage(messagePayload);
     } catch (error_) {
       console.error("Failed to post message using webkit:", error_);
       window.parent.postMessage(JSON.stringify(message), "*");

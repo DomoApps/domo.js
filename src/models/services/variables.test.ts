@@ -99,3 +99,51 @@ describe('onVariablesUpdated', () => {
     expect(cb).toHaveBeenCalledWith(variables);
   });
 });
+
+describe('Variable type validation', () => {
+  it('should accept valid Variable array', () => {
+    const validVariables = [
+      { functionId: 1, value: 'test' },
+      { functionId: 2, value: 42 },
+      { functionId: 3, value: { nested: 'object' } }
+    ];
+    
+    expect(() => {
+      Domo.requestVariablesUpdate(validVariables);
+    }).not.toThrow();
+    
+    expect(window.parent.postMessage).toHaveBeenCalled();
+  });
+
+  it('should accept valid Variable array as JSON string', () => {
+    const validVariables = [
+      { functionId: 1, value: 'test' },
+      { functionId: 2, value: 42 }
+    ];
+    const jsonString = JSON.stringify(validVariables);
+    
+    expect(() => {
+      Domo.requestVariablesUpdate(jsonString);
+    }).not.toThrow();
+    
+    expect(window.parent.postMessage).toHaveBeenCalled();
+  });
+
+  it('should handle malformed Variable array gracefully', () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    const malformedVariables = [
+      { wrongField: 1, value: 'test' }, // missing functionId
+      { functionId: 'not-a-number', value: 42 } // functionId is not a number
+    ];
+    
+    expect(() => {
+      Domo.requestVariablesUpdate(malformedVariables as any);
+    }).not.toThrow(); // Should not throw due to backwards compatibility
+    
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid variable format')
+    );
+    
+    consoleErrorSpy.mockRestore();
+  });
+});

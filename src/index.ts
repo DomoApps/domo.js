@@ -5,6 +5,7 @@ export * from './models/enums/request-methods';
 export * from './models/interfaces/filter';
 export * from './models/interfaces/json';
 export * from './models/interfaces/request';
+export * from './models/interfaces/variable';
 export * from './models/services/appdata';
 export * from './models/services/dataset';
 export * from './models/services/filters';
