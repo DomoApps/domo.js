@@ -1,4 +1,5 @@
 import { generateUniqueId, isIOS } from "../../utils/general";
+import { guardAgainstInvalidFilters } from "../../utils/filter";
 import { Filter } from "../interfaces/filter";
 
 /**
@@ -16,6 +17,7 @@ export function requestFiltersUpdate(
   onAck?: Function,
   onReply?: Function
 ): string {
+  guardAgainstInvalidFilters(filters);
   const requestId = generateUniqueId();
   const ios = isIOS();
 

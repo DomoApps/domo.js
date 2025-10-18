@@ -1,5 +1,5 @@
 import Domo from '../../domo';
-import { FilterDataTypes, FilterOperatorsString } from '../interfaces/filter';
+import { FilterDataTypes, FilterOperatorsString, FilterOperatorsNumeric } from '../interfaces/filter';
 
 class MockMessagePort {
   onmessage: ((event: any) => void) | null = null;
@@ -158,6 +158,80 @@ describe('Filters Service', () => {
       Domo.channel?.port1.onmessage?.(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
       expect(port.postMessage).toHaveBeenCalled();
       expect(cb).toHaveBeenCalledWith(filters);
+    });
+  });
+
+  describe('Filter type validation', () => {
+    it('should accept valid Filter array', () => {
+      const validFilters = [
+        { column: 'name', operator: FilterOperatorsString.IN, values: ['John', 'Jane'], dataType: FilterDataTypes.STRING as FilterDataTypes.STRING },
+        { column: 'age', operator: FilterOperatorsNumeric.GREATER_THAN, values: [18], dataType: FilterDataTypes.NUMERIC as FilterDataTypes.NUMERIC },
+        { column: 'date', operator: FilterOperatorsNumeric.BETWEEN, values: [new Date('2023-01-01'), new Date('2023-12-31')], dataType: FilterDataTypes.DATE as FilterDataTypes.DATE }
+      ];
+      
+      expect(() => {
+        Domo.requestFiltersUpdate(validFilters);
+      }).not.toThrow();
+      
+      expect(window.parent.postMessage).toHaveBeenCalled();
+    });
+
+    it('should accept null filters', () => {
+      expect(() => {
+        Domo.requestFiltersUpdate(null);
+      }).not.toThrow();
+      
+      expect(window.parent.postMessage).toHaveBeenCalled();
+    });
+
+    it('should throw TypeError for non-array filters', () => {
+      expect(() => {
+        Domo.requestFiltersUpdate({ invalid: 'object' } as any);
+      }).toThrow(TypeError);
+      
+      expect(() => {
+        Domo.requestFiltersUpdate('invalid string' as any);
+      }).toThrow(TypeError);
+      
+      expect(() => {
+        Domo.requestFiltersUpdate(123 as any);
+      }).toThrow(TypeError);
+    });
+
+    it('should throw TypeError for invalid Filter objects', () => {
+      const invalidFilters = [
+        { column: 'name', operator: FilterOperatorsString.IN, values: ['test'] }, // missing dataType
+        { operator: FilterOperatorsString.IN, values: ['test'], dataType: FilterDataTypes.STRING }, // missing column
+        { column: 'name', values: ['test'], dataType: FilterDataTypes.STRING }, // missing operator
+        { column: 'name', operator: FilterOperatorsString.IN, dataType: FilterDataTypes.STRING }, // missing values
+        { column: 123, operator: FilterOperatorsString.IN, values: ['test'], dataType: FilterDataTypes.STRING }, // column not string
+        { column: 'name', operator: 'INVALID_OPERATOR', values: ['test'], dataType: FilterDataTypes.STRING }, // invalid operator
+        { column: 'name', operator: FilterOperatorsString.IN, values: 'not-array', dataType: FilterDataTypes.STRING }, // values not array
+        { column: 'name', operator: FilterOperatorsString.IN, values: ['test'], dataType: 'INVALID_TYPE' } // invalid dataType
+      ];
+      
+      for (const invalidFilter of invalidFilters) {
+        expect(() => {
+          Domo.requestFiltersUpdate([invalidFilter as any]);
+        }).toThrow(TypeError);
+      }
+    });
+
+    it('should throw TypeError for empty Filter array', () => {
+      expect(() => {
+        Domo.requestFiltersUpdate([]);
+      }).toThrow(TypeError);
+    });
+
+    it('should throw TypeError for mixed valid/invalid filters', () => {
+      const mixedFilters = [
+        { column: 'valid', operator: FilterOperatorsString.IN, values: ['test'], dataType: FilterDataTypes.STRING }, // valid
+        { column: 'invalid', operator: 'INVALID_OPERATOR', values: ['test'], dataType: FilterDataTypes.STRING } // invalid
+      ];
+      
+      expect(() => {
+        Domo.requestFiltersUpdate(mixedFilters as any);
+      }).toThrow(TypeError);
     });
   });
 });

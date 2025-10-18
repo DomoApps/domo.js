@@ -55,7 +55,8 @@ beforeEach(() => {
 
 describe('sendVariables', () => {
   it('should call sendVariables', () => {
-    Domo.sendVariables('vars');
+    const validVariables = JSON.stringify([{ functionId: 1, value: 'test' }]);
+    Domo.sendVariables(validVariables);
     expect(window.parent.postMessage).toHaveBeenCalled();
   });
 
@@ -73,8 +74,9 @@ describe('sendVariables', () => {
     });
     // Mock the global domovariable object that the code checks first
     (globalThis as any).domovariable = { postMessage: jest.fn() };
-    Domo.sendVariables('vars-ios');
-    expect((globalThis as any).domovariable.postMessage).toHaveBeenCalledWith('vars-ios');
+    const validVariables = JSON.stringify([{ functionId: 2, value: 'ios-test' }]);
+    Domo.sendVariables(validVariables);
+    expect((globalThis as any).domovariable.postMessage).toHaveBeenCalledWith(validVariables);
   });
 });
 
@@ -129,8 +131,7 @@ describe('Variable type validation', () => {
     expect(window.parent.postMessage).toHaveBeenCalled();
   });
 
-  it('should handle malformed Variable array gracefully', () => {
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+  it('should throw for malformed Variable array', () => {
     const malformedVariables = [
       { wrongField: 1, value: 'test' }, // missing functionId
       { functionId: 'not-a-number', value: 42 } // functionId is not a number
@@ -138,12 +139,10 @@ describe('Variable type validation', () => {
     
     expect(() => {
       Domo.requestVariablesUpdate(malformedVariables as any);
-    }).not.toThrow(); // Should not throw due to backwards compatibility
+    }).toThrow(Error);
     
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Invalid variable format')
-    );
-    
-    consoleErrorSpy.mockRestore();
+    expect(() => {
+      Domo.requestVariablesUpdate(malformedVariables as any);
+    }).toThrow(/Variables must be provided as a Variable array/);
   });
 });
