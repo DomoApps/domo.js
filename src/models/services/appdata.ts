@@ -49,12 +49,12 @@ export function onAppDataUpdated(callback: Function) {
 
 /**
  * Handles incoming app data messages and invokes registered callbacks.
- * 
+ *
  * @param message - The message containing app data.
- * @param responsePort - The port to send the response back.
+ * @param responsePort - Optional MessagePort to send the response back (for MessageChannel communication).
  * @returns void
  */
-export function handleAppData(message: any, responsePort: MessagePort) {
+export function handleAppData(message: any, responsePort?: MessagePort) {
   if (!message) return;
 
   if (this.listeners.onAppDataUpdated.length) {
