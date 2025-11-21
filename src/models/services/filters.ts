@@ -1,4 +1,4 @@
-import { generateUniqueId, isIOS, isAndroid } from "../../utils/general";
+import { generateUniqueId, isIOS, isMobile } from "../../utils/general";
 import { guardAgainstInvalidFilters } from "../../utils/filter";
 import { Filter } from "../interfaces/filter";
 
@@ -20,7 +20,7 @@ export function requestFiltersUpdate(
   guardAgainstInvalidFilters(filters);
   const requestId = generateUniqueId();
   const ios = isIOS();
-  const android = isAndroid();
+  const mobile = isMobile();
 
   const request = {
     requestId,
@@ -44,7 +44,7 @@ export function requestFiltersUpdate(
     },
   };
 
-  if (!ios && !android) {
+  if (!ios && !mobile) {
     window.parent.postMessage(JSON.stringify(request), "*");
     return request.requestId;
   }

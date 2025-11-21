@@ -1,4 +1,4 @@
-import { generateUniqueId, isIOS, isAndroid } from "../../utils/general";
+import { generateUniqueId, isIOS, isMobile } from "../../utils/general";
 import { guardAgainstInvalidVariables } from "../../utils/variable";
 import { Variable } from "../interfaces/variable";
 
@@ -16,7 +16,7 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: F
   const sanitizedVariables = typeof variables === 'string' ? JSON.parse(variables) : variables;
   const requestId = generateUniqueId();
   const ios = isIOS();
-  const android = isAndroid();
+  const mobile = isMobile();
   const message = {
     requestId,
     event: "variable",
@@ -33,7 +33,7 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: F
     },
   };
 
-  if (!ios && !android) {
+  if (!ios && !mobile) {
     window.parent.postMessage(JSON.stringify(message), "*");
     return requestId;
   }

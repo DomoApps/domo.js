@@ -134,12 +134,13 @@ export function isIOS(): boolean {
 }
 
 /**
- * Detects if the current device is running Android using reliable detection methods.
+ * Detects if the current device is a mobile device (Android, Windows Phone, BlackBerry, etc.)
+ * excluding iOS which has its own dedicated detection function.
  * Uses a multi-factor approach to avoid false positives similar to isIOS().
  *
- * @returns True if the device is running Android, false otherwise.
+ * @returns True if the device is a mobile device (non-iOS), false otherwise.
  */
-export function isAndroid(): boolean {
+export function isMobile(): boolean {
   // Early return if not in browser environment
   if (globalThis.window === undefined || globalThis.navigator === undefined) {
     return false;
@@ -149,17 +150,18 @@ export function isAndroid(): boolean {
   const navigator = globalThis.navigator;
   const userAgent = navigator.userAgent.toLowerCase();
 
-  // Primary Android device detection via user agent
-  const hasAndroidUserAgent = /android/.test(userAgent);
+  // Primary mobile device detection via user agent
+  // Covers Android, Windows Phone, BlackBerry, and other mobile platforms
+  const hasMobileUserAgent = /android|webos|blackberry|iemobile|opera mini|mobile|phone/.test(userAgent);
 
-  // Strong evidence: clear Android user agent
-  if (hasAndroidUserAgent) {
+  // Strong evidence: clear mobile user agent
+  if (hasMobileUserAgent) {
     return true;
   }
 
   // For edge cases where user agent might be modified or unreliable,
-  // require MULTIPLE Android-specific indicators to avoid false positives
-  const hasAndroidAPIs = (globalThis as any).domovariable !== undefined ||
+  // require MULTIPLE mobile-specific indicators to avoid false positives
+  const hasMobileAPIs = (globalThis as any).domovariable !== undefined ||
                          (globalThis as any).domofilter !== undefined;
   const hasTouchSupport = 'ontouchstart' in globalThis.window ||
                          navigator.maxTouchPoints > 0;
@@ -169,8 +171,8 @@ export function isAndroid(): boolean {
     (globalThis.screen.width < 1024 || globalThis.screen.height < 1024); // Mobile-like dimensions
 
   // Weaker evidence: require multiple indicators to avoid false positives
-  // This prevents test environments from being detected as Android unless they
-  // explicitly mock multiple Android-specific features
-  const multipleIndicators = [hasAndroidAPIs, hasTouchSupport, hasMobileScreenRatio].filter(Boolean).length;
+  // This prevents test environments from being detected as mobile unless they
+  // explicitly mock multiple mobile-specific features
+  const multipleIndicators = [hasMobileAPIs, hasTouchSupport, hasMobileScreenRatio].filter(Boolean).length;
   return multipleIndicators >= 2;
 }
