@@ -89,7 +89,7 @@ export function generateUniqueId(): string {
 /**
  * Detects if the current device is running iOS using reliable detection methods.
  * Uses a multi-factor approach to avoid false positives while removing brittle screen dimension checks.
- * 
+ *
  * @returns True if the device is running iOS, false otherwise.
  */
 export function isIOS(): boolean {
@@ -101,34 +101,83 @@ export function isIOS(): boolean {
   // Use the navigator that's actually available (in tests, globalThis.navigator might be mocked)
   const navigator = globalThis.navigator;
   const userAgent = navigator.userAgent.toLowerCase();
-  
+
   // Primary iOS device detection via user agent
   // Covers iPhone, iPad, iPod touch
   const hasIOSUserAgent = /(?:iphone|ipad|ipod)/.test(userAgent);
-  
+
   // Detect iPad in desktop mode (iOS 13+)
   // iPad in desktop mode reports as macOS but has touch capabilities
-  const isPossibleIPadDesktopMode = /mac os x/.test(userAgent) && 
+  const isPossibleIPadDesktopMode = /mac os x/.test(userAgent) &&
     'ontouchend' in document &&
     navigator.maxTouchPoints > 1;
-  
+
   // For edge cases where user agent might be modified or unreliable,
   // require MULTIPLE iOS-specific indicators to avoid false positives
   const hasIOSAPIs = (globalThis as any).webkit?.messageHandlers !== undefined;
   const isStandalone = (navigator as any).standalone === true;
-  const hasMobileScreenRatio = globalThis.screen && 
-    globalThis.devicePixelRatio && 
-    globalThis.devicePixelRatio >= 2 && 
+  const hasMobileScreenRatio = globalThis.screen &&
+    globalThis.devicePixelRatio &&
+    globalThis.devicePixelRatio >= 2 &&
     (globalThis.screen.width < 1024 || globalThis.screen.height < 1024); // Mobile-like dimensions
-  
+
   // Strong evidence: clear iOS user agent or iPad desktop mode
   if (hasIOSUserAgent || isPossibleIPadDesktopMode) {
     return true;
   }
-  
+
   // Weaker evidence: require multiple indicators to avoid false positives
   // This prevents test environments from being detected as iOS unless they
   // explicitly mock multiple iOS-specific features
   const multipleIndicators = [hasIOSAPIs, isStandalone, hasMobileScreenRatio].filter(Boolean).length;
+  return multipleIndicators >= 2;
+}
+
+/**
+ * Detects if the current device is any mobile device including iOS, Android, Windows Phone, BlackBerry, etc.
+ * This is a comprehensive mobile detection function that encompasses all mobile platforms.
+ * Uses a multi-factor approach to avoid false positives.
+ *
+ * @returns True if the device is any mobile device (including iOS), false otherwise.
+ */
+export function isMobile(): boolean {
+  // First check if it's iOS using the dedicated iOS detection
+  if (isIOS()) {
+    return true;
+  }
+
+  // Early return if not in browser environment
+  if (globalThis.window === undefined || globalThis.navigator === undefined) {
+    return false;
+  }
+
+  // Use the navigator that's actually available (in tests, globalThis.navigator might be mocked)
+  const navigator = globalThis.navigator;
+  const userAgent = navigator.userAgent.toLowerCase();
+
+  // Primary mobile device detection via user agent
+  // Covers Android, Windows Phone, BlackBerry, and other mobile platforms
+  const hasMobileUserAgent = /android|webos|blackberry|iemobile|opera mini|mobile|phone/.test(userAgent);
+
+  // Strong evidence: clear mobile user agent
+  if (hasMobileUserAgent) {
+    return true;
+  }
+
+  // For edge cases where user agent might be modified or unreliable,
+  // require MULTIPLE mobile-specific indicators to avoid false positives
+  const hasMobileAPIs = (globalThis as any).domovariable !== undefined ||
+                         (globalThis as any).domofilter !== undefined;
+  const hasTouchSupport = 'ontouchstart' in globalThis.window ||
+                         navigator.maxTouchPoints > 0;
+  const hasMobileScreenRatio = globalThis.screen &&
+    globalThis.devicePixelRatio &&
+    globalThis.devicePixelRatio >= 1 &&
+    (globalThis.screen.width < 1024 || globalThis.screen.height < 1024); // Mobile-like dimensions
+
+  // Weaker evidence: require multiple indicators to avoid false positives
+  // This prevents test environments from being detected as mobile unless they
+  // explicitly mock multiple mobile-specific features
+  const multipleIndicators = [hasMobileAPIs, hasTouchSupport, hasMobileScreenRatio].filter(Boolean).length;
   return multipleIndicators >= 2;
 }
