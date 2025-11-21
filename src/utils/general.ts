@@ -134,13 +134,18 @@ export function isIOS(): boolean {
 }
 
 /**
- * Detects if the current device is a mobile device (Android, Windows Phone, BlackBerry, etc.)
- * excluding iOS which has its own dedicated detection function.
- * Uses a multi-factor approach to avoid false positives similar to isIOS().
+ * Detects if the current device is any mobile device including iOS, Android, Windows Phone, BlackBerry, etc.
+ * This is a comprehensive mobile detection function that encompasses all mobile platforms.
+ * Uses a multi-factor approach to avoid false positives.
  *
- * @returns True if the device is a mobile device (non-iOS), false otherwise.
+ * @returns True if the device is any mobile device (including iOS), false otherwise.
  */
 export function isMobile(): boolean {
+  // First check if it's iOS using the dedicated iOS detection
+  if (isIOS()) {
+    return true;
+  }
+
   // Early return if not in browser environment
   if (globalThis.window === undefined || globalThis.navigator === undefined) {
     return false;
