@@ -33,7 +33,7 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: F
     },
   };
 
-  if (!ios && !mobile) {
+  if (!mobile) {
     window.parent.postMessage(JSON.stringify(message), "*");
     return requestId;
   }

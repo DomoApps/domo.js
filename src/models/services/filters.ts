@@ -44,7 +44,7 @@ export function requestFiltersUpdate(
     },
   };
 
-  if (!ios && !mobile) {
+  if (!mobile) {
     window.parent.postMessage(JSON.stringify(request), "*");
     return request.requestId;
   }
