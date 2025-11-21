@@ -1,4 +1,4 @@
-import { generateUniqueId, isIOS } from "../../utils/general";
+import { generateUniqueId, isIOS, isAndroid } from "../../utils/general";
 import { guardAgainstInvalidFilters } from "../../utils/filter";
 import { Filter } from "../interfaces/filter";
 
@@ -20,6 +20,7 @@ export function requestFiltersUpdate(
   guardAgainstInvalidFilters(filters);
   const requestId = generateUniqueId();
   const ios = isIOS();
+  const android = isAndroid();
 
   const request = {
     requestId,
@@ -43,7 +44,7 @@ export function requestFiltersUpdate(
     },
   };
 
-  if (!ios) {
+  if (!ios && !android) {
     window.parent.postMessage(JSON.stringify(request), "*");
     return request.requestId;
   }
@@ -61,7 +62,8 @@ export function requestFiltersUpdate(
   } catch (error_) {
     console.error("Failed to post message using domofilter:", error_);
     try {
-      window.webkit?.messageHandlers?.domofilter?.postMessage(sanitizedFilters);
+      if (ios) window.webkit?.messageHandlers?.domofilter?.postMessage(sanitizedFilters);
+      else window.parent.postMessage(JSON.stringify(request), "*");
     } catch (err) {
       console.error("Failed to post message using webkit:", err);
       window.parent.postMessage(JSON.stringify(request), "*");

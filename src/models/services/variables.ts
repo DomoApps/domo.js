@@ -1,4 +1,4 @@
-import { generateUniqueId, isIOS } from "../../utils/general";
+import { generateUniqueId, isIOS, isAndroid } from "../../utils/general";
 import { guardAgainstInvalidVariables } from "../../utils/variable";
 import { Variable } from "../interfaces/variable";
 
@@ -16,6 +16,7 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: F
   const sanitizedVariables = typeof variables === 'string' ? JSON.parse(variables) : variables;
   const requestId = generateUniqueId();
   const ios = isIOS();
+  const android = isAndroid();
   const message = {
     requestId,
     event: "variable",
@@ -32,7 +33,7 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: F
     },
   };
 
-  if (!ios) {
+  if (!ios && !android) {
     window.parent.postMessage(JSON.stringify(message), "*");
     return requestId;
   }
@@ -44,8 +45,12 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: F
   catch (err) {
     console.error("Failed to post message using domovariable:", err);
     try {
-      const messagePayload = typeof sanitizedVariables === 'string' ? sanitizedVariables : JSON.stringify(sanitizedVariables);
-      window.webkit?.messageHandlers?.domovariable?.postMessage(messagePayload);
+      if (ios) {
+        const messagePayload = typeof sanitizedVariables === 'string' ? sanitizedVariables : JSON.stringify(sanitizedVariables);
+        window.webkit?.messageHandlers?.domovariable?.postMessage(messagePayload);
+      } else {
+        window.parent.postMessage(JSON.stringify(message), "*");
+      }
     } catch (error_) {
       console.error("Failed to post message using webkit:", error_);
       window.parent.postMessage(JSON.stringify(message), "*");
