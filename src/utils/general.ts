@@ -20,10 +20,25 @@ export function isSuccess(status: number) {
  *
  * @param origin - The origin URL to verify.
  * @returns True if the origin is HTTPS and matches the whitelist, but not the blacklist.
+ *          Also allows localhost and file:// for development/testing.
  */
 export function isVerifiedOrigin(origin: string): boolean {
   try {
     const url = new URL(origin);
+
+    // Allow localhost and *.localhost subdomains for development (both http and https)
+    if (url.hostname === 'localhost' ||
+        url.hostname === '127.0.0.1' ||
+        url.hostname.endsWith('.localhost')) {
+      return true;
+    }
+
+    // Allow file:// protocol for local file testing
+    if (url.protocol === 'file:') {
+      return true;
+    }
+
+    // Production: require HTTPS and check whitelist/blacklist
     if (url.protocol !== 'https:') return false;
     const host = url.hostname;
     return HOST_WHITELIST.test(host) && !HOST_BLACKLIST.test(host);

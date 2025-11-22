@@ -18,17 +18,17 @@ export function onDataUpdated(callback: (alias: string) => void) {
 
 /**
  * Handles incoming data update messages and invokes registered callbacks.
- * 
+ *
  * @this {Domo} - The Domo instance context.
  * @param message - The message containing data update information.
- * @param responsePort - The port to send the response back.
+ * @param responsePort - Optional MessagePort to send the response back (for MessageChannel communication).
  * @returns void
  */
-export function handleDataUpdated(message: any, responsePort: MessagePort) {
-  if (!message || !responsePort) return;
+export function handleDataUpdated(message: any, responsePort?: MessagePort) {
+  if (!message) return;
 
   if (this.listeners.onDataUpdated.length) {
-    responsePort.postMessage({ requestId: message.requestId, event: "ack", alias: message.alias });
+    responsePort?.postMessage({ requestId: message.requestId, event: "ack", alias: message.alias });
     this.listeners.onDataUpdated.forEach((cb: Function) => cb(message.alias));
   }
 }

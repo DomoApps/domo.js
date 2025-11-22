@@ -111,6 +111,8 @@ class Domo {
    * This method sets up message handlers for various events like filtersUpdated, appData, and variablesUpdated.
    * It also sends a subscription message to the parent window.
    *
+   * Also sets up a legacy window.postMessage listener for backward compatibility with v4.7.0 and earlier.
+   *
    * @param skipFilters - If true, skips the initial filter updates.
    */
   private static connect = (skipFilters = false) => {
@@ -124,7 +126,7 @@ class Domo {
     );
 
     const eventHandlers: {
-      [event in keyof typeof DomoEvent]: (data: any, responsePort: MessagePort) => void;
+      [event in keyof typeof DomoEvent]: (data: any, responsePort?: MessagePort) => void;
     } = {
       [DomoEvent.dataUpdated]: handleDataUpdated.bind(this),
       [DomoEvent.filtersUpdated]: handleFiltersUpdated.bind(this),
@@ -132,12 +134,81 @@ class Domo {
       [DomoEvent.variablesUpdated]: handleVariablesUpdated.bind(this),
       [DomoEvent.ack]: handleAck.bind(this),
     };
-  
+
+    // MessageChannel listener (current/new implementation)
     this.channel.port1.onmessage = (e: MessageEvent) => {
       const [responsePort] = e.ports;
       const handler = eventHandlers[e.data.event as keyof typeof DomoEvent];
       handler?.(e.data, responsePort);
     };
+
+    // Legacy window.postMessage listener (v4.7.0 and earlier compatibility)
+    const legacyMessageHandler = (event: MessageEvent) => {
+      // Verify origin for security
+      if (!isVerifiedOrigin(event.origin)) {
+        return;
+      }
+
+      // Parse message
+      let message: any;
+      try {
+        if (typeof event.data === 'string' && event.data.length > 0) {
+          message = JSON.parse(event.data);
+        } else if (typeof event.data === 'object') {
+          message = event.data;
+        } else {
+          return;
+        }
+      } catch (err) {
+        // Invalid JSON, ignore
+        return;
+      }
+
+      // Detect legacy data update format (has 'alias' property but no 'event' property)
+      if (message.hasOwnProperty('alias') && !message.hasOwnProperty('event')) {
+        // Legacy data update message
+        const handler = eventHandlers[DomoEvent.dataUpdated];
+        if (handler) {
+          handler(message);
+
+          // Send legacy acknowledgment back to parent
+          if (event.source && typeof (event.source as any).postMessage === 'function') {
+            const ack = JSON.stringify({ event: "ack", alias: message.alias });
+            (event.source as any).postMessage(ack, event.origin);
+          }
+        }
+        return;
+      }
+
+      // Handle standard event-based messages
+      if (message.event) {
+        const handler = eventHandlers[message.event as keyof typeof DomoEvent];
+        if (handler) {
+          handler(message);
+
+          // Send acknowledgment back for non-ack events
+          if (message.event !== 'ack' && event.source && typeof (event.source as any).postMessage === 'function') {
+            const ack: any = {
+              requestId: message.requestId,
+              event: "ack"
+            };
+
+            // Include relevant data in ack based on event type
+            if (message.event === DomoEvent.dataUpdated) {
+              ack.alias = message.alias;
+            } else if (message.event === DomoEvent.filtersUpdated) {
+              ack.filters = message.filters;
+            } else if (message.event === DomoEvent.variablesUpdated) {
+              ack.variables = message.variables;
+            }
+
+            (event.source as any).postMessage(JSON.stringify(ack), event.origin);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('message', legacyMessageHandler);
   };
 
   /**
