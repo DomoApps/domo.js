@@ -22,6 +22,8 @@
     "test": "jest --silent",
     "coverage": "jest --coverage --silent",
     "build": "rm -rf dist && mkdir dist && NODE_ENV=production webpack && cp dist/domo.js demo/domo.js",
+    "build:demo": "node demo/build.js",
+    "clean:demo": "node demo/clean.js",
     "release": "npm run build && npm publish",
     "releaseAlpha": "npm run build && npm publish --tag alpha",
     "releaseBeta": "npm run build && npm publish --tag beta",

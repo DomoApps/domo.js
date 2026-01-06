@@ -1,0 +1,31 @@
+{
+  "id": "6746d72d-92ad-4d07-a741-53427a02bcf8",
+  "name": "Domo.js Test App",
+  "description": "A simple Domo.js application for testing purposes. Located in domo.demo",
+  "version": "0.0.1",
+  "fullpage": true,
+  "size": {
+    "width": 4,
+    "height": 3
+  },
+  "datasetsMapping": [
+    {
+      "alias": "test",
+      "dataSetId": "f8956b7f-13cf-45f1-96dd-a27ed3910c18",
+      "fields": [
+        {
+          "alias": "id",
+          "columnName": "id"
+        }
+      ]
+    }
+  ],
+  "workflowMapping": [],
+  "packageMapping": [],
+  "collectionsMapping": [
+    {
+      "name": "SanityTest"
+    }
+  ],
+  "fileName": "manifest.json"
+}
