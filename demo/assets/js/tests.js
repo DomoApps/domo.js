@@ -176,11 +176,26 @@ const features = [
       domo.requestAppDataUpdate("onAppDataUpdated works");
       const endTime = performance.now();
       return {
-        data: "App data update sent", 
+        data: "App data update sent",
         timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
     customButton: true,
+  },
+  {
+    name: "navigate",
+    category: "navigation",
+    description: "Navigate to Google in a new tab",
+    fn: () => {
+      if (!domo.navigate) throw new Error("Not implemented");
+      const startTime = performance.now();
+      domo.navigate("https://google.com", true);
+      const endTime = performance.now();
+      return {
+        data: "Navigation request sent to open https://google.com in a new tab",
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
   },
   {
     name: "ios-detection",
