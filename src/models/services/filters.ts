@@ -81,7 +81,7 @@ export function requestFiltersUpdate(
  * @param callback - The function to call when filters are updated.
  * @returns A function to unregister the callback.
  */
-export function onFiltersUpdated(callback: Function) {
+export function onFiltersUpdated(callback: (filters?: Filter[]) => unknown) {
   const hasHandlers = this.listeners.onFiltersUpdated.length > 0;
 
   this.connect();

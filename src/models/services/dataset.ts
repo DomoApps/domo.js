@@ -6,7 +6,7 @@
  * @param {(alias: string) => void} callback - Callback function to be called with the alias when a data update event occurs.
  * @returns {() => void} - Function to remove the registered callback.
  */
-export function onDataUpdated(callback: (alias: string) => void) {
+export function onDataUpdated(callback: (alias?: string) => unknown) {
   this.connect(true);
   this.listeners.onDataUpdated.push(callback);
 

@@ -67,7 +67,7 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: F
  * @param callback - The function to call when variables are updated.
  * @returns A function to unregister the callback.
  */
-export function onVariablesUpdated(callback: Function) {
+export function onVariablesUpdated(callback: (variables?: Variable[]) => unknown) {
   this.connect(true);
   this.listeners.onVariablesUpdated.push(callback);
 
