@@ -57,4 +57,15 @@ describe('sendAppData', () => {
     Domo.sendAppData('value');
     expect(window.parent.postMessage).toHaveBeenCalled();
   });
+
+  it('should accept a simple no-op callback like () => null', () => {
+    const unregister = Domo.onAppDataUpdated(() => null);
+    expect(typeof unregister).toBe('function');
+    (Domo as any).connect();
+    const port = makeMockPort();
+    const appData = { foo: 'bar' };
+    // Should not throw when callback ignores the parameter
+    expect(() => Domo.channel?.port1.onmessage?.(makeMessageEvent({ event: 'appData', appData }, [port]))).not.toThrow();
+    unregister();
+  });
 });

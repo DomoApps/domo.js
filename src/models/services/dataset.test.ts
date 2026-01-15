@@ -252,5 +252,20 @@ describe("Dataset Service", () => {
       expect(typeof unregister).toBe("function");
       expect(unregister()).toBeUndefined();
     });
+
+    it("should accept a simple no-op callback like () => null", () => {
+      const unregister = Domo.onDataUpdated(() => null);
+      expect(typeof unregister).toBe("function");
+      (Domo as any).connect();
+      const alias = "test-alias";
+      const responsePort = { postMessage: jest.fn() };
+      const event = {
+        data: { event: "dataUpdated", alias },
+        ports: [responsePort],
+      };
+      // Should not throw when callback ignores the parameter
+      expect(() => Domo.channel?.port1.onmessage?.(event as any)).not.toThrow();
+      unregister();
+    });
   });
 });

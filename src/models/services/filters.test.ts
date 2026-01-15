@@ -159,6 +159,16 @@ describe('Filters Service', () => {
       expect(port.postMessage).toHaveBeenCalled();
       expect(cb).toHaveBeenCalledWith(filters);
     });
+
+    it('should accept a simple no-op callback like () => null', () => {
+      const unregister = Domo.onFiltersUpdated(() => null);
+      expect(typeof unregister).toBe('function');
+      const port = makeMockPort();
+      const filters = [{ foo: 'bar' }];
+      // Should not throw when callback ignores the parameter
+      expect(() => Domo.channel?.port1.onmessage?.(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]))).not.toThrow();
+      unregister();
+    });
   });
 
   describe('Filter type validation', () => {

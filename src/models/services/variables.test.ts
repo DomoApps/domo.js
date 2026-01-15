@@ -100,6 +100,17 @@ describe('onVariablesUpdated', () => {
     expect(port.postMessage).toHaveBeenCalled();
     expect(cb).toHaveBeenCalledWith(variables);
   });
+
+  it('should accept a simple no-op callback like () => null', () => {
+    const unregister = Domo.onVariablesUpdated(() => null);
+    expect(typeof unregister).toBe('function');
+    (Domo as any).connect();
+    const port = makeMockPort();
+    const variables = { foo: 'bar' };
+    // Should not throw when callback ignores the parameter
+    expect(() => Domo.channel?.port1.onmessage?.(makeMessageEvent({ event: 'variablesUpdated', variables }, [port]))).not.toThrow();
+    unregister();
+  });
 });
 
 describe('Variable type validation', () => {
