@@ -127,9 +127,8 @@ describe('Filter Utilities', () => {
       }
     });
 
-    it('should throw TypeError for empty arrays', () => {
-      expect(() => guardAgainstInvalidFilters([])).toThrow(TypeError);
-      expect(() => guardAgainstInvalidFilters([])).toThrow(/Filters array cannot be empty/);
+    it('should not throw for empty arrays (used to clear filters)', () => {
+      expect(() => guardAgainstInvalidFilters([])).not.toThrow();
     });
 
     it('should throw TypeError for arrays with invalid filters', () => {
@@ -142,7 +141,6 @@ describe('Filter Utilities', () => {
 
     it('should provide helpful error messages', () => {
       expect(() => guardAgainstInvalidFilters('invalid' as any)).toThrow(/Filter array or null.*column.*operator.*values.*dataType/);
-      expect(() => guardAgainstInvalidFilters([])).toThrow(/cannot be empty/);
       expect(() => guardAgainstInvalidFilters([{}] as any)).toThrow(/valid Filter objects.*column.*operator.*values.*dataType/);
     });
   });
