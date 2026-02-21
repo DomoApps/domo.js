@@ -49,8 +49,7 @@ export function guardAgainstInvalidFilters(filters: Filter[] | null) {
   if (!Array.isArray(filters))
     throw new TypeError('Filters must be provided as a Filter array or null: { "column": string, "operator": string, "values": any[], "dataType": string }[]');
 
-  if (filters.length === 0)
-    throw new TypeError('Filters array cannot be empty.');
+  if (filters.length === 0) return; // empty array is allowed (clears all filters)
 
   if (!isFilterArray(filters))
     throw new TypeError('All filters must be valid Filter objects with required properties: { "column": string, "operator": string, "values": any[], "dataType": string }[]');

@@ -217,10 +217,15 @@ describe('Filters Service', () => {
       }
     });
 
-    it('should throw TypeError for empty Filter array', () => {
+    it('should accept empty Filter array (clears all filters)', () => {
       expect(() => {
         Domo.requestFiltersUpdate([]);
-      }).toThrow(TypeError);
+      }).not.toThrow();
+
+      expect(window.parent.postMessage).toHaveBeenCalled();
+      const message = JSON.parse((window.parent.postMessage as jest.Mock).mock.calls[0][0]);
+      expect(message.event).toBe('filter');
+      expect(message.filter).toEqual([]);
     });
 
     it('should throw TypeError for mixed valid/invalid filters', () => {

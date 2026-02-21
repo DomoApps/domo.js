@@ -26,7 +26,7 @@ This document provides comprehensive information about the domo.js/ryuu.js codeb
 
 **Name:** ryuu.js (published name) / domo.js (development name)
 **Purpose:** JavaScript SDK for developing custom applications within the Domo platform
-**Version:** 5.1.2-alpha.2
+**Version:** 5.1.3
 **Package:** Published as `ryuu.js` on npm
 
 ### What This Library Does
@@ -208,22 +208,23 @@ class Domo {
     isSuccess,
     isVerifiedOrigin,
     getQueryParams,
-    setFormatHeaders,
-    generateUniqueId,
-    isIOS
+    setFormatHeaders
   };
 }
 ```
 
 #### Initialization Flow
 
-1. **Automatic Initialization**: When module loads, `connect()` is called automatically
+1. **Lazy Initialization**: `connect()` is called when first event listener is registered
 2. **MessageChannel Creation**: Creates channel with two ports
-3. **Subscribe Message**: Posts 'subscribe' message with port2 to parent
-4. **Message Handler**: Listens for messages on port1
-5. **Token Injection**: MutationObserver watches for `__RYUU_SID__` token and injects into DOM
+3. **Subscribe Message**: Posts 'subscribe' message with port2 to parent (includes `skipFilters` flag)
+4. **Dual Message Handlers**:
+   - **MessageChannel listener**: Handles modern communication via `port1.onmessage`
+   - **Legacy window.postMessage listener**: Maintains backward compatibility with v4.7.0 and earlier
+5. **Origin Verification**: Legacy handler uses `isVerifiedOrigin()` for security
+6. **Event Dispatching**: Both handlers map events to appropriate service handlers
 
-See [src/domo.ts:250-328](src/domo.ts#L250-L328) for the `connect()` implementation.
+See [src/domo.ts:118-228](src/domo.ts#L118-L228) for the `connect()` implementation.
 
 #### Methods Overview
 
@@ -336,13 +337,29 @@ interface AskReplyMap {
 
 **Workflow:**
 
-1. App calls `requestFiltersUpdate(filters, null, onAck, onReply)`
-2. Request stored with unique ID and status 'PENDING'
-3. Message sent to parent with eventType='ASK'
-4. Status updated to 'SENT'
-5. Parent sends ACK message → `onAck()` callback fires
-6. Parent sends REPLY message → `onReply(data)` callback fires
-7. Response stored in requests map with status 'SUCCESS' or 'FAILURE'
+1. App calls `requestFiltersUpdate(filters, true, onAck, onReply)`
+2. Request stored with unique ID, status 'pending', and callbacks
+   ```typescript
+   this.requests[requestId] = {
+     request: {
+       payload: message,
+       onAck,
+       onReply,
+       status: "pending",
+       sentAt: Date.now()
+     }
+   };
+   ```
+3. Message sent to parent (via postMessage or mobile bridge)
+4. Status remains 'pending' until acknowledgment
+5. Parent sends ACK → `handleAck()` invokes stored `onAck()` callback
+6. Parent sends REPLY → `handleReply()` invokes stored `onReply(data)` callback
+7. Response stored in requests map with success/error data
+
+**Callback Support:**
+- `onAck`: Called when parent acknowledges receipt (request processed)
+- `onReply`: Called when operation completes with result data
+- Both callbacks are optional - supports `() => void` or `() => null` patterns
 
 See [src/utils/ask-reply.ts](src/utils/ask-reply.ts) for implementation.
 
@@ -611,19 +628,23 @@ function requestFiltersUpdate(
 **Implementation:**
 
 1. **Validation**: `guardAgainstInvalidFilters(filters)`
-2. **Mobile Handling**: If iOS, uses `webkit.messageHandlers.domofilter.postMessage`
-3. **Request Tracking**: Generates unique ID, stores in `this.requests`
-4. **Message Sending**: Posts message via MessageChannel
+2. **Request Tracking**: Generates unique ID, stores in `this.requests` with onAck/onReply callbacks
+3. **Mobile Detection**: Uses `isMobile()` to detect iOS/Android devices
+4. **Platform-Specific Sending**:
+   - **Web (desktop)**: Posts to `window.parent` via postMessage
+   - **Mobile**: Tries `domofilter.postMessage()` first, then falls back to:
+     - iOS: `webkit.messageHandlers.domofilter.postMessage()`
+     - Other: `window.parent.postMessage()`
 5. **Returns**: Request ID for tracking
 
-See [src/models/services/filters.ts:11-59](src/models/services/filters.ts#L11-L59).
+See [src/models/services/filters.ts](src/models/services/filters.ts).
 
 #### onFiltersUpdated
 
-Registers callback for filter changes.
+Registers callback for filter changes. When the first listener is registered, automatically sends an initial filter request.
 
 ```typescript
-function onFiltersUpdated(callback: (filters: Filter[]) => void): () => void
+function onFiltersUpdated(callback: (filters?: Filter[]) => unknown): () => void
 ```
 
 **Returns**: Unsubscribe function to remove listener.
@@ -631,29 +652,58 @@ function onFiltersUpdated(callback: (filters: Filter[]) => void): () => void
 **Implementation:**
 
 ```typescript
-this.listeners[DomoEvent.FILTERS_UPDATED].push(callback);
+const hasHandlers = this.listeners.onFiltersUpdated.length > 0;
+
+this.connect(); // Ensure MessageChannel is initialized
+this.listeners.onFiltersUpdated.push(callback);
+
+// If this is the first listener, request initial filters
+if (!hasHandlers) {
+  this.requestFiltersUpdate(null, false);
+}
 
 // Return unsubscribe function
 return () => {
-  const index = this.listeners[DomoEvent.FILTERS_UPDATED].indexOf(callback);
-  if (index > -1) {
-    this.listeners[DomoEvent.FILTERS_UPDATED].splice(index, 1);
+  const index = this.listeners.onFiltersUpdated.indexOf(callback);
+  if (index >= 0) {
+    this.listeners.onFiltersUpdated.splice(index, 1);
   }
 };
 ```
 
+**Key Behavior:** The first listener triggers an initial filter request to populate the app with current filter state.
+
 #### handleFiltersUpdated
 
-Internal handler that processes incoming filter messages and invokes callbacks.
+Internal handler that processes incoming filter messages and invokes callbacks. Also handles acknowledgments and reply tracking.
 
 ```typescript
-function handleFiltersUpdated(filters: Filter[]): void {
-  guardAgainstInvalidFilters(filters);
-  this.listeners[DomoEvent.FILTERS_UPDATED].forEach(callback => {
-    callback(filters);
-  });
+function handleFiltersUpdated(message: any, responsePort?: MessagePort): void {
+  if (!message) return;
+
+  // Send acknowledgment back through response port if available
+  if (this.listeners.onFiltersUpdated.length) {
+    responsePort?.postMessage({
+      requestId: message.requestId,
+      event: "ack",
+      filters: message.filters
+    });
+
+    // Invoke all registered callbacks
+    this.listeners.onFiltersUpdated.forEach((cb: Function) =>
+      cb(message.filters)
+    );
+  }
+
+  // Handle reply for request tracking
+  this.handleReply(message.requestId, message.filters, message.error);
 }
 ```
+
+**Key Features:**
+- Accepts optional `responsePort` for MessageChannel acknowledgments
+- Automatically sends ACK message when callbacks exist
+- Processes reply for request tracking (onAck/onReply callbacks)
 
 ### Variables Service
 
@@ -665,7 +715,10 @@ Similar pattern to Filters service:
 - `onVariablesUpdated(callback)` - Listen for changes
 - `handleVariablesUpdated(variables)` - Internal handler
 
-**Mobile Integration:** Uses `webkit.messageHandlers.domovariable` for iOS or `window.domovariable` for Android/Flutter.
+**Mobile Integration:**
+- Tries `domovariable.postMessage()` first (global object injected by mobile apps)
+- Falls back to `webkit.messageHandlers.domovariable.postMessage()` for iOS
+- Falls back to `window.parent.postMessage()` for other platforms
 
 ### Dataset Service
 
@@ -774,15 +827,45 @@ Generates request IDs for tracking.
 
 ```typescript
 function isIOS(): boolean {
-  return !!(
-    window.webkit?.messageHandlers?.domofilter ||
-    window.webkit?.messageHandlers?.domovariable ||
-    (navigator.platform && /iPad|iPhone|iPod/.test(navigator.platform))
-  );
+  const userAgent = navigator.userAgent.toLowerCase();
+  const hasIOSUserAgent = /(?:iphone|ipad|ipod)/.test(userAgent);
+  const isPossibleIPadDesktopMode = /mac os x/.test(userAgent) &&
+    'ontouchend' in document &&
+    navigator.maxTouchPoints > 1;
+
+  // Additional checks for reliability
+  const hasIOSAPIs = webkit?.messageHandlers !== undefined;
+  const isStandalone = navigator.standalone === true;
+  const hasMobileScreenRatio = screen?.width < 1024;
+
+  return hasIOSUserAgent || isPossibleIPadDesktopMode ||
+         ([hasIOSAPIs, isStandalone, hasMobileScreenRatio].filter(Boolean).length >= 2);
 }
 ```
 
-Multi-factor iOS detection to avoid false positives.
+Multi-factor iOS detection with support for iPad desktop mode and enhanced reliability checks.
+
+#### isMobile
+
+```typescript
+function isMobile(): boolean {
+  if (isIOS()) return true;
+
+  const userAgent = navigator.userAgent.toLowerCase();
+  const hasMobileUserAgent = /android|webos|blackberry|iemobile|opera mini|mobile|phone/.test(userAgent);
+
+  if (hasMobileUserAgent) return true;
+
+  // Require multiple indicators for edge cases
+  const hasMobileAPIs = window.domovariable !== undefined || window.domofilter !== undefined;
+  const hasTouchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const hasMobileScreenRatio = screen?.width < 1024;
+
+  return [hasMobileAPIs, hasTouchSupport, hasMobileScreenRatio].filter(Boolean).length >= 2;
+}
+```
+
+Comprehensive mobile detection covering iOS, Android, and other mobile platforms.
 
 ### DOM Utilities
 
@@ -891,10 +974,14 @@ Location: [src/models/services/filters.ts](src/models/services/filters.ts), [src
 iOS provides native message handlers for bidirectional communication between WebView and native app:
 
 ```typescript
-if (isIOS() && window.webkit?.messageHandlers?.domofilter) {
-  window.webkit.messageHandlers.domofilter.postMessage({
-    filters: JSON.stringify(filters)
-  });
+// Modern approach (try global object first)
+try {
+  domofilter.postMessage(JSON.stringify(filters));
+} catch (error) {
+  // Fallback to webkit handlers
+  if (isIOS()) {
+    window.webkit?.messageHandlers?.domofilter?.postMessage(filters);
+  }
 }
 ```
 
@@ -902,21 +989,38 @@ if (isIOS() && window.webkit?.messageHandlers?.domofilter) {
 - `webkit.messageHandlers.domofilter` - Filter communication
 - `webkit.messageHandlers.domovariable` - Variable communication
 
+**Detection:** Uses `isIOS()` which checks:
+1. User agent for iPhone/iPad/iPod
+2. iPad desktop mode (macOS UA + touch support)
+3. Multiple iOS-specific indicators (webkit APIs, standalone mode, screen dimensions)
+
 ### Android/Flutter Integration
 
 **Global Objects:**
 
-Android/Flutter apps inject global objects into the WebView:
+Android/Flutter apps inject global objects into the WebView that are accessed directly:
 
 ```typescript
-if (window.domovariable) {
-  window.domovariable.postMessage(JSON.stringify(variables));
+// Try global object (injected by native mobile apps)
+try {
+  domovariable.postMessage(JSON.stringify(variables));
+} catch (error) {
+  // Fallback to window.parent for web or other platforms
+  window.parent.postMessage(message, "*");
 }
 
-if (window.domofilter) {
-  window.domofilter.postMessage(JSON.stringify(filters));
+// Similar pattern for filters
+try {
+  domofilter.postMessage(JSON.stringify(filters));
+} catch (error) {
+  // Fallback to iOS or web
 }
 ```
+
+**Detection:** Uses `isMobile()` which checks:
+1. `isIOS()` first (returns true if iOS)
+2. User agent for Android/WebOS/BlackBerry/Mobile
+3. Multiple mobile indicators (global APIs, touch support, screen dimensions)
 
 **Type Declarations:**
 
@@ -1061,6 +1165,39 @@ observer.observe(document.body, {
 
 Automatically captures auth token without requiring manual intervention.
 
+### 7. Flexible Callback Pattern
+
+Event listeners and emitters support flexible callback signatures:
+
+```typescript
+// All of these are valid:
+Domo.onFiltersUpdated((filters) => {
+  console.log(filters);
+});
+
+Domo.onFiltersUpdated(() => {
+  // No parameters needed
+});
+
+Domo.onFiltersUpdated(() => null); // Explicit null return
+
+// Emitters with optional callbacks
+Domo.requestFiltersUpdate(
+  filters,
+  true,
+  () => console.log('Acknowledged'),
+  (data) => console.log('Completed:', data)
+);
+
+// Or without callbacks
+Domo.requestFiltersUpdate(filters);
+
+// Or with only one callback
+Domo.requestFiltersUpdate(filters, true, () => console.log('Ack'));
+```
+
+**Implementation:** Uses TypeScript's `unknown` return type and `Function` type to allow maximum flexibility while maintaining type safety for parameters.
+
 ### Naming Conventions
 
 **Services:**
@@ -1131,8 +1268,14 @@ Each module has a corresponding `.test.ts` file:
 - [src/domo.test.ts](src/domo.test.ts) - Main class tests
 - [src/models/services/http.test.ts](src/models/services/http.test.ts) - HTTP service tests
 - [src/models/services/filters.test.ts](src/models/services/filters.test.ts) - Filter service tests
+- [src/models/services/variables.test.ts](src/models/services/variables.test.ts) - Variable service tests
+- [src/models/services/appdata.test.ts](src/models/services/appdata.test.ts) - AppData service tests
+- [src/models/services/dataset.test.ts](src/models/services/dataset.test.ts) - Dataset service tests
+- [src/models/services/navigation.test.ts](src/models/services/navigation.test.ts) - Navigation service tests
 - [src/utils/filter.test.ts](src/utils/filter.test.ts) - Filter utility tests
-- etc.
+- [src/utils/general.test.ts](src/utils/general.test.ts) - General utility tests
+- [src/utils/domoutils.test.ts](src/utils/domoutils.test.ts) - DOM utility tests
+- [src/utils/ask-reply.test.ts](src/utils/ask-reply.test.ts) - Request tracking tests
 
 ### Common Test Patterns
 
@@ -1199,14 +1342,21 @@ npm test -- --coverage # Coverage report
 ```json
 {
   "name": "ryuu.js",
-  "version": "5.1.2-alpha.2",
+  "version": "5.1.3",
   "main": "dist/domo.js",
   "types": "dist/domo.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "webpack --config webpack.config.js",
-    "test": "jest",
-    "type-check": "tsc --noEmit"
+    "build": "rm -rf dist && mkdir dist && NODE_ENV=production webpack && cp dist/domo.js demo/domo.js",
+    "test": "jest --silent",
+    "coverage": "jest --coverage --silent",
+    "type-check": "tsc --noEmit",
+    "release": "npm run build && npm publish",
+    "releaseAlpha": "npm run build && npm publish --tag alpha",
+    "releaseBeta": "npm run build && npm publish --tag beta",
+    "bumpAlpha": "npm run build && npm run bump -- --prerelease alpha",
+    "bumpBeta": "npm run build && npm run bump -- --prerelease beta",
+    "bump": "standard-version"
   }
 }
 ```
@@ -1437,12 +1587,14 @@ This allows users to add custom logging, retry logic, caching, etc. without fork
 
 ### Debugging Tips
 
-1. **Check requests map**: `console.log(Domo.getRequests())`
-2. **Monitor messages**: Add logging to `port1.onmessage`
-3. **Verify token**: `console.log(window.__RYUU_SID__)`
-4. **Check connection**: `console.log(Domo.connected)`
-5. **Inspect environment**: `console.log(Domo.env)`
-6. **Test origin verification**: `console.log(Domo.__util.isVerifiedOrigin(window.location.origin))`
+1. **Check requests map**: `console.log(Domo.getRequests())` - See all tracked requests with status
+2. **Monitor messages**: Add logging to `port1.onmessage` - Debug incoming messages
+3. **Verify token**: `console.log(window.__RYUU_SID__)` - Check if auth token is present
+4. **Check connection**: `console.log(Domo.connected)` - Verify MessageChannel initialized
+5. **Inspect environment**: `console.log(Domo.env)` - View query parameters
+6. **Test origin verification**: `console.log(Domo.__util.isVerifiedOrigin(window.location.origin))` - Security check
+7. **Check mobile detection**: `console.log(isIOS(), isMobile())` - Verify platform detection
+8. **Inspect specific request**: `console.log(Domo.getRequest(requestId))` - Debug single request
 
 ---
 
