@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Local development emulator for ryuu.js / domo.js MessageChannel communication",
   "type": "module",
+  "files": ["dist"],
   "exports": {
     "./vite": { "import": "./dist/vite.js", "require": "./dist/vite.cjs" },
     "./auto":  { "import": "./dist/auto.js",  "require": "./dist/auto.cjs"  },
