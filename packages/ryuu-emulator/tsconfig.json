@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "declaration": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "lib": ["ES2017", "DOM"],
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "**/*.test.ts"]
+}

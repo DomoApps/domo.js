@@ -33,6 +33,7 @@ function restoreIndexHtml() {
   // Restore original paths
   const replacements = [
     { from: 'href="public-assets/assets/', to: 'href="assets/' },
+    { from: 'src="public-assets/emulator.js"', to: 'src="emulator.js"' },
     { from: 'src="public-assets/domo.js"', to: 'src="domo.js"' },
     { from: 'src="public-assets/assets/', to: 'src="assets/' }
   ];

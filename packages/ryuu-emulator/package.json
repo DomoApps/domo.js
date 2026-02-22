@@ -1,0 +1,26 @@
+{
+  "name": "@domoinc/ryuu-emulator",
+  "version": "0.1.0",
+  "description": "Local development emulator for ryuu.js / domo.js MessageChannel communication",
+  "type": "module",
+  "exports": {
+    "./vite": { "import": "./dist/vite.js", "require": "./dist/vite.cjs" },
+    "./auto":  { "import": "./dist/auto.js",  "require": "./dist/auto.cjs"  },
+    "./core":  { "import": "./dist/core.js",  "require": "./dist/core.cjs"  }
+  },
+  "scripts": {
+    "build": "tsup --config tsup.browser.config.ts && tsup --config tsup.vite.config.ts",
+    "test":  "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0",
+    "vitest": "^2.0.0",
+    "@types/node": "^20.0.0",
+    "jsdom": "^25.0.0"
+  },
+  "peerDependencies": { "vite": ">=4.0.0" },
+  "peerDependenciesMeta": { "vite": { "optional": true } }
+}

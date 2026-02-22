@@ -11,6 +11,7 @@ const INDEX_HTML = path.join(DEMO_DIR, 'index.html');
 const ITEMS_TO_MOVE = [
   'assets',
   'domo.js',
+  'emulator.js',
   'manifest.json',
   'README.md',
   'thumbnail.png'
@@ -67,6 +68,7 @@ function updateIndexHtml() {
   // Update asset paths
   const replacements = [
     { from: 'href="assets/', to: 'href="public-assets/assets/' },
+    { from: 'src="emulator.js"', to: 'src="public-assets/emulator.js"' },
     { from: 'src="domo.js"', to: 'src="public-assets/domo.js"' },
     { from: 'src="assets/', to: 'src="public-assets/assets/' }
   ];

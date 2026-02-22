@@ -70,6 +70,17 @@
   </div>
 
   <!-- Scripts -->
+  <!-- Emulator: fires event-driven callbacks when running on localhost without a parent frame -->
+  <script>
+    window.__DOMO_MOCK__ = {
+      filters: [{ columnName: "Region", operator: "IN", values: ["West"], dataType: "STRING" }],
+      variables: [{ functionId: 1, value: "Mock Variable" }],
+      dataAlias: "test",
+      appData: "{\"mock\":true}",
+      initialDelayMs: 200
+    };
+  </script>
+  <script src="public-assets/emulator.js"></script>
   <script src="public-assets/domo.js"></script>
   <!-- <script src="https://cdn.jsdelivr.net/npm/ryuu.js@4.7.0"></script> -->
   <script src="public-assets/assets/js/tests.js"></script>

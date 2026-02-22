@@ -21,7 +21,7 @@
   "scripts": {
     "test": "jest --silent",
     "coverage": "jest --coverage --silent",
-    "build": "rm -rf dist && mkdir dist && NODE_ENV=production webpack && cp dist/domo.js demo/domo.js",
+    "build": "rm -rf dist && mkdir dist && NODE_ENV=production webpack && (cd packages/ryuu-emulator && npm run build) && cp dist/domo.js demo/domo.js && cp packages/ryuu-emulator/dist/emulator.js demo/emulator.js",
     "build:demo": "node demo/build.js",
     "clean:demo": "node demo/clean.js",
     "release": "npm run build && npm publish",
@@ -31,5 +31,6 @@
     "bumpBeta": "npm run build && npm run bump -- --prerelease beta",
     "bump": "standard-version"
   },
-  "author": "Domo"
+  "author": "Domo",
+  "workspaces": ["packages/*"]
 }
