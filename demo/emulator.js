@@ -140,6 +140,7 @@ var DomoEmulatorAutoInit = (() => {
       return v.toString(16);
     });
   }
+  var OUTBOUND_EVENTS = /* @__PURE__ */ new Set(["filter", "variable", "appData", "navigate"]);
   var DomoEmulator = class {
     constructor(config2 = {}) {
       this.port2 = null;
@@ -204,8 +205,25 @@ var DomoEmulatorAutoInit = (() => {
         setTimeout(() => this.sendInitialState(), delay);
         return;
       }
-      if (["filter", "variable", "navigate", "appData"].includes(event)) {
+      if (OUTBOUND_EVENTS.has(event)) {
+        e.stopImmediatePropagation();
         this.addLog("out", event, parsed);
+        this.handleOutbound(parsed);
+      }
+    }
+    // Simulate the platform roundtrip: ACK the request and push the inbound event.
+    handleOutbound(msg) {
+      if (!this.port2) return;
+      const requestId = msg.requestId;
+      if (requestId) {
+        this.port2.postMessage({ event: "ack", requestId });
+      }
+      if (msg.event === "filter" && Array.isArray(msg.filter)) {
+        this.pushFiltersUpdated(msg.filter);
+      } else if (msg.event === "variable" && Array.isArray(msg.variables)) {
+        this.pushVariablesUpdated(msg.variables);
+      } else if (msg.event === "appData" && msg.appData !== void 0) {
+        this.pushAppData(String(msg.appData));
       }
     }
     pushFiltersUpdated(filters) {
@@ -252,13 +270,13 @@ var DomoEmulatorAutoInit = (() => {
       const ackChannel = new MessageChannel();
       const requestId = uuid();
       ackChannel.port1.onmessage = (e) => {
-        this.addLog("in", "ack:appDataUpdated", e.data);
+        this.addLog("in", "ack:appData", e.data);
       };
       this.port2.postMessage(
-        { event: "appDataUpdated", appData, requestId },
+        { event: "appData", appData, requestId },
         [ackChannel.port2]
       );
-      this.addLog("in", "appDataUpdated", { appData, requestId });
+      this.addLog("in", "appData", { appData, requestId });
     }
     sendInitialState() {
       var _a2, _b;

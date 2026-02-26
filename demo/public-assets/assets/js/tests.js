@@ -122,6 +122,21 @@ const features = [
     },
   },
   {
+    name: "clearFilters",
+    category: "events",
+    description: "Clear all page filters by sending null",
+    fn: () => {
+      if (!domo.requestFiltersUpdate) throw new Error("Not implemented");
+      const startTime = performance.now();
+      domo.requestFiltersUpdate(null);
+      const endTime = performance.now();
+      return {
+        data: "Filters cleared (sent null)",
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+  },
+  {
     name: "requestVariablesUpdate",
     category: "events",
     description: "Send variable updates to the dashboard",
