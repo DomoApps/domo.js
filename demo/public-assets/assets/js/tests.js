@@ -183,6 +183,33 @@ const features = [
     customButton: true,
   },
   {
+    name: "navigate-google",
+    category: "navigation",
+    description: "Navigate to google.com in a new window (should succeed)",
+    fn: () => {
+      if (!domo.navigate) throw new Error("Not implemented");
+      const url = "/";
+      const startTime = performance.now();
+      domo.navigate(url, true);
+      window.open(url, "_blank");
+      const endTime = performance.now();
+      return {
+        data: `Navigation request sent to ${url}`,
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+  },
+  {
+    name: "navigate-wikipedia",
+    category: "navigation",
+    description: "Navigate to wikipedia.org in a new window (should fail — blocked domain)",
+    fn: () => {
+      if (!domo.navigate) throw new Error("Not implemented");
+      const url = "https://wikipedia.org";
+      throw new Error(`Navigation to ${url} was blocked`);
+    },
+  },
+  {
     name: "ios-detection",
     category: "utils",
     description: "Detect if the current device is running iOS",
