@@ -115,6 +115,7 @@ body::before {
   font-weight: 400;
 }
 
+.header__meta {
   display: flex;
   align-items: center;
   justify-content: center;
