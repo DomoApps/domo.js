@@ -10,9 +10,12 @@ class DomoTestApp {
     this.isInitialized = false;
     
     // Bind methods to maintain context
+    this.eventsRegistered = false;
+
     this.runAllTests = this.runAllTests.bind(this);
     this.clearAllResults = this.clearAllResults.bind(this);
     this.exportResults = this.exportResults.bind(this);
+    this.registerEventListeners = this.registerEventListeners.bind(this);
   }
 
   /**
@@ -29,7 +32,6 @@ class DomoTestApp {
     }
 
     this.buildInitialRows();
-    this.registerEventListeners();
     this.setupUIEventListeners();
     
     this.isInitialized = true;
@@ -54,7 +56,7 @@ class DomoTestApp {
       let actionsHtml = "";
       
       if (isEventTest) {
-        actionsHtml = `<span style="color: #6b7280; font-size: 0.75rem;">Event-driven</span>`;
+        actionsHtml = `<span style="color: #6b7280; font-size: 0.75rem;">Event-driven — use 📡 button to register</span>`;
       } else {
         actionsHtml = `
           <button class="btn btn-small" onclick="window.testApp.runSingleTest('${name}')">▶️ Run</button>
@@ -62,13 +64,15 @@ class DomoTestApp {
         `;
       }
       
+      const detailsContent = isEventTest ? "Not registered — click 📡 to enable" : (pendingMsg || "");
+
       tr.innerHTML = `
         <td>
           <div class="feature-name">${name}</div>
           <div style="font-size: 0.7rem; color: #6b7280; margin-top: 0.25rem;">${description || ''}</div>
         </td>
         <td><span class="status pending">⏳ ${STATUS_LABELS.pending}</span></td>
-        <td class="details">${pendingMsg || ""}</td>
+        <td class="details">${detailsContent}</td>
         <td class="test-actions">${actionsHtml}</td>
       `;
       
@@ -83,17 +87,19 @@ class DomoTestApp {
   }
 
   /**
-   * Register domo.js event callbacks
+   * Register domo.js event callbacks (called on demand via button)
    */
   registerEventListeners() {
+    if (this.eventsRegistered) return;
+
     EVENT_FEATURES.forEach((eventName) => {
       try {
         GeneralUtils.logInfo("registerEventListeners", `Registering event: ${eventName}`);
-        
+
         window.domo[eventName]((arg) => {
           GeneralUtils.logInfo("Event", `${eventName} triggered`, arg);
           const timestamp = GeneralUtils.formatTimestamp();
-          
+
           let msg;
           switch(eventName) {
             case "onDataUpdated":
@@ -105,14 +111,26 @@ class DomoTestApp {
             default:
               msg = `Callback ran successfully at ${timestamp}`;
           }
-          
+
           this.updateRow(eventName, "success", msg);
         });
+
+        this.updateRow(eventName, "pending", features.find(f => f.name === eventName)?.pendingMsg || "Listening...");
       } catch (e) {
         GeneralUtils.logError(`registerEventListeners - ${eventName}`, e);
         this.updateRow(eventName, "fail", e.message);
       }
     });
+
+    this.eventsRegistered = true;
+
+    const btn = DOMUtils.getElementById("registerEvents");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "📡 Events Registered";
+    }
+
+    this.statsManager.updateStats();
   }
 
   /**
@@ -122,10 +140,12 @@ class DomoTestApp {
     const runButton = DOMUtils.getElementById("runTests");
     const clearButton = DOMUtils.getElementById("clearResults");
     const exportButton = DOMUtils.getElementById("exportResults");
+    const registerEventsButton = DOMUtils.getElementById("registerEvents");
 
     if (runButton) runButton.addEventListener("click", this.runAllTests);
     if (clearButton) clearButton.addEventListener("click", this.clearAllResults);
     if (exportButton) exportButton.addEventListener("click", this.exportResults);
+    if (registerEventsButton) registerEventsButton.addEventListener("click", this.registerEventListeners);
   }
 
   /**
