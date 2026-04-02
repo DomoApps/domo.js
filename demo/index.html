@@ -4,74 +4,85 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>domo.js Feature Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="public-assets/assets/css/styles.css">
 </head>
 <body>
   <div class="container">
-    <!-- Header Section -->
+    <!-- Header -->
     <header class="header">
-      <h1>domo.js Feature Report</h1>
-      <p>Comprehensive testing suite for all domo.js APIs and functionality</p>
-      
-      <!-- Device Detection Info -->
+      <h1>domo.js</h1>
+      <p>Feature report &amp; interactive test suite</p>
       <div id="deviceInfo" class="device-detection-header">
         <div class="device-status">
-          <span>Device:</span>
+          <span>Device</span>
           <span id="deviceType" class="device-badge">Detecting...</span>
         </div>
       </div>
     </header>
-    
-    <!-- Controls Section -->
+
+    <!-- Event Warning Banner -->
+    <div class="event-banner" id="eventBanner">
+      <div class="event-banner__glow"></div>
+      <div class="event-banner__content">
+        <div class="event-banner__icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M10 2L1 18h18L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M10 8v4M10 14.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="event-banner__text">
+          <strong>Events not registered</strong>
+          <span>The app will refresh on data changes instead of updating in place</span>
+        </div>
+        <button class="event-banner__action" id="bannerRegisterBtn">Register Now</button>
+      </div>
+    </div>
+
+    <!-- Controls -->
     <section class="controls">
       <button id="runTests" class="btn">
         <span class="spinner" id="spinner" style="display: none;"></span>
-        <span id="runTestsText">🚀 Run All Tests</span>
+        <span id="runTestsText">Run All Tests</span>
       </button>
-      <button id="clearResults" class="btn btn-secondary">🧹 Clear Results</button>
-      <button id="exportResults" class="btn btn-secondary">📊 Export Results</button>
-      
+      <button id="clearResults" class="btn btn-secondary">Clear</button>
+      <button id="exportResults" class="btn btn-secondary">Export</button>
       <div class="stats">
         <div class="stat">
-          <span>Total:</span>
+          <span>Total</span>
           <span class="stat-value" id="totalTests">0</span>
         </div>
-        <div class="stat">
-          <span>✅ Passed:</span>
+        <div class="stat stat--passed">
+          <span>Pass</span>
           <span class="stat-value" id="passedTests">0</span>
         </div>
-        <div class="stat">
-          <span>❌ Failed:</span>
+        <div class="stat stat--failed">
+          <span>Fail</span>
           <span class="stat-value" id="failedTests">0</span>
         </div>
-        <div class="stat">
-          <span>⏳ Pending:</span>
+        <div class="stat stat--pending">
+          <span>Pending</span>
           <span class="stat-value" id="pendingTests">0</span>
         </div>
       </div>
     </section>
-    
-    <!-- Main Content Section -->
-    <main class="content">
-      <table id="reportTable">
-        <thead>
-          <tr>
-            <th>API Method</th>
-            <th>Status</th>
-            <th>Details & Results</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Test rows will be dynamically generated here -->
-        </tbody>
-      </table>
+
+    <!-- Test cards rendered by JS -->
+    <main class="content" id="testContent">
+      <!-- Category groups injected here -->
     </main>
+
+    <!-- Hidden table kept for stats/export compat -->
+    <table id="reportTable">
+      <thead><tr><th>API Method</th><th>Status</th><th>Details</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 
   <!-- Scripts -->
   <script src="public-assets/domo.js"></script>
-  <!-- <script src="https://cdn.jsdelivr.net/npm/ryuu.js@4.7.0"></script> -->
   <script src="public-assets/assets/js/tests.js"></script>
   <script src="public-assets/assets/js/utils.js"></script>
   <script src="public-assets/assets/js/app.js"></script>
