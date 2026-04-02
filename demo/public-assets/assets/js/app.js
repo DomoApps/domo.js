@@ -165,23 +165,18 @@ class DomoTestApp {
 
         window.domo[resolvedMethod]((arg) => {
           GeneralUtils.logInfo("Event", `${resolvedMethod} triggered`, arg);
-          const timestamp = GeneralUtils.formatTimestamp();
+          const via = resolvedMethod !== canonicalName ? resolvedMethod : null;
 
-          let msg;
-          switch (canonicalName) {
-            case "onDataUpdated":
-              msg = `Callback ran at ${timestamp} with alias: ${arg}`;
-              break;
-            case "onAppDataUpdated":
-              msg = `Callback ran at ${timestamp}. Data: ${arg}`;
-              break;
-            default:
-              msg = `Callback ran successfully at ${timestamp}`;
+          // Parse the arg for display — may be a string, object, or array
+          let payload = arg;
+          if (typeof arg === "string") {
+            try { payload = JSON.parse(arg); } catch (_) { /* keep as string */ }
           }
 
-          if (resolvedMethod !== canonicalName) {
-            msg += ` <span style="color:var(--text-muted);font-size:0.7rem;">(via ${resolvedMethod})</span>`;
-          }
+          const msg = DataRenderer.renderPayload(
+            "received", resolvedMethod, payload,
+            { via: via }
+          );
 
           this.updateRow(canonicalName, "success", msg);
 
@@ -194,11 +189,12 @@ class DomoTestApp {
           }
         });
 
-        const pendingMsg = features.find(f => f.name === canonicalName)?.pendingMsg || "Listening...";
-        const viaNote = resolvedMethod !== canonicalName
-          ? ` <span style="color:var(--text-muted);font-size:0.7rem;">(via ${resolvedMethod})</span>`
-          : "";
-        this.updateRow(canonicalName, "pending", pendingMsg + viaNote);
+        const feature = features.find(f => f.name === canonicalName);
+        let pendingMsg = feature?.pendingMsg || "Listening...";
+        if (resolvedMethod !== canonicalName) {
+          pendingMsg += ` <span style="color:var(--text-muted);font-size:0.7rem;">(via ${resolvedMethod})</span>`;
+        }
+        this.updateRow(canonicalName, "pending", pendingMsg);
       } catch (e) {
         GeneralUtils.logError(`registerEventListeners - ${canonicalName}`, e);
         this.updateRow(canonicalName, "fail", e.message);

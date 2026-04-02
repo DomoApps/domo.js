@@ -835,6 +835,149 @@ body::before {
 }
 
 /* ==========================================================================
+   Data Block — Rich Payload Rendering
+   ========================================================================== */
+
+.data-block {
+  margin-top: 0.5rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  animation: dataBlockIn 0.35s ease both;
+  font-size: 0.78rem;
+}
+
+@keyframes dataBlockIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.data-block__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.data-block--sent .data-block__header {
+  background: rgba(139, 92, 246, 0.08);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.12);
+}
+
+.data-block--received .data-block__header {
+  background: rgba(16, 185, 129, 0.08);
+  border-bottom: 1px solid rgba(16, 185, 129, 0.12);
+}
+
+.data-block--http .data-block__header {
+  background: rgba(59, 130, 246, 0.08);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.12);
+}
+
+.data-block__arrow {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.data-block--sent .data-block__arrow { color: var(--accent-purple); }
+.data-block--received .data-block__arrow { color: var(--accent-green); }
+
+.data-block__dir {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.62rem;
+}
+
+.data-block--sent .data-block__dir { color: var(--accent-purple); }
+.data-block--received .data-block__dir { color: var(--accent-green); }
+
+.data-block__method {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.data-block__via {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.data-block__spacer {
+  flex: 1;
+}
+
+.data-block__timing {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.data-block__time {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+
+.data-block__http-method {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-weight: 700;
+  font-size: 0.68rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent-blue);
+}
+
+.data-block__url {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 350px;
+}
+
+.data-block__body {
+  padding: 0.5rem 0.75rem;
+  background: rgba(0, 0, 0, 0.15);
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 200px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+}
+
+/* JSON Syntax Highlighting */
+.json-key { color: #c4a7e7; }       /* soft purple */
+.json-string { color: #9ccfd8; }    /* teal */
+.json-number { color: #f6c177; }    /* warm amber */
+.json-bool { color: #eb6f92; }      /* rose */
+.json-null { color: #6e6a86; }      /* muted */
+.json-bracket { color: #908caa; }   /* dim lavender */
+
+/* ==========================================================================
    Event Fired Animation — Card Flash
    ========================================================================== */
 

@@ -95,29 +95,43 @@ class ResultFormatter {
     if (typeof result === "string") {
       return result;
     }
-    
+
     if (result && typeof result === "object") {
+      // Rich payload rendering
+      if (result._render === "payload") {
+        return DataRenderer.renderPayload(
+          result.direction, result.method, result.payload,
+          { timing: result.timing, via: result.via }
+        );
+      }
+
+      // Rich HTTP rendering
+      if (result._render === "http") {
+        return DataRenderer.renderHTTPResult(
+          result.httpMethod, result.url, result.payload,
+          { timing: result.timing }
+        );
+      }
+
       // Special formatting for iOS detection test
       if (testName === "ios-detection" && result.data) {
         return this.formatIOSDetectionResult(result);
       }
-      
+
+      // Fallback
       let details = "";
-      
       if (result.data) {
-        const dataStr = typeof result.data === "string" 
-          ? result.data 
+        const dataStr = typeof result.data === "string"
+          ? result.data
           : JSON.stringify(result.data).substring(0, 100) + "...";
-        details += `📦 ${dataStr}`;
+        details += dataStr;
       }
-      
       if (result.timing) {
-        details += `<div class="timing">⏱️ ${result.timing}</div>`;
+        details += `<div class="timing">${result.timing}</div>`;
       }
-      
       return details;
     }
-    
+
     return JSON.stringify(result);
   }
 
@@ -170,6 +184,124 @@ class ResultFormatter {
       case "skipped": return "⊘";
       default: return "⏳";
     }
+  }
+}
+
+/**
+ * Rich data rendering for event payloads and HTTP results
+ */
+class DataRenderer {
+  /**
+   * Render an event payload block.
+   * @param {string} direction  "sent" | "received"
+   * @param {string} method     The method/event name
+   * @param {*}      data       Payload (any JSON-serializable value)
+   * @param {object} opts       { timing, via, timestamp }
+   */
+  static renderPayload(direction, method, data, opts = {}) {
+    const isSent = direction === "sent";
+    const dirClass = isSent ? "data-block--sent" : "data-block--received";
+    const arrow = isSent ? "&#x2191;" : "&#x2193;"; // ↑ or ↓
+    const dirLabel = isSent ? "Sent" : "Received";
+    const timestamp = opts.timestamp || GeneralUtils.formatTimestamp();
+    const via = opts.via ? `<span class="data-block__via">via ${opts.via}</span>` : "";
+    const timing = opts.timing ? `<span class="data-block__timing">${opts.timing}</span>` : "";
+
+    const body = this.renderValue(data);
+
+    return `
+      <div class="data-block ${dirClass}">
+        <div class="data-block__header">
+          <span class="data-block__arrow">${arrow}</span>
+          <span class="data-block__dir">${dirLabel}</span>
+          <code class="data-block__method">${method}</code>
+          ${via}
+          <span class="data-block__spacer"></span>
+          ${timing}
+          <span class="data-block__time">${timestamp}</span>
+        </div>
+        <div class="data-block__body">${body}</div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render an HTTP response block.
+   */
+  static renderHTTPResult(method, url, data, opts = {}) {
+    const timing = opts.timing ? `<span class="data-block__timing">${opts.timing}</span>` : "";
+    const body = this.renderValue(data);
+
+    return `
+      <div class="data-block data-block--http">
+        <div class="data-block__header">
+          <span class="data-block__http-method">${method}</span>
+          <code class="data-block__url">${this.escapeHTML(url)}</code>
+          <span class="data-block__spacer"></span>
+          ${timing}
+        </div>
+        <div class="data-block__body">${body}</div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render any JS value as syntax-highlighted JSON.
+   */
+  static renderValue(value) {
+    if (value === undefined || value === null) {
+      return `<span class="json-null">null</span>`;
+    }
+    if (typeof value === "string") {
+      // Try to parse as JSON first
+      try {
+        const parsed = JSON.parse(value);
+        if (typeof parsed === "object" && parsed !== null) {
+          return this.highlightJSON(parsed);
+        }
+      } catch (_) { /* not JSON, render as string */ }
+      return `<span class="json-string">"${this.escapeHTML(value)}"</span>`;
+    }
+    if (typeof value === "object") {
+      return this.highlightJSON(value);
+    }
+    return `<span class="json-number">${String(value)}</span>`;
+  }
+
+  /**
+   * Syntax-highlight a JSON object/array.
+   */
+  static highlightJSON(obj, indent = 0) {
+    const pad = "  ".repeat(indent);
+    const padInner = "  ".repeat(indent + 1);
+
+    if (Array.isArray(obj)) {
+      if (obj.length === 0) return '<span class="json-bracket">[]</span>';
+      const items = obj.map(item => padInner + this.highlightJSON(item, indent + 1));
+      return `<span class="json-bracket">[</span>\n${items.join(',\n')}\n${pad}<span class="json-bracket">]</span>`;
+    }
+
+    if (obj === null) return '<span class="json-null">null</span>';
+
+    if (typeof obj !== "object") {
+      if (typeof obj === "string") return `<span class="json-string">"${this.escapeHTML(obj)}"</span>`;
+      if (typeof obj === "boolean") return `<span class="json-bool">${obj}</span>`;
+      return `<span class="json-number">${obj}</span>`;
+    }
+
+    const keys = Object.keys(obj);
+    if (keys.length === 0) return '<span class="json-bracket">{}</span>';
+
+    const entries = keys.map(key => {
+      const val = this.highlightJSON(obj[key], indent + 1);
+      return `${padInner}<span class="json-key">"${this.escapeHTML(key)}"</span>: ${val}`;
+    });
+
+    return `<span class="json-bracket">{</span>\n${entries.join(',\n')}\n${pad}<span class="json-bracket">}</span>`;
+  }
+
+  static escapeHTML(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 }
 

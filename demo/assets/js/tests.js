@@ -79,32 +79,32 @@ const features = [
     description: "Test HTTP GET requests to retrieve data",
     fn: async () => {
       if (!domo.get) throw new Error("Not available in this version");
+      const url = "/domo/datastores/v1/collections/SanityTest/documents/";
       const startTime = performance.now();
-      const result = await domo.get("/domo/datastores/v1/collections/SanityTest/documents/");
+      const result = await domo.get(url);
       const endTime = performance.now();
       return {
-        data: result,
-        timing: `${(endTime - startTime).toFixed(2)}ms`
+        _render: "http", httpMethod: "GET", url: url,
+        payload: result, timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
   },
   {
     name: "http-post",
-    category: "http", 
+    category: "http",
     description: "Test HTTP POST requests to create new records",
     fn: async () => {
       if (!domo.post) throw new Error("Not available in this version");
+      const url = "/domo/datastores/v1/collections/SanityTest/documents/";
+      const body = { foo: "bar", timestamp: new Date().toISOString() };
       const startTime = performance.now();
-      const res = await domo.post(
-        "/domo/datastores/v1/collections/SanityTest/documents/",
-        { foo: "bar", timestamp: new Date().toISOString() }
-      );
+      const res = await domo.post(url, body);
       const endTime = performance.now();
       if (!res?.id) throw new Error("POST did not return an ID");
       lastId = res.id;
       return {
-        data: res,
-        timing: `${(endTime - startTime).toFixed(2)}ms`
+        _render: "http", httpMethod: "POST", url: url,
+        payload: res, timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
   },
@@ -115,15 +115,14 @@ const features = [
     fn: async () => {
       if (!lastId) throw new Error("No ID from POST test - run POST first");
       if (!domo.put) throw new Error("Not available in this version");
+      const url = `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`;
+      const body = { foo: "baz", updated: new Date().toISOString() };
       const startTime = performance.now();
-      const result = await domo.put(
-        `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`,
-        { foo: "baz", updated: new Date().toISOString() }
-      );
+      const result = await domo.put(url, body);
       const endTime = performance.now();
       return {
-        data: result,
-        timing: `${(endTime - startTime).toFixed(2)}ms`
+        _render: "http", httpMethod: "PUT", url: url,
+        payload: result, timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
   },
@@ -134,14 +133,13 @@ const features = [
     fn: async () => {
       if (!lastId) throw new Error("No ID from POST test - run POST first");
       if (!domo.delete) throw new Error("Not available in this version");
+      const url = `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`;
       const startTime = performance.now();
-      const result = await domo.delete(
-        `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`
-      );
+      const result = await domo.delete(url);
       const endTime = performance.now();
       return {
-        data: result,
-        timing: `${(endTime - startTime).toFixed(2)}ms`
+        _render: "http", httpMethod: "DELETE", url: url,
+        payload: result, timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
   },
@@ -154,21 +152,15 @@ const features = [
         : domo.filterContainer ? "filterContainer" : null;
       if (!method) throw new Error("Not available in this version");
       const filters = [
-        {
-          "column": "id",
-          "operator": "GREAT_THAN_EQUALS_TO",
-          "values": [
-            1
-          ],
-          "dataType": "numeric"
-        }
+        { column: "id", operator: "GREAT_THAN_EQUALS_TO", values: [1], dataType: "numeric" }
       ];
       const startTime = performance.now();
       domo[method](filters);
       const endTime = performance.now();
-      const via = method !== "requestFiltersUpdate" ? ` (via ${method})` : "";
+      const via = method !== "requestFiltersUpdate" ? method : null;
       return {
-        data: `Filter update requested${via}`,
+        _render: "payload", direction: "sent", method: method,
+        payload: filters, via: via,
         timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
@@ -181,13 +173,14 @@ const features = [
       const method = domo.requestVariablesUpdate ? "requestVariablesUpdate"
         : domo.sendVariables ? "sendVariables" : null;
       if (!method) throw new Error("Not available in this version");
-      const payload = [{ "functionId": 83942, "value": 1 }];
+      const payload = [{ functionId: 83942, value: 1 }];
       const startTime = performance.now();
       domo[method](JSON.stringify(payload));
       const endTime = performance.now();
-      const via = method !== "requestVariablesUpdate" ? ` (via ${method})` : "";
+      const via = method !== "requestVariablesUpdate" ? method : null;
       return {
-        data: `Variable update sent${via}`,
+        _render: "payload", direction: "sent", method: method,
+        payload: payload, via: via,
         timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
@@ -228,12 +221,14 @@ const features = [
       const method = domo.requestAppDataUpdate ? "requestAppDataUpdate"
         : domo.sendAppData ? "sendAppData" : null;
       if (!method) throw new Error("Not available in this version");
+      const payload = "onAppDataUpdated works";
       const startTime = performance.now();
-      domo[method]("onAppDataUpdated works");
+      domo[method](payload);
       const endTime = performance.now();
-      const via = method !== "requestAppDataUpdate" ? ` (via ${method})` : "";
+      const via = method !== "requestAppDataUpdate" ? method : null;
       return {
-        data: `App data update sent${via}`,
+        _render: "payload", direction: "sent", method: method,
+        payload: payload, via: via,
         timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
