@@ -92,6 +92,13 @@ class DomoTestApp {
   registerEventListeners() {
     if (this.eventsRegistered) return;
 
+    // Seed the onFiltersUpdated listeners array so the SDK skips its
+    // initial requestFiltersUpdate(null, false) call, which clears
+    // the parent page's filters. The seed is a no-op that gets replaced
+    // by our real callback below.
+    const noop = () => {};
+    window.domo.listeners.onFiltersUpdated.push(noop);
+
     EVENT_FEATURES.forEach((eventName) => {
       try {
         GeneralUtils.logInfo("registerEventListeners", `Registering event: ${eventName}`);
@@ -121,6 +128,10 @@ class DomoTestApp {
         this.updateRow(eventName, "fail", e.message);
       }
     });
+
+    // Remove the no-op seed now that the real handler is registered
+    const idx = window.domo.listeners.onFiltersUpdated.indexOf(noop);
+    if (idx >= 0) window.domo.listeners.onFiltersUpdated.splice(idx, 1);
 
     this.eventsRegistered = true;
 

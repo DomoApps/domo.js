@@ -75,6 +75,7 @@ src/
 - `DataFormats` enum values are MIME strings (e.g., `CSV = 'text/csv'`, `JSON = 'application/json'`).
 - Auth header is `X-DOMO-Ryuu-Session`.
 - Filter wire event name is `"filter"` (not `"filtersUpdated"`), and the wire format uses `columnName` + `operator` (desktop) or `column` + `operand` (mobile).
-- `onFiltersUpdated` calls `connect()` without skipFilters; all other listeners call `connect(true)`.
+- `requestFiltersUpdate(null)` **clears all filters** on the parent page. The `subscribe` event (sent by `connect()` with `skipFilters: false`) is the mechanism that returns current filters to the app.
+- `onFiltersUpdated` calls `connect()` without skipFilters, then sends `requestFiltersUpdate(null, false)` on first registration — this clears parent filters. All other listeners call `connect(true)`.
 - `handleNode(node, token)` takes two args.
 - `setAuthTokenHeader(headers, token)` takes two args.

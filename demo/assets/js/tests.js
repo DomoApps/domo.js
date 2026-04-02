@@ -15,9 +15,14 @@ const STATUS_LABELS = {
 };
 
 // Event-driven features that can't be run on demand
+// onFiltersUpdated MUST be first so its connect(skipFilters=false) is the
+// call that actually fires — the subscribe event with skipFilters:false is
+// what returns the current filters to the app. The no-op seed in
+// registerEventListeners() prevents the accompanying requestFiltersUpdate(null)
+// that would otherwise clear the parent's filters.
 const EVENT_FEATURES = [
+  "onFiltersUpdated",
   "onDataUpdated",
-  "onFiltersUpdated", 
   "onVariablesUpdated",
   "onAppDataUpdated",
 ];

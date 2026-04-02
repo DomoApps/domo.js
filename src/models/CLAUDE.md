@@ -47,8 +47,8 @@ All methods have TypeScript overloads for format-specific return types.
 
 ### filters.ts — Filter Service
 
-- **`requestFiltersUpdate(filters, pageStateUpdate?, onAck?, onReply?)`** — Validates via `guardAgainstInvalidFilters`, generates requestId, stores in `this.requests`. Desktop wire format: `{ event: "filter", filter: [{ columnName, operator, values, dataType }], pageStateUpdate }`. Mobile wire format: `[{ column, operand, values, dataType }]`.
-- **`onFiltersUpdated(callback)`** — First listener triggers `connect()` (no skipFilters) and sends initial `requestFiltersUpdate(null, false)`. Returns unsubscribe function.
+- **`requestFiltersUpdate(filters, pageStateUpdate?, onAck?, onReply?)`** — Validates via `guardAgainstInvalidFilters`, generates requestId, stores in `this.requests`. Desktop wire format: `{ event: "filter", filter: [{ columnName, operator, values, dataType }], pageStateUpdate }`. Mobile wire format: `[{ column, operand, values, dataType }]`. Passing `null` for filters **clears all filters** on the parent page.
+- **`onFiltersUpdated(callback)`** — First listener triggers `connect()` (no skipFilters) and sends initial `requestFiltersUpdate(null, false)`, which clears the parent's filters. The `subscribe` event (sent by `connect()` with `skipFilters: false`) is what returns the current filters to the app. Returns unsubscribe function.
 - **`handleFiltersUpdated(message, responsePort?)`** — Sends ACK via responsePort, invokes callbacks with `message.filters`, calls `handleReply`.
 
 ### variables.ts — Variable Service
