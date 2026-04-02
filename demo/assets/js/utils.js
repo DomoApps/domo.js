@@ -167,6 +167,7 @@ class ResultFormatter {
       case "success": return "✅";
       case "fail": return "❌";
       case "running": return "🔄";
+      case "skipped": return "⊘";
       default: return "⏳";
     }
   }

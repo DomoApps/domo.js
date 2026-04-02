@@ -141,19 +141,34 @@ class DomoTestApp {
   registerEventListeners() {
     if (this.eventsRegistered) return;
 
+    // Seed the filters listener array to prevent the SDK from clearing
+    // the parent page's filters. Resolve the correct key for this version.
     const noop = () => {};
-    window.domo.listeners.onFiltersUpdated.push(noop);
+    const filtersKey = resolveListenerKey("onFiltersUpdated");
+    if (filtersKey) {
+      window.domo.listeners[filtersKey].push(noop);
+    }
 
-    EVENT_FEATURES.forEach((eventName) => {
+    EVENT_FEATURES.forEach((canonicalName) => {
+      const resolvedMethod = resolveEventMethod(canonicalName);
+
+      if (!resolvedMethod) {
+        this.updateRow(canonicalName, "fail", `Not available in this version`);
+        return;
+      }
+
       try {
-        GeneralUtils.logInfo("registerEventListeners", `Registering event: ${eventName}`);
+        const label = resolvedMethod !== canonicalName
+          ? `${canonicalName} (via ${resolvedMethod})`
+          : canonicalName;
+        GeneralUtils.logInfo("registerEventListeners", `Registering: ${label}`);
 
-        window.domo[eventName]((arg) => {
-          GeneralUtils.logInfo("Event", `${eventName} triggered`, arg);
+        window.domo[resolvedMethod]((arg) => {
+          GeneralUtils.logInfo("Event", `${resolvedMethod} triggered`, arg);
           const timestamp = GeneralUtils.formatTimestamp();
 
           let msg;
-          switch (eventName) {
+          switch (canonicalName) {
             case "onDataUpdated":
               msg = `Callback ran at ${timestamp} with alias: ${arg}`;
               break;
@@ -164,10 +179,14 @@ class DomoTestApp {
               msg = `Callback ran successfully at ${timestamp}`;
           }
 
-          this.updateRow(eventName, "success", msg);
+          if (resolvedMethod !== canonicalName) {
+            msg += ` <span style="color:var(--text-muted);font-size:0.7rem;">(via ${resolvedMethod})</span>`;
+          }
+
+          this.updateRow(canonicalName, "success", msg);
 
           // Flash the card
-          const card = DOMUtils.getElementById(`card-${eventName}`);
+          const card = DOMUtils.getElementById(`card-${canonicalName}`);
           if (card) {
             card.classList.remove("test-card--event-fired");
             void card.offsetWidth; // force reflow
@@ -175,15 +194,22 @@ class DomoTestApp {
           }
         });
 
-        this.updateRow(eventName, "pending", features.find(f => f.name === eventName)?.pendingMsg || "Listening...");
+        const pendingMsg = features.find(f => f.name === canonicalName)?.pendingMsg || "Listening...";
+        const viaNote = resolvedMethod !== canonicalName
+          ? ` <span style="color:var(--text-muted);font-size:0.7rem;">(via ${resolvedMethod})</span>`
+          : "";
+        this.updateRow(canonicalName, "pending", pendingMsg + viaNote);
       } catch (e) {
-        GeneralUtils.logError(`registerEventListeners - ${eventName}`, e);
-        this.updateRow(eventName, "fail", e.message);
+        GeneralUtils.logError(`registerEventListeners - ${canonicalName}`, e);
+        this.updateRow(canonicalName, "fail", e.message);
       }
     });
 
-    const idx = window.domo.listeners.onFiltersUpdated.indexOf(noop);
-    if (idx >= 0) window.domo.listeners.onFiltersUpdated.splice(idx, 1);
+    // Remove the noop seed
+    if (filtersKey) {
+      const idx = window.domo.listeners[filtersKey].indexOf(noop);
+      if (idx >= 0) window.domo.listeners[filtersKey].splice(idx, 1);
+    }
 
     this.eventsRegistered = true;
     this.dismissEventBanner();
@@ -268,8 +294,13 @@ class DomoTestApp {
 
         this.updateRow(name, "success", details);
       } catch (e) {
-        GeneralUtils.logError(`Test ${name}`, e);
-        this.updateRow(name, "fail", e.message || String(e));
+        const msg = e.message || String(e);
+        if (msg === "Not available in this version") {
+          this.updateRow(name, "skipped", msg);
+        } else {
+          GeneralUtils.logError(`Test ${name}`, e);
+          this.updateRow(name, "fail", msg);
+        }
       }
     }
 
@@ -306,8 +337,13 @@ class DomoTestApp {
 
       this.updateRow(testName, "success", details);
     } catch (e) {
-      GeneralUtils.logError(`Test ${testName}`, e);
-      this.updateRow(testName, "fail", e.message || String(e));
+      const msg = e.message || String(e);
+      if (msg === "Not available in this version") {
+        this.updateRow(testName, "skipped", msg);
+      } else {
+        GeneralUtils.logError(`Test ${testName}`, e);
+        this.updateRow(testName, "fail", msg);
+      }
     }
 
     this.statsManager.updateStats();
@@ -332,6 +368,12 @@ class DomoTestApp {
      ----------------------------------------------------------------------- */
 
   updateRow(name, status, details = "") {
+    // Toggle dimmed state for skipped tests
+    const card = DOMUtils.getElementById(`card-${name}`);
+    if (card) {
+      card.classList.toggle("test-card--skipped", status === "skipped");
+    }
+
     // Update card
     const statusEl = DOMUtils.getElementById(`status-${name}`);
     if (statusEl) {
@@ -367,10 +409,49 @@ class DomoTestApp {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+  initVersionPicker();
   window.testApp = new DomoTestApp();
   window.testApp.init();
   updateDeviceInfo();
 });
+
+function initVersionPicker() {
+  const select = DOMUtils.getElementById("versionSelect");
+  const badge = DOMUtils.getElementById("versionSource");
+  if (!select || !badge) return;
+
+  const chosen = (typeof RYUUJS_CHOSEN !== "undefined") ? RYUUJS_CHOSEN : "local";
+  const versions = (typeof RYUUJS_VERSIONS !== "undefined") ? RYUUJS_VERSIONS : [];
+
+  // Local option
+  const localOpt = document.createElement("option");
+  localOpt.value = "local";
+  localOpt.textContent = "Local (dev build)";
+  select.appendChild(localOpt);
+
+  versions.forEach(function(v) {
+    const opt = document.createElement("option");
+    opt.value = v;
+    opt.textContent = v;
+    select.appendChild(opt);
+  });
+
+  select.value = chosen;
+  badge.textContent = chosen === "local" ? "local" : "cdn";
+  badge.className = "version-picker__badge " +
+    (chosen === "local" ? "version-picker__badge--local" : "version-picker__badge--cdn");
+
+  select.addEventListener("change", function() {
+    const next = select.value;
+    const url = new URL(window.location.href);
+    if (next === "local") {
+      url.searchParams.delete("v");
+    } else {
+      url.searchParams.set("v", next);
+    }
+    window.location.href = url.toString();
+  });
+}
 
 function updateDeviceInfo() {
   const deviceTypeElement = DOMUtils.getElementById('deviceType');
@@ -405,5 +486,3 @@ function updateDeviceInfo() {
     console.error('Device detection error:', error);
   }
 }
-
-console.log("iOS detection result:", GeneralUtils.isIOS());

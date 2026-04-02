@@ -9,12 +9,13 @@ let lastId = null;
 // Test status labels
 const STATUS_LABELS = {
   success: "Passed",
-  fail: "Failed", 
+  fail: "Failed",
   pending: "Pending",
-  running: "Running"
+  running: "Running",
+  skipped: "N/A"
 };
 
-// Event-driven features that can't be run on demand
+// Event-driven features that can't be run on demand.
 // onFiltersUpdated MUST be first so its connect(skipFilters=false) is the
 // call that actually fires — the subscribe event with skipFilters:false is
 // what returns the current filters to the app. The no-op seed in
@@ -27,6 +28,49 @@ const EVENT_FEATURES = [
   "onAppDataUpdated",
 ];
 
+// Maps each canonical (v5.1+) event name to older aliases, in preference order.
+// resolveEventMethod() tries each until it finds one that exists on `domo`.
+const EVENT_ALIASES = {
+  onFiltersUpdated:   ["onFiltersUpdated", "onFiltersUpdate"],
+  onDataUpdated:      ["onDataUpdated", "onDataUpdate"],
+  onVariablesUpdated: ["onVariablesUpdated"],
+  onAppDataUpdated:   ["onAppDataUpdated", "onAppData"],
+};
+
+// Same mapping for the listeners key used by the noop-seed trick.
+const LISTENER_KEY_ALIASES = {
+  onFiltersUpdated: ["onFiltersUpdated", "onFiltersUpdate"],
+};
+
+/**
+ * Resolve the actual method name available on the loaded domo object.
+ * Returns { method, key } where `method` is the function name on `domo`,
+ * or null if the event isn't supported by this version.
+ */
+function resolveEventMethod(canonicalName) {
+  const candidates = EVENT_ALIASES[canonicalName] || [canonicalName];
+  for (const name of candidates) {
+    if (typeof window.domo[name] === "function") {
+      return name;
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve the listeners key for the noop-seed trick.
+ */
+function resolveListenerKey(canonicalName) {
+  const candidates = LISTENER_KEY_ALIASES[canonicalName] || [canonicalName];
+  if (!window.domo.listeners) return null;
+  for (const key of candidates) {
+    if (Array.isArray(window.domo.listeners[key])) {
+      return key;
+    }
+  }
+  return null;
+}
+
 // Test feature definitions
 const features = [
   {
@@ -34,7 +78,7 @@ const features = [
     category: "http",
     description: "Test HTTP GET requests to retrieve data",
     fn: async () => {
-      if (!domo.get) throw new Error("Not implemented");
+      if (!domo.get) throw new Error("Not available in this version");
       const startTime = performance.now();
       const result = await domo.get("/domo/datastores/v1/collections/SanityTest/documents/");
       const endTime = performance.now();
@@ -49,7 +93,7 @@ const features = [
     category: "http", 
     description: "Test HTTP POST requests to create new records",
     fn: async () => {
-      if (!domo.post) throw new Error("Not implemented");
+      if (!domo.post) throw new Error("Not available in this version");
       const startTime = performance.now();
       const res = await domo.post(
         "/domo/datastores/v1/collections/SanityTest/documents/",
@@ -70,7 +114,7 @@ const features = [
     description: "Test HTTP PUT requests to update existing records",
     fn: async () => {
       if (!lastId) throw new Error("No ID from POST test - run POST first");
-      if (!domo.put) throw new Error("Not implemented");
+      if (!domo.put) throw new Error("Not available in this version");
       const startTime = performance.now();
       const result = await domo.put(
         `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`,
@@ -89,7 +133,7 @@ const features = [
     description: "Test HTTP DELETE requests to remove records",
     fn: async () => {
       if (!lastId) throw new Error("No ID from POST test - run POST first");
-      if (!domo.delete) throw new Error("Not implemented");
+      if (!domo.delete) throw new Error("Not available in this version");
       const startTime = performance.now();
       const result = await domo.delete(
         `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`
@@ -106,7 +150,9 @@ const features = [
     category: "events",
     description: "Request an update to page filters",
     fn: () => {
-      if (!domo.requestFiltersUpdate) throw new Error("Not implemented");
+      const method = domo.requestFiltersUpdate ? "requestFiltersUpdate"
+        : domo.filterContainer ? "filterContainer" : null;
+      if (!method) throw new Error("Not available in this version");
       const filters = [
         {
           "column": "id",
@@ -118,10 +164,11 @@ const features = [
         }
       ];
       const startTime = performance.now();
-      domo.requestFiltersUpdate(filters);
+      domo[method](filters);
       const endTime = performance.now();
+      const via = method !== "requestFiltersUpdate" ? ` (via ${method})` : "";
       return {
-        data: `Filter update requested with filters: ${JSON.stringify(filters)}`,
+        data: `Filter update requested${via}`,
         timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
@@ -131,14 +178,16 @@ const features = [
     category: "events",
     description: "Send variable updates to the dashboard",
     fn: () => {
-      if (!domo.requestVariablesUpdate) throw new Error("Not implemented");
+      const method = domo.requestVariablesUpdate ? "requestVariablesUpdate"
+        : domo.sendVariables ? "sendVariables" : null;
+      if (!method) throw new Error("Not available in this version");
       const payload = [{ "functionId": 83942, "value": 1 }];
       const startTime = performance.now();
-      domo.requestVariablesUpdate(JSON.stringify(payload));
+      domo[method](JSON.stringify(payload));
       const endTime = performance.now();
-      console.log("DomoApp: requestVariablesUpdate", payload);
+      const via = method !== "requestVariablesUpdate" ? ` (via ${method})` : "";
       return {
-        data: "Variable update sent",
+        data: `Variable update sent${via}`,
         timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
@@ -176,12 +225,15 @@ const features = [
     category: "events",
     description: "Send app data to the dashboard",
     fn: () => {
-      if (!domo.requestAppDataUpdate) throw new Error("Not implemented");
+      const method = domo.requestAppDataUpdate ? "requestAppDataUpdate"
+        : domo.sendAppData ? "sendAppData" : null;
+      if (!method) throw new Error("Not available in this version");
       const startTime = performance.now();
-      domo.requestAppDataUpdate("onAppDataUpdated works");
+      domo[method]("onAppDataUpdated works");
       const endTime = performance.now();
+      const via = method !== "requestAppDataUpdate" ? ` (via ${method})` : "";
       return {
-        data: "App data update sent", 
+        data: `App data update sent${via}`,
         timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
@@ -192,7 +244,7 @@ const features = [
     category: "utils",
     description: "Detect if the current device is running iOS",
     fn: () => {
-      if (!GeneralUtils.isIOS) throw new Error("Not implemented");
+      if (!GeneralUtils.isIOS) throw new Error("Not available in this version");
       const startTime = performance.now();
       const isIOSResult = GeneralUtils.isIOS();
       const endTime = performance.now();
