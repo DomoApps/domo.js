@@ -1,4 +1,4 @@
-import { get, post } from "./http";
+import { transport } from "../../transport";
 import { RequestOptions } from "../interfaces/request";
 
 /** Status values returned by the Workflows API. */
@@ -37,8 +37,7 @@ function startWorkflow(
   body?: Record<string, any>,
   options?: RequestOptions,
 ): Promise<WorkflowInstance> {
-  const handle = this?.post ?? post;
-  return handle(
+  return transport.post<WorkflowInstance>(
     `${BASE}/${encodeURIComponent(workflowAlias)}/start`,
     body ?? {},
     options,
@@ -61,8 +60,7 @@ function workflowInstance(
   instanceId: string,
   options?: RequestOptions,
 ): Promise<WorkflowInstance> {
-  const handle = this?.get ?? get;
-  return handle(
+  return transport.get<WorkflowInstance>(
     `${BASE}/${encodeURIComponent(workflowAlias)}/instance/${encodeURIComponent(instanceId)}`,
     options,
   );

@@ -7,6 +7,10 @@ import { navigate } from "./models/services/navigation";
 import { codeEngine } from "./models/services/codeengine";
 import { workflow } from "./models/services/workflow";
 import { ai } from "./models/services/ai";
+import { data } from "./models/services/data";
+import { appdb } from "./models/services/appdb";
+import { buildEnv } from "./models/services/env";
+import { transport } from "./transport";
 import {
   get,
   getAll,
@@ -89,6 +93,8 @@ class Domo {
   static codeEngine = codeEngine;
   static workflow = workflow;
   static ai = ai;
+  static data = data;
+  static appdb = appdb;
 
   /* @deprecated */
   static readonly filterContainer = this.requestFiltersUpdate;
@@ -104,7 +110,7 @@ class Domo {
   static handleReply = handleReply;
   static getRequests = () => this.requests;
   static getRequest = (requestId: string) => this.requests[requestId];
-  static readonly env = getQueryParams();
+  static readonly env = buildEnv();
   static readonly __util = {
     isVerifiedOrigin,
     getQueryParams,
@@ -233,10 +239,18 @@ class Domo {
    * @param overrides An object whose keys are static method/property names and values are the new implementations.
    */
   static extend(overrides: Partial<Record<keyof typeof Domo, any>>) {
+    const transportKeys = ["get", "post", "put", "delete"] as const;
     for (const key in overrides) {
-      if (Object.prototype.hasOwnProperty.call(Domo, key))
+      if (Object.prototype.hasOwnProperty.call(Domo, key)) {
         (Domo as any)[key as keyof typeof Domo] =
           overrides[key as keyof typeof Domo];
+
+        // Keep the shared transport in sync so namespace services
+        // (appdb, data, ai, workflow, codeEngine) see the override too.
+        if (transportKeys.includes(key as any)) {
+          (transport as any)[key] = overrides[key as keyof typeof Domo];
+        }
+      }
     }
   }
 }

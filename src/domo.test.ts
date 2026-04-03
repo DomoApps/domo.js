@@ -1,11 +1,16 @@
 import Domo, { __mutationObserverCallback } from './domo';
 import { RequestMethods } from './models/enums/request-methods';
+import { transport } from './transport';
 
 const originalDomoHttp = Domo.domoHttp;
 const originalGet = Domo.get;
 const originalPost = Domo.post;
 const originalPut = Domo.put;
 const originalDelete = Domo.delete;
+const originalTransportGet = transport.get;
+const originalTransportPost = transport.post;
+const originalTransportPut = transport.put;
+const originalTransportDelete = transport.delete;
 
 class MockMessagePort {
   onmessage: ((event: any) => void) | null = null;
@@ -27,6 +32,10 @@ beforeEach(() => {
   Domo.post = originalPost;
   Domo.put = originalPut;
   Domo.delete = originalDelete;
+  transport.get = originalTransportGet;
+  transport.post = originalTransportPost;
+  transport.put = originalTransportPut;
+  transport.delete = originalTransportDelete;
 });
 
 describe('Domo Connect & MessageChannel', () => {
@@ -166,5 +175,65 @@ describe('Domo.extend', () => {
     const deleteResult = await Domo.delete('/grault');
     expect(mockHttp).toHaveBeenCalledWith('DELETE', '/grault', undefined);
     expect(deleteResult).toBe('mocked-http');
+  });
+
+  it('should propagate post override to namespace services (appdb, codeEngine, ai, workflow)', async () => {
+    const mockPost = jest.fn().mockResolvedValue({ id: 'mock-id' });
+    Domo.extend({ post: mockPost });
+
+    // appdb.create should use the overridden post (auto-wraps in content)
+    await Domo.appdb.create('TestCollection', { foo: 'bar' });
+    expect(mockPost).toHaveBeenCalledWith(
+      '/domo/datastores/v1/collections/TestCollection/documents/',
+      { content: { foo: 'bar' } },
+      undefined,
+    );
+    mockPost.mockClear();
+
+    // codeEngine should use the overridden post
+    await Domo.codeEngine('myFunc', { x: 1 });
+    expect(mockPost).toHaveBeenCalledWith(
+      '/domo/codeengine/v2/packages/myFunc',
+      { x: 1 },
+      undefined,
+    );
+    mockPost.mockClear();
+
+    // ai.generateText should use the overridden post
+    await Domo.ai.generateText('hello');
+    expect(mockPost).toHaveBeenCalledWith(
+      '/domo/ai/v1/text/generation',
+      { input: 'hello' },
+      undefined,
+    );
+    mockPost.mockClear();
+
+    // workflow.start should use the overridden post
+    await Domo.workflow.start('myWorkflow', { p: 1 });
+    expect(mockPost).toHaveBeenCalledWith(
+      '/domo/workflow/v1/models/myWorkflow/start',
+      { p: 1 },
+      undefined,
+    );
+  });
+
+  it('should propagate get override to namespace services (appdb, data)', async () => {
+    const mockGet = jest.fn().mockResolvedValue([{ id: '1' }]);
+    Domo.extend({ get: mockGet });
+
+    // appdb.list should use the overridden get
+    await Domo.appdb.list('TestCollection');
+    expect(mockGet).toHaveBeenCalledWith(
+      '/domo/datastores/v1/collections/TestCollection/documents/',
+      undefined,
+    );
+    mockGet.mockClear();
+
+    // data.query should use the overridden get
+    await Domo.data.query('sales', { limit: 10 });
+    expect(mockGet).toHaveBeenCalledWith(
+      '/data/v1/sales?limit=10',
+      expect.any(Object),
+    );
   });
 });

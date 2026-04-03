@@ -453,6 +453,16 @@ body::before {
   color: var(--accent-purple);
 }
 
+.category-icon--data {
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+}
+
+.category-icon--appdb {
+  background: rgba(244, 114, 182, 0.12);
+  color: #f472b6;
+}
+
 .category-icon--codeengine {
   background: rgba(16, 185, 129, 0.12);
   color: var(--accent-green);

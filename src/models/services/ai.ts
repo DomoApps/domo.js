@@ -1,4 +1,4 @@
-import { post } from "./http";
+import { transport } from "../../transport";
 import { RequestOptions } from "../interfaces/request";
 
 // ── Shared types ───────────────────────────────────────────────────
@@ -76,8 +76,7 @@ function generateText(
   opts?: Omit<TextGenerationRequest, "input">,
   requestOptions?: RequestOptions,
 ): Promise<AIResponse> {
-  const handle = this?.post ?? post;
-  return handle(`${BASE}/text/generation`, { input, ...opts }, requestOptions);
+  return transport.post<AIResponse>(`${BASE}/text/generation`, { input, ...opts }, requestOptions);
 }
 
 /**
@@ -102,8 +101,7 @@ function textToSQL(
   opts?: Omit<TextToSQLRequest, "input">,
   requestOptions?: RequestOptions,
 ): Promise<AIResponse> {
-  const handle = this?.post ?? post;
-  return handle(`${BASE}/text/sql`, { input, ...opts }, requestOptions);
+  return transport.post<AIResponse>(`${BASE}/text/sql`, { input, ...opts }, requestOptions);
 }
 
 /** AI namespace object exposed as `domo.ai`. */

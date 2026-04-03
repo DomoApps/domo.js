@@ -143,6 +143,121 @@ const features = [
       };
     },
   },
+  // ── Data API ────────────────────────────────────────────────────
+  {
+    name: "data.query",
+    category: "data",
+    description: "Query a dataset by alias with the Data API helper",
+    fn: async () => {
+      if (!domo.data?.query) throw new Error("Not available in this version");
+      const alias = "test";
+      const startTime = performance.now();
+      const result = await domo.data.query(alias, { limit: 5 });
+      const endTime = performance.now();
+      return {
+        _render: "http", httpMethod: "GET",
+        url: `/data/v1/${alias}?limit=5`,
+        payload: result, timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Queries the <code>test</code> dataset alias with limit=5",
+  },
+  {
+    name: "data.sql",
+    category: "data",
+    description: "Execute a SQL query against datasets",
+    fn: async () => {
+      if (!domo.data?.sql) throw new Error("Not available in this version");
+      const alias = "test";
+      const sqlQuery = "SELECT * FROM test LIMIT 5";
+      const startTime = performance.now();
+      const result = await domo.data.sql(alias, sqlQuery);
+      const endTime = performance.now();
+      return {
+        _render: "payload", direction: "received", method: "data.sql",
+        payload: result, timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Runs <code>SELECT * FROM test LIMIT 5</code>",
+  },
+
+  // ── AppDB ──────────────────────────────────────────────────────
+  {
+    name: "appdb.list",
+    category: "appdb",
+    description: "List all documents in an AppDB collection",
+    fn: async () => {
+      if (!domo.appdb?.list) throw new Error("Not available in this version");
+      const startTime = performance.now();
+      const docs = await domo.appdb.list("SanityTest");
+      const endTime = performance.now();
+      return {
+        _render: "http", httpMethod: "GET",
+        url: "/domo/datastores/v1/collections/SanityTest/documents/",
+        payload: docs, timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+  },
+  {
+    name: "appdb.create",
+    category: "appdb",
+    description: "Create a new document",
+    fn: async () => {
+      if (!domo.appdb?.create) throw new Error("Not available in this version");
+      const doc = { foo: "bar", timestamp: new Date().toISOString() };
+      const startTime = performance.now();
+      const result = await domo.appdb.create("SanityTest", doc);
+      const endTime = performance.now();
+      if (result?.id) window.__lastAppDbDocId = result.id;
+      return {
+        _render: "payload", direction: "sent", method: "appdb.create",
+        payload: { sent: doc, response: result },
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+  },
+  {
+    name: "appdb.update",
+    category: "appdb",
+    description: "Update an existing document",
+    fn: async () => {
+      if (!domo.appdb?.update) throw new Error("Not available in this version");
+      const docId = window.__lastAppDbDocId;
+      if (!docId) throw new Error("Run appdb.create first");
+      const doc = { foo: "baz", updated: new Date().toISOString() };
+      const startTime = performance.now();
+      const result = await domo.appdb.update("SanityTest", docId, doc);
+      const endTime = performance.now();
+      return {
+        _render: "payload", direction: "sent", method: "appdb.update",
+        payload: { docId, sent: doc, response: result },
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Run <code>appdb.create</code> first to get a document ID",
+  },
+  {
+    name: "appdb.remove",
+    category: "appdb",
+    description: "Delete a document by ID",
+    fn: async () => {
+      if (!domo.appdb?.remove) throw new Error("Not available in this version");
+      const docId = window.__lastAppDbDocId;
+      if (!docId) throw new Error("Run appdb.create first");
+      const startTime = performance.now();
+      const result = await domo.appdb.remove("SanityTest", docId);
+      const endTime = performance.now();
+      window.__lastAppDbDocId = null;
+      return {
+        _render: "payload", direction: "sent", method: "appdb.remove",
+        payload: { docId, response: result },
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Run <code>appdb.create</code> first to get a document ID",
+  },
+
+  // ── Events ─────────────────────────────────────────────────────
   {
     name: "requestFiltersUpdate",
     category: "events",
@@ -343,6 +458,26 @@ const features = [
     pendingMsg: "Calls Domo AI text-to-SQL — uses AI credits",
   },
   // ── Utilities ──────────────────────────────────────────────────
+  {
+    name: "domo.env",
+    category: "utils",
+    description: "Typed environment context from iframe query parameters",
+    fn: () => {
+      if (!domo.env) throw new Error("Not available in this version");
+      return {
+        _render: "payload", direction: "received", method: "domo.env",
+        payload: {
+          userId: domo.env.userId,
+          userName: domo.env.userName,
+          userEmail: domo.env.userEmail,
+          customer: domo.env.customer,
+          locale: domo.env.locale,
+          platform: domo.env.platform,
+          pageId: domo.env.pageId,
+        },
+      };
+    },
+  },
   {
     name: "ios-detection",
     category: "utils",

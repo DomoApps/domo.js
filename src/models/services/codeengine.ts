@@ -1,4 +1,4 @@
-import { post } from "./http";
+import { transport } from "../../transport";
 import { RequestOptions } from "../interfaces/request";
 
 /**
@@ -28,8 +28,7 @@ function codeEngine<T = any>(
   input?: Record<string, any>,
   options?: RequestOptions,
 ): Promise<T> {
-  const handle = this?.post ?? post;
-  return handle(
+  return transport.post<T>(
     `/domo/codeengine/v2/packages/${encodeURIComponent(functionAlias)}`,
     input ?? {},
     options,
