@@ -4,6 +4,7 @@ import { handleFiltersUpdated, onFiltersUpdated, requestFiltersUpdate } from "./
 import { handleVariablesUpdated, onVariablesUpdated, requestVariablesUpdate } from "./models/services/variables";
 import { handleAppData, onAppDataUpdated, requestAppDataUpdate } from "./models/services/appdata";
 import { navigate } from "./models/services/navigation";
+import { codeEngine } from "./models/services/codeengine";
 import {
   get,
   getAll,
@@ -83,6 +84,7 @@ class Domo {
   static requestVariablesUpdate = requestVariablesUpdate;
   static requestAppDataUpdate = requestAppDataUpdate;
   static navigate = navigate;
+  static codeEngine = codeEngine;
 
   /* @deprecated */
   static readonly filterContainer = this.requestFiltersUpdate;

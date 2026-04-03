@@ -7,6 +7,7 @@ export * from './models/interfaces/json';
 export * from './models/interfaces/request';
 export * from './models/interfaces/variable';
 export * from './models/services/appdata';
+export * from './models/services/codeengine';
 export * from './models/services/dataset';
 export * from './models/services/filters';
 export * from './models/services/http';
