@@ -28,6 +28,11 @@ Choose your version:
 - [Core Concepts](#core-concepts)
 - [API Reference](#api-reference)
   - [HTTP Methods](#http-methods)
+  - [Data API](#data-api)
+  - [AppDB](#appdb)
+  - [Code Engine](#code-engine)
+  - [Workflows](#workflows)
+  - [AI Services](#ai-services)
   - [Event Listeners](#event-listeners)
   - [Emitters](#emitters)
   - [Navigation](#navigation)
@@ -38,6 +43,7 @@ Choose your version:
 - [Error Handling](#error-handling)
 - [Advanced Usage](#advanced-usage)
 - [Complete Example](#complete-example)
+- [Breaking Changes (v5.2)](#breaking-changes-v52)
 - [Migration Guide](#migration-guide)
 - [Contributing](#contributing)
 - [License](#license)
@@ -72,16 +78,22 @@ Domo.onFiltersUpdated((filters) => {
 
 ## Features
 
+- **Data API** - Query datasets with typed options (fields, filters, aggregations, date graining, beast modes)
+- **AppDB** - Full CRUD, MongoDB queries, bulk operations, partial updates, collection management
+- **Code Engine** - Run Code Engine functions by manifest alias
+- **Workflows** - Start and monitor Domo Workflows
+- **AI Services** - Text generation and text-to-SQL via Domo's AI Service Layer
 - **HTTP API Access** - Authenticated requests to Domo datasets, datastores, and APIs
 - **Real-time Events** - Listen for dataset updates, filter changes, and variable updates
 - **Filter Management** - Get and set page-level filters programmatically
 - **Variable Management** - Access and update page variables
 - **Custom App Data** - Send custom data between apps on the same page
+- **Typed Environment** - `Domo.env` with userId, userName, host, platform, enriched from environment API
 - **Navigation** - Programmatically navigate within Domo
 - **Mobile Support** - Full iOS and Android compatibility
 - **TypeScript Ready** - Complete type definitions included
-- **Zero Dependencies** - Minimal bundle size with no runtime dependencies
-- **Extensible** - Override or extend functionality via `extend()` method
+- **Zero Dependencies** - ~26KB bundle (7.6KB gzipped) with no runtime dependencies
+- **Extensible** - `extend()` propagates overrides to all services (data, appdb, ai, etc.)
 
 ---
 
@@ -154,21 +166,24 @@ Domo.requestFiltersUpdate(
 
 ### Environment Context
 
-Access information about the current user and environment via `Domo.env`:
+`Domo.env` provides typed access to the current user, instance, and page context. Properties are populated immediately from iframe query parameters, then enriched in the background from `GET /domo/environment/v1` (which provides authoritative server-side values like `host`).
 
 ```javascript
-console.log(Domo.env.userId);      // Current user ID
-console.log(Domo.env.customer);    // Customer name
-console.log(Domo.env.pageId);      // Current page ID
-console.log(Domo.env.locale);      // Locale (e.g., 'en-US')
-console.log(Domo.env.platform);    // Platform (e.g., 'desktop', 'mobile')
+// Available immediately
+console.log(Domo.env.userId);      // "481303514"
+console.log(Domo.env.userName);    // "JSON"
+console.log(Domo.env.userEmail);   // "Jason.Hansen@domo.com"
+console.log(Domo.env.customer);    // "domo"
+console.log(Domo.env.locale);      // "en-US"
+console.log(Domo.env.platform);    // "desktop" | "mobile"
+console.log(Domo.env.pageId);      // "1185508957"
+
+// Available after environment API loads
+console.log(Domo.env.host);        // "domo.demo.domo.com"
+console.log(Domo.env.loaded);      // true
 ```
 
-**Security Note:** Environment properties come from URL parameters and can be spoofed. Always verify with the API for secure operations:
-
-```javascript
-const authenticatedUser = await Domo.get('/domo/environment/v1/');
-```
+The `loaded` property indicates whether the environment API has been fetched. If it fails (e.g. running locally), query params serve as the fallback.
 
 ---
 
@@ -378,6 +393,163 @@ const result = await Domo.domoHttp(
   { data: 'custom body' }
 );
 ```
+
+---
+
+### Data API
+
+High-level helpers for querying datasets. Supports all Data API query operators.
+
+#### `Domo.data.query(alias, options?)`
+
+Query a dataset by its manifest alias.
+
+```javascript
+// Simple query
+const rows = await Domo.data.query("sales");
+
+// With filtering, aggregation, and pagination
+const totals = await Domo.data.query("sales", {
+  fields: ["region", "amount"],
+  filter: "amount > 100",
+  sum: ["amount"],
+  groupBy: ["region"],
+  orderBy: "amount descending",
+  limit: 50,
+});
+
+// Date graining
+const monthly = await Domo.data.query("sales", {
+  dateGrain: "orderDate by month",
+  sum: ["amount"],
+  calendar: "fiscal",
+});
+
+// Beast modes
+const bm = await Domo.data.query("sales", {
+  useBeastMode: true,
+  fields: ["myBeastMode", "reps"],
+  sum: ["myBeastMode"],
+  groupBy: ["reps"],
+});
+
+// CSV format
+const csv = await Domo.data.query("sales", { format: "csv" });
+```
+
+**Supported options:** `fields`, `filter`, `avg`, `count`, `max`, `min`, `sum`, `unique`, `groupBy`, `dateGrain`, `calendar`, `orderBy`, `limit`, `offset`, `useBeastMode`, `format`.
+
+#### `Domo.data.sql(alias, sqlQuery, options?)`
+
+Execute a SQL query against a dataset via `POST /sql/v1/{alias}`.
+
+```javascript
+const rows = await Domo.data.sql("sales", "SELECT region, SUM(amount) as total FROM sales GROUP BY region");
+```
+
+> **Note:** The SQL API does not support page filters or JOINs.
+
+---
+
+### AppDB
+
+Full CRUD, MongoDB-style queries, bulk operations, and collection management for AppDB.
+
+#### Document CRUD
+
+```javascript
+const docs = await Domo.appdb.list("Users");
+const doc = await Domo.appdb.get("Users", docId);
+const created = await Domo.appdb.create("Users", { username: "Bill" }); // auto-wraps in { content: ... }
+await Domo.appdb.update("Users", docId, { username: "Ted" });
+await Domo.appdb.remove("Users", docId);
+```
+
+#### Query with MongoDB Syntax
+
+```javascript
+const docs = await Domo.appdb.query("Users", { "content.region": "West" });
+
+// With aggregations
+const results = await Domo.appdb.query("campaigns", {}, {
+  groupby: "content.campaignName, content.month",
+  count: "documentCount",
+  sum: "content.clicks sumClicks",
+  orderby: "sumClicks descending",
+});
+```
+
+#### Partial Update (MongoDB Operators)
+
+```javascript
+await Domo.appdb.partialUpdate("Users",
+  { "content.username": "Bill" },
+  { "$set": { "content.band": "Wyld Stallyns" } }
+);
+```
+
+#### Bulk Operations
+
+```javascript
+await Domo.appdb.bulkCreate("Users", [{ username: "Bill" }, { username: "Ted" }]);
+await Domo.appdb.bulkUpsert("Users", [
+  { id: "existing-id", username: "Bill", band: "Wyld Stallyns" },
+  { username: "Rufus" },
+]);
+await Domo.appdb.bulkDelete("Users", ["id-1", "id-2", "id-3"]);
+```
+
+#### Collection Management & Export
+
+```javascript
+await Domo.appdb.listCollections();
+await Domo.appdb.createCollection({ name: "Users", schema: { columns: [{ name: "username", type: "STRING" }] }, syncEnabled: true });
+await Domo.appdb.export();       // manually trigger sync to Domo DataSets
+```
+
+---
+
+### Code Engine
+
+Run Code Engine functions by their manifest alias.
+
+```javascript
+const result = await Domo.codeEngine("awesomeFunction", { number1AppInput: 5, number2AppInput: 10 });
+```
+
+Requires a `packageMapping` entry in your `manifest.json`.
+
+---
+
+### Workflows
+
+Start and monitor Domo Workflows.
+
+```javascript
+const instance = await Domo.workflow.start("myWorkflow", { param1: "hello" });
+const current = await Domo.workflow.getInstance("myWorkflow", instance.id);
+// current.status: "IN_PROGRESS" | "COMPLETED" | "CANCELED" | "FAILED" | null
+```
+
+Requires a `workflowMapping` entry in your `manifest.json`.
+
+---
+
+### AI Services
+
+Access Domo's AI Service Layer for text generation and text-to-SQL.
+
+```javascript
+const res = await Domo.ai.generateText("Tell me a joke about data");
+console.log(res.choices[0].output);
+
+const sql = await Domo.ai.textToSQL("Show total sales by region", {
+  dataSourceSchemas: [{ dataSourceName: "Sales", columns: [{ name: "Region", type: "string" }, { name: "Amount", type: "number" }] }],
+});
+console.log(sql.choices[0].output); // "SELECT Region, SUM(Amount) ..."
+```
+
+> **Note:** AI services consume AI credits. See your Domo instance rate card for details.
 
 ---
 
@@ -1455,6 +1627,21 @@ class SalesDashboard {
 // Initialize app
 new SalesDashboard();
 ```
+
+---
+
+## Breaking Changes (v5.2)
+
+### `Domo.env` type changes
+
+`Domo.env` previously returned raw query parameters (`QueryParams` with `string | number | undefined` values). It now returns a typed `DomoEnv` object:
+
+- `userId`, `userName`, `userEmail`, `customer`, `locale`, `pageId` are now always `string` (previously could be `number` or `undefined`)
+- New properties: `host` (from environment API), `loaded` (boolean indicating if the API fetch completed)
+- `platform` is now typed as `"desktop" | "mobile"` (defaults to `"desktop"`)
+- A background `GET /domo/environment/v1` request is made on initialization to enrich the environment. This is new network traffic that fails silently if the endpoint is unavailable.
+
+**Migration:** If your code checks `typeof Domo.env.userId === 'number'`, update it to treat `userId` as a string. All other existing `Domo.env.*` usage is backwards compatible.
 
 ---
 
