@@ -5,6 +5,7 @@ import { handleVariablesUpdated, onVariablesUpdated, requestVariablesUpdate } fr
 import { handleAppData, onAppDataUpdated, requestAppDataUpdate } from "./models/services/appdata";
 import { navigate } from "./models/services/navigation";
 import { codeEngine } from "./models/services/codeengine";
+import { workflow } from "./models/services/workflow";
 import {
   get,
   getAll,
@@ -85,6 +86,7 @@ class Domo {
   static requestAppDataUpdate = requestAppDataUpdate;
   static navigate = navigate;
   static codeEngine = codeEngine;
+  static workflow = workflow;
 
   /* @deprecated */
   static readonly filterContainer = this.requestFiltersUpdate;
