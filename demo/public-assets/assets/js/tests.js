@@ -342,39 +342,6 @@ const features = [
     },
     pendingMsg: "Calls Domo AI text-to-SQL — uses AI credits",
   },
-  {
-    name: "ai.imageToText",
-    category: "ai",
-    description: "Extract text from an image (OCR)",
-    fn: async () => {
-      if (!domo.ai?.imageToText) throw new Error("Not available in this version");
-      // Create a tiny 1x1 white PNG as a test image
-      const canvas = document.createElement("canvas");
-      canvas.width = 100; canvas.height = 30;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, 100, 30);
-      ctx.fillStyle = "#000";
-      ctx.font = "16px sans-serif";
-      ctx.fillText("Hello", 10, 22);
-      const base64 = canvas.toDataURL("image/png");
-
-      const startTime = performance.now();
-      const result = await domo.ai.imageToText(
-        "Return the text in the image",
-        { mediaType: "image/png", type: "base64", data: base64 },
-        "domo.domo_ai.domogpt-chat-medium-v1.1:anthropic",
-      );
-      const endTime = performance.now();
-      return {
-        _render: "payload", direction: "received", method: "ai.imageToText",
-        payload: result,
-        timing: `${(endTime - startTime).toFixed(2)}ms`
-      };
-    },
-    pendingMsg: "Generates a test image with canvas, sends to Domo AI OCR — uses AI credits",
-  },
-
   // ── Utilities ──────────────────────────────────────────────────
   {
     name: "ios-detection",

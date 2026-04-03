@@ -48,22 +48,6 @@ interface TextToSQLRequest {
   model?: string;
 }
 
-// ── Image-to-Text ──────────────────────────────────────────────────
-
-interface AIImage {
-  mediaType: string;
-  type: "base64";
-  data: string;
-}
-
-interface ImageToTextRequest {
-  input: string;
-  image: AIImage;
-  model: string;
-  promptTemplate?: AIPromptTemplate;
-  system?: string;
-}
-
 // ── Service functions ──────────────────────────────────────────────
 
 const BASE = "/domo/ai/v1";
@@ -122,65 +106,21 @@ function textToSQL(
   return handle(`${BASE}/text/sql`, { input, ...opts }, requestOptions);
 }
 
-/**
- * Extract text from an image using Domo's AI Service Layer.
- *
- * Accepts a base64-encoded image (with or without the `data:` URL prefix).
- *
- * @param input - The prompt describing what to extract (e.g. "return the text in the image").
- * @param image - The image to process: `{ mediaType, type: "base64", data }`.
- * @param model - The model ID to use for image processing.
- * @param opts - Optional: promptTemplate, system prompt.
- * @param requestOptions - Optional HTTP request options.
- * @returns The AI response with extracted text in `choices[0].output`.
- *
- * @example
- * const res = await domo.ai.imageToText(
- *   "return the text in the image",
- *   { mediaType: "image/png", type: "base64", data: base64String },
- *   "domo.domo_ai.domogpt-chat-medium-v1.1:anthropic",
- * );
- * console.log(res.choices[0].output);
- */
-function imageToText(
-  input: string,
-  image: AIImage,
-  model: string,
-  opts?: { promptTemplate?: AIPromptTemplate; system?: string },
-  requestOptions?: RequestOptions,
-): Promise<AIResponse> {
-  // Strip data URL prefix if present
-  const cleanData = image.data.startsWith("data:")
-    ? image.data.substring(image.data.indexOf(",") + 1)
-    : image.data;
-
-  const handle = this?.post ?? post;
-  return handle(
-    `${BASE}/image/text`,
-    { input, image: { ...image, data: cleanData }, model, ...opts },
-    requestOptions,
-  );
-}
-
 /** AI namespace object exposed as `domo.ai`. */
 const ai = {
   generateText,
   textToSQL,
-  imageToText,
 };
 
 export {
   ai,
   generateText,
   textToSQL,
-  imageToText,
   AIResponse,
   AIChoice,
   AIPromptTemplate,
-  AIImage,
   TextGenerationRequest,
   TextToSQLRequest,
-  ImageToTextRequest,
   DataSourceSchema,
   DataSourceColumn,
 };

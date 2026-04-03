@@ -110,61 +110,7 @@ describe("ai.textToSQL", () => {
   });
 });
 
-describe("ai.imageToText", () => {
-  it("should POST to image/text with image data", async () => {
-    mockFetchOk(mockAIResponse);
-
-    const res = await Domo.ai.imageToText(
-      "extract text from image",
-      { mediaType: "image/png", type: "base64", data: "abc123" },
-      "domo.model.v1",
-    );
-
-    expect(global.fetch).toHaveBeenCalledWith(
-      "/domo/ai/v1/image/text",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({
-          input: "extract text from image",
-          image: { mediaType: "image/png", type: "base64", data: "abc123" },
-          model: "domo.model.v1",
-        }),
-      })
-    );
-    expect(res.choices[0].output).toBe("test output");
-  });
-
-  it("should strip data URL prefix from base64", async () => {
-    mockFetchOk(mockAIResponse);
-
-    await Domo.ai.imageToText(
-      "read this",
-      { mediaType: "image/png", type: "base64", data: "data:image/png;base64,abc123" },
-      "domo.model.v1",
-    );
-
-    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-    expect(body.image.data).toBe("abc123");
-  });
-
-  it("should include system prompt and promptTemplate when provided", async () => {
-    mockFetchOk(mockAIResponse);
-
-    await Domo.ai.imageToText(
-      "read this",
-      { mediaType: "image/png", type: "base64", data: "abc" },
-      "domo.model.v1",
-      {
-        system: "You are an OCR assistant",
-        promptTemplate: { template: "${input}" },
-      },
-    );
-
-    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-    expect(body.system).toBe("You are an OCR assistant");
-    expect(body.promptTemplate.template).toBe("${input}");
-  });
-
+describe("ai error handling", () => {
   it("should reject on server error", async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: false,
