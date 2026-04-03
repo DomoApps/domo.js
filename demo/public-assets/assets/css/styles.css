@@ -453,6 +453,21 @@ body::before {
   color: var(--accent-purple);
 }
 
+.category-icon--codeengine {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent-green);
+}
+
+.category-icon--workflow {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--accent-amber);
+}
+
+.category-icon--ai {
+  background: rgba(236, 72, 153, 0.12);
+  color: var(--accent-pink);
+}
+
 .category-icon--utils {
   background: rgba(6, 182, 212, 0.12);
   color: var(--accent-cyan);

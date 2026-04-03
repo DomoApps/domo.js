@@ -4,9 +4,12 @@
  */
 
 const CATEGORY_META = {
-  http:   { icon: '/', label: 'HTTP', cssClass: 'http' },
-  events: { icon: '~', label: 'Events', cssClass: 'events' },
-  utils:  { icon: '#', label: 'Utilities', cssClass: 'utils' },
+  http:       { icon: '/', label: 'HTTP', cssClass: 'http' },
+  events:     { icon: '~', label: 'Events', cssClass: 'events' },
+  codeengine: { icon: '>', label: 'Code Engine', cssClass: 'codeengine' },
+  workflow:   { icon: '%', label: 'Workflows', cssClass: 'workflow' },
+  ai:         { icon: '*', label: 'AI Services', cssClass: 'ai' },
+  utils:      { icon: '#', label: 'Utilities', cssClass: 'utils' },
 };
 
 class DomoTestApp {

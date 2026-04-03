@@ -234,6 +234,172 @@ const features = [
     },
     customButton: true,
   },
+  // ── Code Engine ─────────────────────────────────────────────────
+  {
+    name: "codeEngine",
+    category: "codeengine",
+    description: "Run a Code Engine function by alias",
+    fn: async () => {
+      if (!domo.codeEngine) throw new Error("Not available in this version");
+      const alias = "awesomeFunction";
+      const input = { number1AppInput: 5, number2AppInput: 10 };
+      const startTime = performance.now();
+      const result = await domo.codeEngine(alias, input);
+      const endTime = performance.now();
+      return {
+        _render: "payload", direction: "sent", method: `codeEngine("${alias}")`,
+        payload: { request: input, response: result },
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Requires a Code Engine package mapped as <code>awesomeFunction</code> in manifest.json",
+  },
+
+  // ── Workflows ──────────────────────────────────────────────────
+  {
+    name: "workflow.start",
+    category: "workflow",
+    description: "Start a Workflow instance",
+    fn: async () => {
+      if (!domo.workflow?.start) throw new Error("Not available in this version");
+      const alias = "testWorkflow";
+      const body = { param1: "hello" };
+      const startTime = performance.now();
+      const instance = await domo.workflow.start(alias, body);
+      const endTime = performance.now();
+      return {
+        _render: "payload", direction: "sent", method: `workflow.start("${alias}")`,
+        payload: { request: body, response: instance },
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Requires a Workflow mapped as <code>testWorkflow</code> in manifest.json",
+  },
+  {
+    name: "workflow.metrics",
+    category: "workflow",
+    description: "Get aggregate metrics for a Workflow",
+    fn: async () => {
+      if (!domo.workflow?.metrics) throw new Error("Not available in this version");
+      const alias = "testWorkflow";
+      const startTime = performance.now();
+      const metrics = await domo.workflow.metrics(alias, { limit: 5 });
+      const endTime = performance.now();
+      return {
+        _render: "http", httpMethod: "GET",
+        url: `/domo/workflow/v1/models/${alias}/overall?limit=5`,
+        payload: metrics, timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Requires a Workflow mapped as <code>testWorkflow</code> in manifest.json",
+  },
+  {
+    name: "workflow.getInstance",
+    category: "workflow",
+    description: "Check the status of a Workflow instance",
+    fn: async () => {
+      if (!domo.workflow?.getInstance) throw new Error("Not available in this version");
+      const alias = "testWorkflow";
+      // Try to get the latest instance from metrics first
+      let instanceId = "latest";
+      try {
+        const metrics = await domo.workflow.metrics(alias, { limit: 1 });
+        if (metrics?.instanceMetric?.length > 0) {
+          instanceId = metrics.instanceMetric[0].instanceId;
+        }
+      } catch (_) { /* proceed with placeholder */ }
+      const startTime = performance.now();
+      const instance = await domo.workflow.getInstance(alias, instanceId);
+      const endTime = performance.now();
+      return {
+        _render: "http", httpMethod: "GET",
+        url: `/domo/workflow/v1/models/${alias}/instance/${instanceId}`,
+        payload: instance, timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Requires a Workflow mapped as <code>testWorkflow</code> in manifest.json",
+  },
+
+  // ── AI Services ────────────────────────────────────────────────
+  {
+    name: "ai.generateText",
+    category: "ai",
+    description: "Generate text from a prompt",
+    fn: async () => {
+      if (!domo.ai?.generateText) throw new Error("Not available in this version");
+      const input = "Tell me a one-sentence joke about data.";
+      const startTime = performance.now();
+      const result = await domo.ai.generateText(input);
+      const endTime = performance.now();
+      return {
+        _render: "payload", direction: "received", method: "ai.generateText",
+        payload: result,
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Calls Domo AI text generation — uses AI credits",
+  },
+  {
+    name: "ai.textToSQL",
+    category: "ai",
+    description: "Generate SQL from natural language",
+    fn: async () => {
+      if (!domo.ai?.textToSQL) throw new Error("Not available in this version");
+      const input = "Show me total sales by region";
+      const schemas = [{
+        dataSourceName: "Sales",
+        description: "Sales transactions",
+        columns: [
+          { name: "Region", type: "string" },
+          { name: "Date", type: "date" },
+          { name: "Amount", type: "number" },
+        ],
+      }];
+      const startTime = performance.now();
+      const result = await domo.ai.textToSQL(input, { dataSourceSchemas: schemas });
+      const endTime = performance.now();
+      return {
+        _render: "payload", direction: "received", method: "ai.textToSQL",
+        payload: { request: { input, dataSourceSchemas: schemas }, response: result },
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Calls Domo AI text-to-SQL — uses AI credits",
+  },
+  {
+    name: "ai.imageToText",
+    category: "ai",
+    description: "Extract text from an image (OCR)",
+    fn: async () => {
+      if (!domo.ai?.imageToText) throw new Error("Not available in this version");
+      // Create a tiny 1x1 white PNG as a test image
+      const canvas = document.createElement("canvas");
+      canvas.width = 100; canvas.height = 30;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, 100, 30);
+      ctx.fillStyle = "#000";
+      ctx.font = "16px sans-serif";
+      ctx.fillText("Hello", 10, 22);
+      const base64 = canvas.toDataURL("image/png");
+
+      const startTime = performance.now();
+      const result = await domo.ai.imageToText(
+        "Return the text in the image",
+        { mediaType: "image/png", type: "base64", data: base64 },
+        "domo.domo_ai.domogpt-chat-medium-v1.1:anthropic",
+      );
+      const endTime = performance.now();
+      return {
+        _render: "payload", direction: "received", method: "ai.imageToText",
+        payload: result,
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Generates a test image with canvas, sends to Domo AI OCR — uses AI credits",
+  },
+
+  // ── Utilities ──────────────────────────────────────────────────
   {
     name: "ios-detection",
     category: "utils",
