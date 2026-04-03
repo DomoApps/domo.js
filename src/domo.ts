@@ -258,23 +258,25 @@ class Domo {
 /**
  * MutationObserver callback that injects the authentication token into any newly added HTML elements.
  *
- * This function is triggered whenever nodes are added to the DOM (either in the document or head).
- * It retrieves the current token and applies it to any new HTMLElement using the handleNode utility.
+ * Uses a single observer on documentElement with subtree: true to catch all DOM additions,
+ * including deeply nested elements added by frameworks. The token is fetched once per
+ * microtask batch (not per-node) for efficiency.
  *
  * @param mutations - An array of MutationRecord objects representing the changes to the DOM.
  */
-const __mutationObserverCallback = (mutations: any) => {
+const __mutationObserverCallback = (mutations: any[]) => {
   const token = getToken();
+  if (!token) return;
+
   for (const record of mutations) {
-    record.addedNodes.forEach((node: any) => {
+    for (const node of record.addedNodes) {
       if (node instanceof HTMLElement) handleNode(node, token);
-    });
+    }
   }
 };
 
 const ob = new MutationObserver(__mutationObserverCallback);
-ob.observe(document.documentElement, { childList: true });
-ob.observe(document.head, { childList: true });
+ob.observe(document.documentElement, { childList: true, subtree: true });
 
 export default Domo;
 export { Domo, __mutationObserverCallback };

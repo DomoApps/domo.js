@@ -23,7 +23,7 @@ export function setContentHeaders(headers: Record<string, string>, options?: any
  * @param token - The authentication token to set. If falsy, the header is removed.
  */
 export function setAuthTokenHeader(headers: Record<string, string>, token: string) {
-  if (token) 
+  if (token)
     return headers["X-DOMO-Ryuu-Session"] = token;
   delete headers["X-DOMO-Ryuu-Session"];
 }
@@ -49,17 +49,23 @@ export function handleNode(node: HTMLElement, token: string) {
   if (node === document.body || node === document.head)
     return processBody(node, token);
 
-  const hrefAttribute = (node.dataset?.domoHref) || node.getAttribute("href");
-  const srcAttribute = (node.dataset?.domoSrc) || node.getAttribute("src");
-  const attr = hrefAttribute ? "href" : "src";
+  // Inject token into this node's href/src if applicable
+  const hrefAttribute = node.dataset?.domoHref || node.getAttribute("href");
+  const srcAttribute = node.dataset?.domoSrc || node.getAttribute("src");
   const url = hrefAttribute || srcAttribute;
 
-  if (!url || !token || url.includes(token)) return;
-  const newUrl = new URL(url, document.location.origin);
-  const isRelativeUrl = newUrl.origin === document.location.origin;
-  if (isRelativeUrl) {
-    newUrl.searchParams.append("ryuu_sid", token);
-    node.setAttribute(attr, newUrl.href);
+  if (url && token && !url.includes(token)) {
+    const attr = hrefAttribute ? "href" : "src";
+    const newUrl = new URL(url, document.location.origin);
+    if (newUrl.origin === document.location.origin) {
+      newUrl.searchParams.append("ryuu_sid", token);
+      node.setAttribute(attr, newUrl.href);
+    }
+  }
+
+  // Recurse into children (e.g. a <div> containing <img> or <link> elements)
+  if (node.children.length > 0) {
+    processBody(node, token);
   }
 }
 

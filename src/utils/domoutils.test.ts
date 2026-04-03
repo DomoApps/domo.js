@@ -85,6 +85,24 @@ describe('domoutils', () => {
       head.appendChild(meta);
       expect(() => handleNode(head, 'tok')).not.toThrow();
     });
+    it('handleNode processes children of container elements', () => {
+      const container = document.createElement('div');
+      const img = document.createElement('img');
+      img.setAttribute('src', '/photo.jpg');
+      const link = document.createElement('a');
+      link.setAttribute('href', '/page');
+      container.appendChild(img);
+      container.appendChild(link);
+      handleNode(container, 'tok');
+      expect(img.getAttribute('src')).toContain('ryuu_sid=tok');
+      expect(link.getAttribute('href')).toContain('ryuu_sid=tok');
+    });
+    it('handleNode does not recurse into elements without children', () => {
+      const img = document.createElement('img');
+      img.setAttribute('src', '/photo.jpg');
+      handleNode(img, 'tok');
+      expect(img.getAttribute('src')).toContain('ryuu_sid=tok');
+    });
     it('should use getAttribute("href") if dataset is undefined', () => {
       const el = document.createElement('a');
       Object.defineProperty(el, 'dataset', { value: undefined });

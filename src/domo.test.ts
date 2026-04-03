@@ -95,14 +95,72 @@ describe('domo.__util (internal utilities)', () => {
 
 
 describe('MutationObserver integration', () => {
-  it('should call handleNode when a new element is added to the DOM', () => {
+  it('should call handleNode for each HTMLElement added', () => {
     const handleNodeSpy = jest.spyOn(require('../src/utils/domoutils'), 'handleNode');
     const el = document.createElement('a');
-    // Directly invoke the observer callback
     __mutationObserverCallback([
       { addedNodes: [el] }
     ]);
     expect(handleNodeSpy).toHaveBeenCalledWith(el, 'test-token');
+    handleNodeSpy.mockRestore();
+  });
+
+  it('should skip non-HTMLElement nodes (text, comments)', () => {
+    const handleNodeSpy = jest.spyOn(require('../src/utils/domoutils'), 'handleNode');
+    const textNode = document.createTextNode('hello');
+    const comment = document.createComment('a comment');
+    __mutationObserverCallback([
+      { addedNodes: [textNode, comment] }
+    ]);
+    expect(handleNodeSpy).not.toHaveBeenCalled();
+    handleNodeSpy.mockRestore();
+  });
+
+  it('should handle mixed node types in a single mutation', () => {
+    const handleNodeSpy = jest.spyOn(require('../src/utils/domoutils'), 'handleNode');
+    const el = document.createElement('div');
+    const textNode = document.createTextNode('text');
+    const el2 = document.createElement('img');
+    __mutationObserverCallback([
+      { addedNodes: [textNode, el, el2] }
+    ]);
+    expect(handleNodeSpy).toHaveBeenCalledTimes(2);
+    expect(handleNodeSpy).toHaveBeenCalledWith(el, 'test-token');
+    expect(handleNodeSpy).toHaveBeenCalledWith(el2, 'test-token');
+    handleNodeSpy.mockRestore();
+  });
+
+  it('should process multiple mutation records in a single batch', () => {
+    const handleNodeSpy = jest.spyOn(require('../src/utils/domoutils'), 'handleNode');
+    const el1 = document.createElement('a');
+    const el2 = document.createElement('link');
+    const el3 = document.createElement('script');
+    __mutationObserverCallback([
+      { addedNodes: [el1] },
+      { addedNodes: [el2, el3] },
+    ]);
+    expect(handleNodeSpy).toHaveBeenCalledTimes(3);
+    handleNodeSpy.mockRestore();
+  });
+
+  it('should bail early when token is empty', () => {
+    (window as any)['__RYUU_SID__'] = '';
+    const handleNodeSpy = jest.spyOn(require('../src/utils/domoutils'), 'handleNode');
+    const el = document.createElement('a');
+    __mutationObserverCallback([
+      { addedNodes: [el] }
+    ]);
+    expect(handleNodeSpy).not.toHaveBeenCalled();
+    handleNodeSpy.mockRestore();
+    (window as any)['__RYUU_SID__'] = 'test-token';
+  });
+
+  it('should handle empty addedNodes', () => {
+    const handleNodeSpy = jest.spyOn(require('../src/utils/domoutils'), 'handleNode');
+    __mutationObserverCallback([
+      { addedNodes: [] }
+    ]);
+    expect(handleNodeSpy).not.toHaveBeenCalled();
     handleNodeSpy.mockRestore();
   });
 });
