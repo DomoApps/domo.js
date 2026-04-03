@@ -461,7 +461,7 @@ const features = [
   {
     name: "domo.env",
     category: "utils",
-    description: "Typed environment context from iframe query parameters",
+    description: "Environment context from query params + /domo/environment/v1",
     fn: () => {
       if (!domo.env) throw new Error("Not available in this version");
       return {
@@ -471,9 +471,11 @@ const features = [
           userName: domo.env.userName,
           userEmail: domo.env.userEmail,
           customer: domo.env.customer,
+          host: domo.env.host,
           locale: domo.env.locale,
           platform: domo.env.platform,
           pageId: domo.env.pageId,
+          loaded: domo.env.loaded,
         },
       };
     },
