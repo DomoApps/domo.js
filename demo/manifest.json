@@ -23,14 +23,7 @@
   "workflowMapping": [
     {
       "alias": "testWorkflow",
-      "parameters": [
-        {
-          "aliasedName": "param1",
-          "type": "string",
-          "list": false,
-          "children": null
-        }
-      ]
+      "parameters": []
     }
   ],
   "packageMapping": [

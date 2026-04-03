@@ -263,32 +263,15 @@ const features = [
     fn: async () => {
       if (!domo.workflow?.start) throw new Error("Not available in this version");
       const alias = "testWorkflow";
-      const body = { param1: "hello" };
       const startTime = performance.now();
-      const instance = await domo.workflow.start(alias, body);
+      const instance = await domo.workflow.start(alias);
       const endTime = performance.now();
+      // Store the instance ID so getInstance can use it
+      window.__lastWorkflowInstanceId = instance.id;
       return {
         _render: "payload", direction: "sent", method: `workflow.start("${alias}")`,
-        payload: { request: body, response: instance },
+        payload: instance,
         timing: `${(endTime - startTime).toFixed(2)}ms`
-      };
-    },
-    pendingMsg: "Requires a Workflow mapped as <code>testWorkflow</code> in manifest.json",
-  },
-  {
-    name: "workflow.metrics",
-    category: "workflow",
-    description: "Get aggregate metrics for a Workflow",
-    fn: async () => {
-      if (!domo.workflow?.metrics) throw new Error("Not available in this version");
-      const alias = "testWorkflow";
-      const startTime = performance.now();
-      const metrics = await domo.workflow.metrics(alias, { limit: 5 });
-      const endTime = performance.now();
-      return {
-        _render: "http", httpMethod: "GET",
-        url: `/domo/workflow/v1/models/${alias}/overall?limit=5`,
-        payload: metrics, timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
     pendingMsg: "Requires a Workflow mapped as <code>testWorkflow</code> in manifest.json",
@@ -299,25 +282,18 @@ const features = [
     description: "Check the status of a Workflow instance",
     fn: async () => {
       if (!domo.workflow?.getInstance) throw new Error("Not available in this version");
+      const instanceId = window.__lastWorkflowInstanceId;
+      if (!instanceId) throw new Error("Run workflow.start first to get an instance ID");
       const alias = "testWorkflow";
-      // Try to get the latest instance from metrics first
-      let instanceId = "latest";
-      try {
-        const metrics = await domo.workflow.metrics(alias, { limit: 1 });
-        if (metrics?.instanceMetric?.length > 0) {
-          instanceId = metrics.instanceMetric[0].instanceId;
-        }
-      } catch (_) { /* proceed with placeholder */ }
       const startTime = performance.now();
       const instance = await domo.workflow.getInstance(alias, instanceId);
       const endTime = performance.now();
       return {
-        _render: "http", httpMethod: "GET",
-        url: `/domo/workflow/v1/models/${alias}/instance/${instanceId}`,
+        _render: "payload", direction: "received", method: `workflow.getInstance`,
         payload: instance, timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
-    pendingMsg: "Requires a Workflow mapped as <code>testWorkflow</code> in manifest.json",
+    pendingMsg: "Run <code>workflow.start</code> first, then check the instance status",
   },
 
   // ── AI Services ────────────────────────────────────────────────

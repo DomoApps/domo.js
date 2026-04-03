@@ -77,55 +77,6 @@ describe("workflow.start", () => {
   });
 });
 
-describe("workflow.metrics", () => {
-  const mockMetrics = {
-    modelId: "a8afdc89-9491-4ee4-b7c3-b9e9b86c0138",
-    version: "1.1.0",
-    completedWorkflows: 3,
-    inProgressWorkflows: 2,
-    failedWorkflows: 1,
-    canceledWorkflows: 0,
-    averageCycleTime: 120,
-    instanceMetric: [] as any[],
-  };
-
-  it("should GET metrics without query params", async () => {
-    mockFetchOk(mockMetrics);
-
-    const result = await Domo.workflow.metrics("addNumbers");
-
-    expect(global.fetch).toHaveBeenCalledWith(
-      "/domo/workflow/v1/models/addNumbers/overall",
-      expect.any(Object)
-    );
-    expect(result.completedWorkflows).toBe(3);
-  });
-
-  it("should append query params when provided", async () => {
-    mockFetchOk(mockMetrics);
-
-    await Domo.workflow.metrics("addNumbers", { status: "COMPLETED", limit: 10 });
-
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/domo/workflow/v1/models/addNumbers/overall?"),
-      expect.any(Object)
-    );
-    const url = (global.fetch as jest.Mock).mock.calls[0][0] as string;
-    expect(url).toContain("status=COMPLETED");
-    expect(url).toContain("limit=10");
-  });
-
-  it("should skip undefined params", async () => {
-    mockFetchOk(mockMetrics);
-
-    await Domo.workflow.metrics("addNumbers", { limit: 5, offset: undefined });
-
-    const url = (global.fetch as jest.Mock).mock.calls[0][0] as string;
-    expect(url).toContain("limit=5");
-    expect(url).not.toContain("offset");
-  });
-});
-
 describe("workflow.getInstance", () => {
   it("should GET the instance by alias and instanceId", async () => {
     const completed = { ...mockInstance, status: "COMPLETED" };
