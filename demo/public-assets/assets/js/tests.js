@@ -480,6 +480,132 @@ const features = [
       };
     },
   },
+
+  // ── DX Tools ──────────────────────────────────────────────────
+  {
+    name: "debug-mode",
+    category: "dx",
+    description: "Toggle debug logging for HTTP, messages, filters, variables",
+    fn: () => {
+      if (!domo.debug) throw new Error("Not available in this version");
+      // Enable, log a test message, then disable
+      const wasPreviouslyEnabled = domo.debug.enabled;
+      domo.debug.enable(["http", "messages", "filters", "variables"]);
+      const categories = [...domo.debug.categories];
+      domo.debug.log("http", "Demo test: debug mode is working");
+      if (!wasPreviouslyEnabled) domo.debug.disable();
+      return {
+        _render: "payload", direction: "received", method: "domo.debug",
+        payload: {
+          enabled: domo.debug.enabled,
+          testedCategories: categories,
+          note: wasPreviouslyEnabled
+            ? "Debug was already enabled — left it on"
+            : "Enabled, logged a test message, then disabled. Check browser console.",
+        },
+      };
+    },
+  },
+  {
+    name: "interceptors",
+    category: "dx",
+    description: "Register a request interceptor that logs timing",
+    fn: async () => {
+      if (!domo.intercept) throw new Error("Not available in this version");
+      let intercepted = null;
+      const remove = domo.intercept(async (config, next) => {
+        const start = performance.now();
+        const response = await next(config);
+        intercepted = {
+          method: config.method,
+          url: config.url,
+          headerCount: Object.keys(config.headers).length,
+          timing: `${(performance.now() - start).toFixed(2)}ms`,
+        };
+        return response;
+      });
+      // Fire a real request through the interceptor
+      try {
+        await domo.get("/domo/datastores/v1/collections/SanityTest/documents/");
+      } catch (e) {
+        // Even if the request fails, the interceptor should have run
+      }
+      remove(); // clean up
+      if (!intercepted) throw new Error("Interceptor was not called");
+      return {
+        _render: "payload", direction: "received", method: "domo.intercept()",
+        payload: {
+          interceptedRequest: intercepted,
+          cleanedUp: true,
+        },
+      };
+    },
+    pendingMsg: "Registers an interceptor, fires a GET, verifies it was called, then removes it",
+  },
+  {
+    name: "structured-errors",
+    category: "dx",
+    description: "Verify structured error types on a 404 response",
+    fn: async () => {
+      if (!domo.get) throw new Error("Not available in this version");
+      const startTime = performance.now();
+      try {
+        await domo.get("/domo/this-endpoint-does-not-exist-404");
+        throw new Error("Request should have failed");
+      } catch (error) {
+        const endTime = performance.now();
+        const errorInfo = {
+          name: error.name || "Error",
+          message: error.message,
+          hasStatus: typeof error.status === "number",
+          status: error.status,
+          hasBody: typeof error.body === "string",
+          hasHeaders: typeof error.headers === "object",
+          isDomoHttpError: error.constructor?.name === "DomoHttpError" || error.name === "DomoHttpError",
+        };
+        // If it's a "Request should have failed" error, re-throw
+        if (error.message === "Request should have failed") throw error;
+        return {
+          _render: "payload", direction: "received", method: "error inspection",
+          payload: errorInfo,
+          timing: `${(endTime - startTime).toFixed(2)}ms`
+        };
+      }
+    },
+    pendingMsg: "Hits a nonexistent endpoint and inspects the error type",
+  },
+  {
+    name: "schema-validation",
+    category: "dx",
+    description: "Test runtime schema validation on HTTP responses",
+    fn: async () => {
+      if (!domo.get) throw new Error("Not available in this version");
+      // Create a simple schema that always passes
+      const passingSchema = { parse: (data) => data };
+      const startTime = performance.now();
+      const result = await domo.get("/domo/datastores/v1/collections/SanityTest/documents/", { schema: passingSchema });
+      const endTime = performance.now();
+
+      // Now test a schema that rejects
+      let rejectionCaught = false;
+      const failingSchema = { parse: () => { throw new Error("Schema rejected"); } };
+      try {
+        await domo.get("/domo/datastores/v1/collections/SanityTest/documents/", { schema: failingSchema });
+      } catch (e) {
+        rejectionCaught = e.name === "DomoValidationError" || e.message?.includes("validation failed");
+      }
+
+      return {
+        _render: "payload", direction: "received", method: "schema validation",
+        payload: {
+          passingSchemaResult: Array.isArray(result) ? `Array(${result.length})` : typeof result,
+          failingSchemaRejected: rejectionCaught,
+        },
+        timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Tests both a passing and failing schema against a real endpoint",
+  },
   {
     name: "ios-detection",
     category: "utils",

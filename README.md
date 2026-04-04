@@ -42,6 +42,9 @@ Choose your version:
 - [Mobile Platform Support](#mobile-platform-support)
 - [Error Handling](#error-handling)
 - [Advanced Usage](#advanced-usage)
+  - [Schema Validation](#schema-validation)
+  - [Request Interceptors](#request-interceptors)
+  - [Debug Mode](#debug-mode)
 - [Complete Example](#complete-example)
 - [Breaking Changes (v5.2)](#breaking-changes-v52)
 - [Migration Guide](#migration-guide)
@@ -91,9 +94,13 @@ Domo.onFiltersUpdated((filters) => {
 - **Typed Environment** - `Domo.env` with userId, userName, host, platform, enriched from environment API
 - **Navigation** - Programmatically navigate within Domo
 - **Mobile Support** - Full iOS and Android compatibility
-- **TypeScript Ready** - Complete type definitions included
-- **Zero Dependencies** - ~26KB bundle (7.6KB gzipped) with no runtime dependencies
+- **TypeScript Ready** - Complete type definitions with typed callbacks and generics
+- **Zero Dependencies** - ~28KB UMD bundle with no runtime dependencies
 - **Extensible** - `extend()` propagates overrides to all services (data, appdb, ai, etc.)
+- **Structured Errors** - Typed error classes (`DomoHttpError`, `DomoAuthError`, `DomoConnectionError`, `DomoValidationError`) with `instanceof` support
+- **Schema Validation** - Optional runtime response validation via `{ schema: { parse } }` option (works with zod, valibot, etc.)
+- **Request Interceptors** - Middleware pattern via `Domo.intercept()` for logging, retry, caching
+- **Debug Mode** - `Domo.debug.enable()` for category-based logging of HTTP, messages, filters, variables
 
 ---
 
@@ -1045,7 +1052,14 @@ import Domo, {
   isFilter,
   isFilterArray,
   isVariable,
-  isVariableArray
+  isVariableArray,
+
+  // Error Types
+  DomoHttpError,
+  DomoAuthError,
+  DomoConnectionError,
+  DomoValidationError,
+  DomoTimeoutError,
 } from 'ryuu.js';
 ```
 
@@ -1181,7 +1195,17 @@ if (Domo.__util.isIOS()) {
 
 ## Error Handling
 
-All HTTP methods return Promises. Use `try/catch` with async/await for error handling.
+All HTTP methods return Promises. ryuu.js throws structured, typed error classes that support `instanceof` checks.
+
+### Error Types
+
+| Error Class | Thrown When | Properties |
+|---|---|---|
+| `DomoHttpError` | Non-2xx HTTP response | `status`, `statusText`, `body`, `headers` |
+| `DomoAuthError` | 401 or 403 response (extends `DomoHttpError`) | Same as above |
+| `DomoConnectionError` | Network failure (fetch rejects) | `message` |
+| `DomoValidationError` | Invalid filters/variables, schema parse failure | `message`, `errors[]` |
+| `DomoTimeoutError` | Request or message timeout | `message`, `url` |
 
 ### Basic Error Handling
 
@@ -1194,43 +1218,47 @@ try {
 }
 ```
 
-### Error Object Structure
-
-Error objects include comprehensive information:
+### Using instanceof for Error Types
 
 ```javascript
-try {
-  const data = await Domo.get('/data/v1/nonexistent');
-} catch (error) {
-  console.error('Status:', error.status);         // 404
-  console.error('Status Text:', error.statusText); // 'Not Found'
-  console.error('Message:', error.message);        // Error description
-  console.error('Body:', error.body);             // Response body
-  console.error('Headers:', error.headers);       // Response headers
-}
-```
+import Domo, { DomoHttpError, DomoAuthError, DomoConnectionError } from 'ryuu.js';
 
-### Handling Specific Error Types
-
-```javascript
 try {
   const data = await Domo.get('/data/v1/sales');
 } catch (error) {
-  if (error.status === 404) {
-    console.error('Dataset not found');
-    showError('The requested dataset does not exist');
-  } else if (error.status === 403) {
-    console.error('Access denied');
-    showError('You do not have permission to access this dataset');
-  } else if (error.status === 401) {
-    console.error('Authentication failed');
-    showError('Your session has expired. Please refresh the page.');
-  } else if (error.status >= 500) {
-    console.error('Server error');
-    showError('A server error occurred. Please try again later.');
+  if (error instanceof DomoAuthError) {
+    // 401 or 403 — session expired or no permission
+    console.error('Auth failed:', error.status); // 401 or 403
+    showLoginPrompt();
+  } else if (error instanceof DomoHttpError) {
+    // Any other non-2xx response
+    console.error('HTTP error:', error.status, error.statusText);
+    console.error('Response body:', error.body);
+    console.error('Response headers:', error.headers);
+  } else if (error instanceof DomoConnectionError) {
+    // Network failure — no response at all
+    console.error('Network error:', error.message);
+    showOfflineMessage();
   } else {
     console.error('Unexpected error:', error);
-    showError('An unexpected error occurred');
+  }
+}
+```
+
+### Validation Errors
+
+When you pass malformed data to filters or variables, ryuu.js throws a `DomoValidationError` and logs the expected data model to `console.error`:
+
+```javascript
+import { DomoValidationError } from 'ryuu.js';
+
+try {
+  Domo.requestFiltersUpdate([{ bad: 'data' }]);
+} catch (error) {
+  if (error instanceof DomoValidationError) {
+    console.error(error.message); // "All filters must be valid Filter objects."
+    console.error(error.errors);  // Array of the invalid items
+    // console.error also shows the expected object shape automatically
   }
 }
 ```
@@ -1270,114 +1298,127 @@ try {
 
 ## Advanced Usage
 
+### Schema Validation
+
+Validate API responses at runtime using any schema library with a `.parse()` method (zod, valibot, etc.):
+
+```typescript
+import Domo from 'ryuu.js';
+import { z } from 'zod';
+
+const UserSchema = z.array(z.object({
+  id: z.number(),
+  name: z.string(),
+  email: z.string().email(),
+}));
+
+// Throws DomoValidationError if response doesn't match
+const users = await Domo.get<z.infer<typeof UserSchema>>('/data/v1/users', {
+  schema: UserSchema,
+});
+```
+
+Zero cost when `schema` is not provided — a single falsy check.
+
+---
+
+### Request Interceptors
+
+Register middleware that wraps every HTTP request. Interceptors use an onion model — the last registered runs outermost.
+
+```javascript
+// Logging interceptor
+const removeLogger = Domo.intercept(async (config, next) => {
+  console.log(`[${config.method}] ${config.url}`);
+  const start = Date.now();
+  const response = await next(config);
+  console.log(`[${config.method}] ${config.url} - ${Date.now() - start}ms`);
+  return response;
+});
+
+// Add custom headers
+Domo.intercept((config, next) => {
+  config.headers['X-Custom'] = 'value';
+  return next(config);
+});
+
+// Short-circuit with a cached response
+Domo.intercept((config, next) => {
+  if (cache.has(config.url)) return Promise.resolve(cache.get(config.url));
+  return next(config);
+});
+
+// Remove an interceptor
+removeLogger();
+```
+
+The `config` object has `{ method, url, headers, body }`. Headers and auth tokens are already set when interceptors run.
+
+---
+
+### Debug Mode
+
+Enable category-based debug logging to trace HTTP requests, MessageChannel messages, filter and variable updates:
+
+```javascript
+// Enable all categories
+Domo.debug.enable();
+
+// Enable specific categories: 'http', 'messages', 'filters', 'variables', 'all'
+Domo.debug.enable(['http', 'messages']);
+
+// Disable
+Domo.debug.disable();
+```
+
+Debug state persists to `localStorage` — it survives page reloads. You can also enable it from the browser console:
+
+```javascript
+localStorage.__domo_debug__ = '["all"]';
+// Refresh the page — debug logging is now active
+```
+
+Output looks like:
+```
+[domo:http] GET /data/v1/sales
+[domo:http] 200 OK /data/v1/sales
+[domo:messages] received filtersUpdated { event: 'filtersUpdated', filters: [...] }
+[domo:filters] filtersUpdated [{ column: 'region', ... }]
+```
+
+---
+
 ### Custom Fetch Implementation
 
 Provide your own fetch implementation for testing or custom behavior:
 
 ```javascript
-// Mock fetch for testing
-const mockFetch = async (url, options) => {
-  return {
-    ok: true,
-    status: 200,
-    headers: new Headers(),
-    json: async () => [{ id: 1, name: 'Test' }]
-  };
-};
-
 const data = await Domo.get('/data/v1/sales', {
-  fetchImpl: mockFetch
+  fetch: myCustomFetch,
 });
 ```
 
-### Caching Layer
-
-Add a caching layer using `extend()`:
-
-```javascript
-const cache = new Map();
-
-Domo.extend({
-  get: async function(url, options) {
-    // Check cache
-    const cacheKey = `${url}:${JSON.stringify(options)}`;
-    if (cache.has(cacheKey)) {
-      console.log('Cache hit:', url);
-      return cache.get(cacheKey);
-    }
-
-    // Fetch and cache
-    const result = await originalGet.call(this, url, options);
-    cache.set(cacheKey, result);
-
-    return result;
-  }
-});
-```
-
-### Request Interceptors
-
-Add interceptors for all requests:
-
-```javascript
-import Domo, { domoHttp as originalDomoHttp } from 'ryuu.js';
-
-Domo.extend({
-  domoHttp: async function(method, url, options, body) {
-    // Before request
-    console.log(`[${method}] ${url}`);
-    const startTime = Date.now();
-
-    // Add custom headers
-    options = {
-      ...options,
-      headers: {
-        ...options?.headers,
-        'X-Custom-Header': 'value'
-      }
-    };
-
-    try {
-      // Make request
-      const result = await originalDomoHttp.call(this, method, url, options, body);
-
-      // After successful request
-      console.log(`[${method}] ${url} - Success (${Date.now() - startTime}ms)`);
-      return result;
-    } catch (error) {
-      // After failed request
-      console.error(`[${method}] ${url} - Error (${Date.now() - startTime}ms)`, error);
-      throw error;
-    }
-  }
-});
-```
+---
 
 ### Type Guards
 
 Use type guards to validate runtime data:
 
 ```javascript
-import { isFilter, isFilterArray, guardAgainstInvalidFilters } from 'ryuu.js';
+import { isFilter, isFilterArray, guardAgainstInvalidFilters, DomoValidationError } from 'ryuu.js';
 
 // Validate individual filter
 if (isFilter(data)) {
-  // TypeScript knows data is a Filter
-  console.log(data.column);
+  console.log(data.column); // TypeScript knows data is a Filter
 }
 
-// Validate array of filters
-if (isFilterArray(data)) {
-  // TypeScript knows data is Filter[]
-  data.forEach(filter => console.log(filter.column));
-}
-
-// Throw error if invalid
+// Validate array — throws DomoValidationError with expected model logged to console
 try {
   guardAgainstInvalidFilters(data);
-  // Data is valid, proceed
 } catch (error) {
-  console.error('Invalid filters:', error.message);
+  if (error instanceof DomoValidationError) {
+    console.error(error.errors); // The invalid items
+  }
 }
 ```
 

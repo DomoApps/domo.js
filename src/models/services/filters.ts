@@ -1,6 +1,7 @@
 import { generateUniqueId, isIOS, isMobile } from "../../utils/general";
 import { guardAgainstInvalidFilters } from "../../utils/filter";
 import { Filter } from "../interfaces/filter";
+import { domoDebug } from "../../utils/debug";
 
 /**
  * Sends filter data to the parent window or to the iOS webkit message handler.
@@ -81,7 +82,7 @@ export function requestFiltersUpdate(
  * @param callback - The function to call when filters are updated.
  * @returns A function to unregister the callback.
  */
-export function onFiltersUpdated(callback: Function) {
+export function onFiltersUpdated(callback: (filters: Filter[]) => void) {
   const hasHandlers = this.listeners.onFiltersUpdated.length > 0;
 
   this.connect();
@@ -107,8 +108,9 @@ export function handleFiltersUpdated(message: any, responsePort?: MessagePort): 
   if (!message) return;
 
   if (this.listeners.onFiltersUpdated.length) {
+    domoDebug.log('filters', 'filtersUpdated', message.filters);
     responsePort?.postMessage({ requestId: message.requestId, event: "ack", filters: message.filters });
-    this.listeners.onFiltersUpdated.forEach((cb: Function) =>
+    this.listeners.onFiltersUpdated.forEach((cb: (filters: Filter[]) => void) =>
       cb(message.filters)
     );
   }

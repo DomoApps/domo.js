@@ -295,3 +295,153 @@ describe('Domo.extend', () => {
     );
   });
 });
+
+describe('Legacy postMessage handler', () => {
+  let messageHandler: (event: MessageEvent) => void;
+
+  beforeEach(() => {
+    Domo.connected = false;
+    Domo.listeners.onDataUpdated = [];
+    Domo.listeners.onFiltersUpdated = [];
+    Domo.listeners.onVariablesUpdated = [];
+    Domo.listeners.onAppDataUpdated = [];
+    window.parent.postMessage = jest.fn();
+
+    const addEventSpy = jest.spyOn(window, 'addEventListener');
+    (Domo as any).connect();
+    // The last addEventListener call is for the legacy handler
+    const messageCalls = addEventSpy.mock.calls.filter(c => c[0] === 'message');
+    messageHandler = messageCalls[messageCalls.length - 1][1] as any;
+    addEventSpy.mockRestore();
+  });
+
+  function makeLegacyEvent(data: any, origin = 'https://test.domo.com') {
+    return {
+      data,
+      origin,
+      source: { postMessage: jest.fn() },
+    } as any;
+  }
+
+  it('should ignore messages from unverified origins', () => {
+    const spy = jest.fn();
+    Domo.listeners.onDataUpdated.push(spy);
+    messageHandler(makeLegacyEvent(JSON.stringify({ alias: 'ds1' }), 'https://evil.com'));
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('should handle legacy alias-only data update format', () => {
+    const spy = jest.fn();
+    Domo.listeners.onDataUpdated.push(spy);
+    messageHandler(makeLegacyEvent(JSON.stringify({ alias: 'ds1' })));
+    expect(spy).toHaveBeenCalledWith('ds1');
+  });
+
+  it('should send legacy ack for alias-only messages', () => {
+    Domo.listeners.onDataUpdated.push(jest.fn());
+    const event = makeLegacyEvent(JSON.stringify({ alias: 'ds1' }));
+    messageHandler(event);
+    expect(event.source.postMessage).toHaveBeenCalledWith(
+      JSON.stringify({ event: 'ack', alias: 'ds1' }),
+      'https://test.domo.com'
+    );
+  });
+
+  it('should handle standard event-based messages', () => {
+    const spy = jest.fn();
+    Domo.listeners.onFiltersUpdated.push(spy);
+    messageHandler(makeLegacyEvent(JSON.stringify({
+      event: 'filtersUpdated',
+      filters: [{ column: 'x' }],
+      requestId: 'r1',
+    })));
+    expect(spy).toHaveBeenCalledWith([{ column: 'x' }]);
+  });
+
+  it('should send ack with relevant data for filtersUpdated', () => {
+    Domo.listeners.onFiltersUpdated.push(jest.fn());
+    const event = makeLegacyEvent(JSON.stringify({
+      event: 'filtersUpdated',
+      filters: [{ column: 'x' }],
+      requestId: 'r1',
+    }));
+    messageHandler(event);
+    const ack = JSON.parse(event.source.postMessage.mock.calls[0][0]);
+    expect(ack.event).toBe('ack');
+    expect(ack.requestId).toBe('r1');
+    expect(ack.filters).toEqual([{ column: 'x' }]);
+  });
+
+  it('should send ack with alias for dataUpdated', () => {
+    Domo.listeners.onDataUpdated.push(jest.fn());
+    const event = makeLegacyEvent(JSON.stringify({
+      event: 'dataUpdated',
+      alias: 'sales',
+      requestId: 'r2',
+    }));
+    messageHandler(event);
+    const ack = JSON.parse(event.source.postMessage.mock.calls[0][0]);
+    expect(ack.alias).toBe('sales');
+  });
+
+  it('should send ack with variables for variablesUpdated', () => {
+    Domo.listeners.onVariablesUpdated.push(jest.fn());
+    const event = makeLegacyEvent(JSON.stringify({
+      event: 'variablesUpdated',
+      variables: [{ functionId: 1, value: 'x' }],
+      requestId: 'r3',
+    }));
+    messageHandler(event);
+    const ack = JSON.parse(event.source.postMessage.mock.calls[0][0]);
+    expect(ack.variables).toEqual([{ functionId: 1, value: 'x' }]);
+  });
+
+  it('should not send ack for ack events', () => {
+    const event = makeLegacyEvent(JSON.stringify({ event: 'ack', requestId: 'r4' }));
+    messageHandler(event);
+    expect(event.source.postMessage).not.toHaveBeenCalled();
+  });
+
+  it('should ignore invalid JSON strings', () => {
+    const spy = jest.fn();
+    Domo.listeners.onDataUpdated.push(spy);
+    messageHandler(makeLegacyEvent('not-json{{{'));
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('should handle object data (non-string)', () => {
+    const spy = jest.fn();
+    Domo.listeners.onFiltersUpdated.push(spy);
+    messageHandler(makeLegacyEvent({ event: 'filtersUpdated', filters: [] }));
+    expect(spy).toHaveBeenCalledWith([]);
+  });
+
+  it('should ignore empty strings and non-object/non-string data', () => {
+    const spy = jest.fn();
+    Domo.listeners.onDataUpdated.push(spy);
+    messageHandler(makeLegacyEvent(''));
+    messageHandler(makeLegacyEvent(42));
+    messageHandler(makeLegacyEvent(true));
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('Domo static API surface', () => {
+  it('should expose debug object', () => {
+    expect(Domo.debug).toBeDefined();
+    expect(typeof Domo.debug.enable).toBe('function');
+    expect(typeof Domo.debug.disable).toBe('function');
+    expect(typeof Domo.debug.log).toBe('function');
+  });
+
+  it('should expose intercept function', () => {
+    expect(typeof Domo.intercept).toBe('function');
+  });
+
+  it('should expose DomoListeners typed listeners', () => {
+    expect(Array.isArray(Domo.listeners.onDataUpdated)).toBe(true);
+    expect(Array.isArray(Domo.listeners.onFiltersUpdated)).toBe(true);
+    expect(Array.isArray(Domo.listeners.onAppDataUpdated)).toBe(true);
+    expect(Array.isArray(Domo.listeners.onVariablesUpdated)).toBe(true);
+  });
+});

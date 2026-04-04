@@ -3,7 +3,7 @@
   "version": "5.2.0-alpha.0",
   "description": "Ryuu JavaScript Utility Library",
   "main": "dist/domo.js",
-  "sideEffects": ["./src/domo.ts", "./dist/domo.js"],
+  "sideEffects": ["./src/domo.ts", "./src/init.ts", "./dist/domo.js"],
   "files": [
     "dist/domo.js",
     "dist/domo.js.map",

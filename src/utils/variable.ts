@@ -1,4 +1,5 @@
 import { Variable } from "../models/interfaces/variable";
+import { DomoValidationError } from "../models/errors";
 
 /**
  * Type guard to check if an object is a valid Variable.
@@ -25,6 +26,11 @@ export function isVariableArray(arr: any): arr is Variable[] {
   return Array.isArray(arr) && arr.every(isVariable);
 }
 
+const VARIABLE_EXAMPLE = {
+  functionId: 1,
+  value: "any value (string, number, etc.)",
+};
+
 /**
  * Guards against invalid variables being sent to Domo.
  *
@@ -37,12 +43,19 @@ export function guardAgainstInvalidVariables(variables: string | Variable[]) {
     if (typeof variables === 'string')
       parsedVariables = JSON.parse(variables);
   } catch (error) {
-    throw new Error('Variables string is not valid JSON or a valid Variable array: { "functionId": number, "value": any }[]');
+    console.error("Domo: Variables string is not valid JSON. Received:", variables, "\nExpected format:", [VARIABLE_EXAMPLE]);
+    throw new DomoValidationError('Variables string is not valid JSON.', [variables]);
   }
 
-  if (!isVariableArray(parsedVariables))
-    throw new Error('Variables must be provided as a Variable array or a stringified Variable array: { "functionId": number, "value": any }[]');
+  if (!isVariableArray(parsedVariables)) {
+    const items = Array.isArray(parsedVariables) ? parsedVariables : [parsedVariables];
+    const invalid = Array.isArray(parsedVariables) ? parsedVariables.filter(v => !isVariable(v)) : items;
+    console.error("Domo: Invalid variable(s) detected:", invalid, "\nExpected format:", VARIABLE_EXAMPLE);
+    throw new DomoValidationError('Variables must be provided as a Variable array.', invalid);
+  }
 
-  if (parsedVariables.length === 0)
-    throw new Error('Variables array cannot be empty.');
+  if (parsedVariables.length === 0) {
+    console.error("Domo: Variables array cannot be empty. Expected format:", [VARIABLE_EXAMPLE]);
+    throw new DomoValidationError('Variables array cannot be empty.', []);
+  }
 }

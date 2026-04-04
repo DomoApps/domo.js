@@ -4,6 +4,9 @@ import { setFormatHeaders } from "../../utils/general";
 import { DataFormats } from "../enums/data-formats";
 import { RequestMethods } from "../enums/request-methods";
 import { RequestBody, RequestOptions, ObjectResponseBody, ArrayResponseBody, ResponseBody } from "../interfaces/request";
+import { DomoHttpError, DomoAuthError, DomoConnectionError, DomoValidationError } from "../errors";
+import { domoDebug } from "../../utils/debug";
+import { buildInterceptorChain, InterceptorConfig } from "./interceptors";
 
 function domoHttp(method: RequestMethods, url: string, options: RequestOptions<'array-of-objects'>, body?: RequestBody): Promise<ObjectResponseBody[]>;
 function domoHttp(method: RequestMethods, url: string, options: RequestOptions<'array-of-arrays'>, body?: RequestBody): Promise<ArrayResponseBody>;
@@ -22,13 +25,27 @@ async function domoHttp<T>(method: RequestMethods, url: string, options: Request
       body: serializeBody(body, options.contentType),
     };
 
+    domoDebug.log('http', method, url, body ? { body: '[body]' } : undefined);
+
     const fetchImpl = customFetch || fetch;
+    const chain = buildInterceptorChain((cfg: InterceptorConfig) =>
+      fetchImpl(cfg.url, { method: cfg.method, headers: cfg.headers, body: cfg.body })
+    );
+
     let response: Response;
     try {
-      response = await fetchImpl(url, fetchOptions);
+      response = await chain({
+        method,
+        url,
+        headers,
+        body: fetchOptions.body,
+      });
     } catch (fetchErr: any) {
-      throw buildError(undefined, fetchErr.message, '');
+      domoDebug.log('http', 'connection error', url, fetchErr.message);
+      throw new DomoConnectionError(fetchErr.message);
     }
+
+    domoDebug.log('http', `${response.status} ${response.statusText}`, url);
 
     if (!response.ok) {
       let errorText = response.statusText;
@@ -41,9 +58,23 @@ async function domoHttp<T>(method: RequestMethods, url: string, options: Request
     }
     
     try {
-      return await parseResponse<T>(response, options);
+      const parsed = await parseResponse<T>(response, options);
+
+      if (options.schema) {
+        try {
+          return options.schema.parse(parsed) as T;
+        } catch (schemaErr: any) {
+          throw new DomoValidationError(
+            `Response validation failed: ${schemaErr.message}`,
+            schemaErr.errors ?? [schemaErr]
+          );
+        }
+      }
+
+      return parsed;
     } catch (err: any) {
       if (err && (err.status || err.status === 0)) throw err;
+      if (err instanceof DomoValidationError) throw err;
 
       const error: any = new Error(`domoHttp error: ${err.message}`);
       error.originalError = err;
@@ -98,20 +129,20 @@ function serializeBody(body: RequestBody, contentType?: string): any {
     return body as any;
   }
 
-function buildError(response: Response | undefined, errorText: string, errorBody: string): Error {
-  const error: any = new Error(response ? `HTTP error ${response.status}: ${errorText}` : errorText);
-  if (response) {
-    error.status = response.status;
-    error.statusText = response.statusText;
-    error.body = errorBody;
-    error.headers = {};
-    if (response.headers && typeof response.headers.forEach === 'function') {
-      response.headers.forEach((value, key) => {
-        error.headers[key] = value;
-      });
-    }
+function buildError(response: Response, errorText: string, errorBody: string): DomoHttpError {
+  const message = `HTTP error ${response.status}: ${errorText}`;
+  const headers: Record<string, string> = {};
+  if (response.headers && typeof response.headers.forEach === 'function') {
+    response.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
   }
-  return error;
+
+  if (response.status === 401 || response.status === 403) {
+    return new DomoAuthError(message, response.status, response.statusText, errorBody, headers);
+  }
+
+  return new DomoHttpError(message, response.status, response.statusText, errorBody, headers);
 }
 
 function parseResponse<T>(response: Response, options: RequestOptions): Promise<T> {

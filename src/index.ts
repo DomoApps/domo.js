@@ -1,3 +1,4 @@
+export * from './models/errors';
 export * from './models/constants/general';
 export * from './models/enums/data-formats';
 export * from './models/enums/domo-data-types';
@@ -18,6 +19,8 @@ export * from './models/services/filters';
 export * from './models/services/http';
 export * from './models/services/navigation';
 export * from './models/services/variables';
+export { addInterceptor, InterceptorFn, InterceptorConfig } from './models/services/interceptors';
+export { domoDebug, DebugCategory } from './utils/debug';
 export * from './utils/data-helpers';
 export * from './utils/domoutils';
 export * from './utils/general';

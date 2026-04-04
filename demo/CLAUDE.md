@@ -15,11 +15,16 @@ Interactive test-and-report app that exercises every `domo.js` API inside a real
 - **Environment** — `domo.env` showing typed environment context (userId, userName, host, etc.).
 - **iOS detection** — multi-factor `isIOS()` check with detailed indicator breakdown.
 - **Device detection** — header badge showing detected platform from user agent.
+- **DX Tools** (v5.2+ features):
+  - `domo.debug` — enables/disables debug mode, verifies category logging.
+  - `domo.intercept()` — registers a timing interceptor, fires a real request, verifies it was called, then removes it.
+  - Structured errors — hits a 404 endpoint and inspects the typed error properties (`name`, `status`, `body`, `headers`).
+  - Schema validation — tests both a passing and rejecting schema against a real endpoint.
 
 ## UI Features
 
 - **Dark theme** with glassmorphism, animated gradient mesh background.
-- **Card-based layout** grouped by category (HTTP, Data, AppDB, Events, Code Engine, Workflows, AI, Utilities).
+- **Card-based layout** grouped by category (HTTP, Data, AppDB, Events, Code Engine, Workflows, AI, Utilities, DX Tools).
 - **Version picker** — dropdown loads any published ryuu.js version from CDN via `document.write` in `<head>`. Changes reload the page with `?v=` param.
 - **Event warning banner** — animated gradient-border banner shown until events are registered.
 - **Rich data rendering** — `DataRenderer` class produces syntax-highlighted JSON blocks with direction indicators (sent/received), method badges, and timing.

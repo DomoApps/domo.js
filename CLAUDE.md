@@ -4,9 +4,9 @@ JavaScript SDK (published as `ryuu.js` on npm) for building custom apps inside t
 
 - **Version:** 5.2.0
 - **Zero runtime dependencies**
-- **Build:** Webpack 5 → UMD bundle at `dist/domo.js` (~26KB), exposed as global `Domo`
-- **Tests:** Jest + jsdom (`npm test`) — 179 tests across 17 suites
-- **Type check:** `tsc --noEmit`
+- **Build:** Webpack 5 → UMD bundle at `dist/domo.js` (~28KB), exposed as global `Domo`
+- **Tests:** Jest + jsdom (`npm test`) — 235 tests across 20 suites
+- **Type check:** `tsc --noEmit --skipLibCheck`
 
 ## Commands
 
@@ -31,6 +31,9 @@ src/
 │   └── global.d.ts                 # Ambient types for mobile globals (domovariable, domofilter, webkit)
 │
 ├── models/
+│   ├── errors.ts                   # Structured error types: DomoHttpError, DomoAuthError,
+│   │                               #   DomoTimeoutError, DomoValidationError, DomoConnectionError
+│   │
 │   ├── constants/
 │   │   └── general.ts              # DomoEvent const object, eventToListenerMap, getToken()
 │   │
@@ -44,7 +47,7 @@ src/
 │   │   ├── ask-reply.ts            # AskReplyMap, AskRequestStatus, AskResponseStatus
 │   │   ├── filter.ts               # Filter union type, operator/dataType enums
 │   │   ├── json.ts                 # Loose JSON type (Json, JsonMap, JsonArray)
-│   │   ├── request.ts              # RequestOptions, QueryParams, ResponseBody types
+│   │   ├── request.ts              # RequestOptions (incl. schema), QueryParams, ResponseBody types
 │   │   └── variable.ts             # Variable interface { functionId, value }
 │   │
 │   └── services/                   # Business logic
@@ -56,7 +59,8 @@ src/
 │       ├── dataset.ts              # onDataUpdated, handleDataUpdated
 │       ├── env.ts                  # buildEnv() — typed env from query params + GET /domo/environment/v1
 │       ├── filters.ts              # requestFiltersUpdate, onFiltersUpdated, handleFiltersUpdated
-│       ├── http.ts                 # domoHttp, get, getAll, post, put, delete (+ overloads)
+│       ├── http.ts                 # domoHttp, get, getAll, post, put, delete (+ schema validation, interceptors, debug)
+│       ├── interceptors.ts         # Request interceptor middleware (onion model)
 │       ├── navigation.ts           # navigate(url, isNewWindow) via window.parent.postMessage
 │       ├── variables.ts            # requestVariablesUpdate, onVariablesUpdated, handleVariablesUpdated
 │       └── workflow.ts             # domo.workflow.start, domo.workflow.getInstance
@@ -64,6 +68,7 @@ src/
 └── utils/
     ├── ask-reply.ts                # handleAck, handleReply — request lifecycle tracking
     ├── data-helpers.ts             # domoFormatToRequestFormat (user format → DataFormats enum)
+    ├── debug.ts                    # domoDebug singleton — category-based logging, localStorage persistence
     ├── domoutils.ts                # setContentHeaders, setAuthTokenHeader, handleNode, processBody
     ├── filter.ts                   # isFilter, isFilterArray, guardAgainstInvalidFilters
     ├── general.ts                  # isSuccess, isVerifiedOrigin, getQueryParams, setFormatHeaders, generateUniqueId, isIOS, isMobile
@@ -75,10 +80,32 @@ src/
 - **Static class, no instantiation.** All public API is `Domo.get()`, `Domo.onFiltersUpdated()`, etc.
 - **Service methods use `this`** referencing the Domo class. They're assigned directly as static properties (not `.bind()`); only handlers inside `connect()` use `.bind(this)`.
 - **Namespace services** (`data`, `appdb`, `ai`, `workflow`) are plain objects with functions that call through `transport.ts` — a mutable registry of `get`/`post`/`put`/`delete`. `Domo.extend()` updates both the Domo class properties and the transport, so overrides propagate to all services.
-- **MessageChannel** for iframe ↔ parent communication, with a legacy `window.postMessage` listener for v4.7.0 compat.
+- **MessageChannel** for iframe <-> parent communication, with a legacy `window.postMessage` listener for v4.7.0 compat.
 - **MutationObserver** — single observer on `document.documentElement` with `subtree: true`, catches all DOM additions at any depth. Injects auth token (`ryuu_sid`) into relative `href`/`src` attributes. Token fetched once per batch, early bail if no token.
 - **Mobile bridge:** tries global `domofilter`/`domovariable` objects first, falls back to `webkit.messageHandlers` (iOS) or `window.parent.postMessage`.
 - **`domo.env`** — synchronously populated from query params, then enriched in the background from `GET /domo/environment/v1`.
+- **Structured error hierarchy** — `DomoHttpError` > `DomoAuthError` for HTTP; `DomoConnectionError` for network; `DomoValidationError` for input validation and schema failures.
+- **Request interceptors** — onion-model middleware chain via `Domo.intercept()`. Wraps the fetch call in `domoHttp`.
+- **Debug mode** — `Domo.debug.enable()` or `localStorage.__domo_debug__`. Logs HTTP requests, MessageChannel messages, filter/variable updates with category filtering.
+
+## New APIs (v5.2+)
+
+| API | Description |
+|---|---|
+| `Domo.intercept(fn)` | Register request interceptor, returns unsubscribe |
+| `Domo.debug.enable(categories?)` | Enable debug logging (`'http'`, `'messages'`, `'filters'`, `'variables'`, `'all'`) |
+| `Domo.debug.disable()` | Disable debug logging |
+| `RequestOptions.schema` | Optional `{ parse }` for runtime response validation |
+
+## Error Types
+
+| Class | Thrown When |
+|---|---|
+| `DomoHttpError` | Non-2xx HTTP response (has `status`, `statusText`, `body`, `headers`) |
+| `DomoAuthError` | 401 or 403 response (extends `DomoHttpError`) |
+| `DomoConnectionError` | Network failure (fetch rejects) |
+| `DomoValidationError` | Invalid filters/variables/schema parse failure (has `errors[]`) |
+| `DomoTimeoutError` | Request or message timeout (has `url`) |
 
 ## Gotchas
 
@@ -92,3 +119,6 @@ src/
 - `setAuthTokenHeader(headers, token)` takes two args.
 - `appdb.create` and `appdb.update` auto-wrap documents in `{ content: ... }` if not already wrapped.
 - `data.sql` uses POST (not GET) with `Content-Type: text/plain`.
+- Validation errors (`guardAgainstInvalidFilters`, `guardAgainstInvalidVariables`) log the expected data model as an actual object to `console.error` before throwing `DomoValidationError`.
+- `Domo.listeners` is typed via `DomoListeners` interface — callback signatures are `(filters: Filter[]) => void`, `(variables: Variable[]) => void`, `(appData: string) => void`, `(alias: string) => void`.
+- Interceptors wrap the fetch call (not the entire domoHttp flow), so headers/auth are already set when the interceptor runs.

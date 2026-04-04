@@ -1,5 +1,6 @@
 import Domo from '../../domo';
 import { FilterDataTypes, FilterOperatorsString, FilterOperatorsNumeric } from '../interfaces/filter';
+import { DomoValidationError } from '../errors';
 
 class MockMessagePort {
   onmessage: ((event: any) => void) | null = null;
@@ -187,15 +188,15 @@ describe('Filters Service', () => {
     it('should throw TypeError for non-array filters', () => {
       expect(() => {
         Domo.requestFiltersUpdate({ invalid: 'object' } as any);
-      }).toThrow(TypeError);
+      }).toThrow(DomoValidationError);
       
       expect(() => {
         Domo.requestFiltersUpdate('invalid string' as any);
-      }).toThrow(TypeError);
+      }).toThrow(DomoValidationError);
       
       expect(() => {
         Domo.requestFiltersUpdate(123 as any);
-      }).toThrow(TypeError);
+      }).toThrow(DomoValidationError);
     });
 
     it('should throw TypeError for invalid Filter objects', () => {
@@ -213,7 +214,7 @@ describe('Filters Service', () => {
       for (const invalidFilter of invalidFilters) {
         expect(() => {
           Domo.requestFiltersUpdate([invalidFilter as any]);
-        }).toThrow(TypeError);
+        }).toThrow(DomoValidationError);
       }
     });
 
@@ -233,10 +234,35 @@ describe('Filters Service', () => {
         { column: 'valid', operator: FilterOperatorsString.IN, values: ['test'], dataType: FilterDataTypes.STRING }, // valid
         { column: 'invalid', operator: 'INVALID_OPERATOR', values: ['test'], dataType: FilterDataTypes.STRING } // invalid
       ];
-      
+
       expect(() => {
         Domo.requestFiltersUpdate(mixedFilters as any);
-      }).toThrow(TypeError);
+      }).toThrow(DomoValidationError);
+    });
+
+    it('should log expected model to console.error for non-array filters', () => {
+      const spy = jest.spyOn(console, 'error').mockImplementation();
+      try { Domo.requestFiltersUpdate('bad' as any); } catch {}
+      expect(spy).toHaveBeenCalledWith(
+        expect.stringContaining('Expected a Filter array'),
+        'bad',
+        expect.stringContaining('Expected format:'),
+        expect.arrayContaining([expect.objectContaining({ column: 'columnName' })])
+      );
+      spy.mockRestore();
+    });
+
+    it('should log invalid filters and expected model to console.error', () => {
+      const spy = jest.spyOn(console, 'error').mockImplementation();
+      const bad = [{ column: 'x' }]; // missing operator, values, dataType
+      try { Domo.requestFiltersUpdate(bad as any); } catch {}
+      expect(spy).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid filter(s)'),
+        expect.arrayContaining([expect.objectContaining({ column: 'x' })]),
+        expect.stringContaining('Expected format:'),
+        expect.objectContaining({ column: 'columnName', operator: expect.any(String) })
+      );
+      spy.mockRestore();
     });
   });
 });

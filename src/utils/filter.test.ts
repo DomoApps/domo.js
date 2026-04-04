@@ -1,8 +1,9 @@
-import { 
-  isFilter, 
-  isFilterArray, 
-  guardAgainstInvalidFilters 
+import {
+  isFilter,
+  isFilterArray,
+  guardAgainstInvalidFilters
 } from './filter';
+import { DomoValidationError } from '../models/errors';
 import { FilterDataTypes, FilterOperatorsString, FilterOperatorsNumeric } from '../models/interfaces/filter';
 
 describe('Filter Utilities', () => {
@@ -122,7 +123,7 @@ describe('Filter Utilities', () => {
     it('should throw TypeError for non-arrays', () => {
       const invalidInputs = ['string', 123, {}, true, undefined];
       for (const input of invalidInputs) {
-        expect(() => guardAgainstInvalidFilters(input as any)).toThrow(TypeError);
+        expect(() => guardAgainstInvalidFilters(input as any)).toThrow(DomoValidationError);
         expect(() => guardAgainstInvalidFilters(input as any)).toThrow(/Filters must be provided as a Filter array or null/);
       }
     });
@@ -135,13 +136,29 @@ describe('Filter Utilities', () => {
       const invalidFilters = [
         { column: 'name' } // missing required properties
       ];
-      expect(() => guardAgainstInvalidFilters(invalidFilters as any)).toThrow(TypeError);
+      expect(() => guardAgainstInvalidFilters(invalidFilters as any)).toThrow(DomoValidationError);
       expect(() => guardAgainstInvalidFilters(invalidFilters as any)).toThrow(/All filters must be valid Filter objects/);
     });
 
-    it('should provide helpful error messages', () => {
-      expect(() => guardAgainstInvalidFilters('invalid' as any)).toThrow(/Filter array or null.*column.*operator.*values.*dataType/);
-      expect(() => guardAgainstInvalidFilters([{}] as any)).toThrow(/valid Filter objects.*column.*operator.*values.*dataType/);
+    it('should log expected model to console.error on validation failure', () => {
+      const spy = jest.spyOn(console, 'error').mockImplementation();
+      expect(() => guardAgainstInvalidFilters('invalid' as any)).toThrow(DomoValidationError);
+      expect(spy).toHaveBeenCalledWith(
+        expect.stringContaining('Expected a Filter array'),
+        'invalid',
+        expect.stringContaining('Expected format:'),
+        expect.arrayContaining([expect.objectContaining({ column: 'columnName' })])
+      );
+      spy.mockClear();
+
+      expect(() => guardAgainstInvalidFilters([{}] as any)).toThrow(DomoValidationError);
+      expect(spy).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid filter(s)'),
+        [{}],
+        expect.stringContaining('Expected format:'),
+        expect.objectContaining({ column: 'columnName', dataType: expect.any(String) })
+      );
+      spy.mockRestore();
     });
   });
 });

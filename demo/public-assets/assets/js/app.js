@@ -12,6 +12,7 @@ const CATEGORY_META = {
   workflow:   { icon: '%', label: 'Workflows', cssClass: 'workflow' },
   ai:         { icon: '*', label: 'AI Services', cssClass: 'ai' },
   utils:      { icon: '#', label: 'Utilities', cssClass: 'utils' },
+  dx:         { icon: '+', label: 'DX Tools', cssClass: 'dx' },
 };
 
 class DomoTestApp {

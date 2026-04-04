@@ -136,13 +136,54 @@ describe('Variable type validation', () => {
       { wrongField: 1, value: 'test' }, // missing functionId
       { functionId: 'not-a-number', value: 42 } // functionId is not a number
     ];
-    
+
     expect(() => {
       Domo.requestVariablesUpdate(malformedVariables as any);
     }).toThrow(Error);
-    
+
     expect(() => {
       Domo.requestVariablesUpdate(malformedVariables as any);
     }).toThrow(/Variables must be provided as a Variable array/);
+  });
+
+  it('should log expected model to console.error for malformed variables', () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation();
+
+    try { Domo.requestVariablesUpdate([{ bad: true }] as any); } catch {}
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid variable(s)'),
+      expect.any(Array),
+      expect.stringContaining('Expected format:'),
+      expect.objectContaining({ functionId: expect.any(Number) })
+    );
+    spy.mockClear();
+
+    try { Domo.requestVariablesUpdate('not-json' as any); } catch {}
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('not valid JSON'),
+      'not-json',
+      expect.stringContaining('Expected format:'),
+      expect.any(Array)
+    );
+    spy.mockClear();
+
+    try { Domo.requestVariablesUpdate([] as any); } catch {}
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('cannot be empty'),
+      expect.any(Array)
+    );
+    spy.mockRestore();
+  });
+
+  it('should log expected model to console.error for non-array input', () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation();
+    try { Domo.requestVariablesUpdate(42 as any); } catch {}
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid variable(s)'),
+      expect.any(Array),
+      expect.stringContaining('Expected format:'),
+      expect.objectContaining({ functionId: expect.any(Number) })
+    );
+    spy.mockRestore();
   });
 });

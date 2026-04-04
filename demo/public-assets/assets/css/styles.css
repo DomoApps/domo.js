@@ -483,6 +483,11 @@ body::before {
   color: var(--accent-cyan);
 }
 
+.category-icon--dx {
+  background: rgba(168, 85, 247, 0.12);
+  color: #a855f7;
+}
+
 .category-title {
   font-size: 0.75rem;
   font-weight: 700;

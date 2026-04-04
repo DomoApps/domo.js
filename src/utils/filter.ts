@@ -1,4 +1,5 @@
 import { Filter, FilterDataTypes, FilterOperatorsString, FilterOperatorsNumeric } from "../models/interfaces/filter";
+import { DomoValidationError } from "../models/errors";
 
 /**
  * Type guard to check if an object is a valid Filter.
@@ -38,6 +39,13 @@ export function isFilterArray(arr: any): arr is Filter[] {
   return Array.isArray(arr) && arr.every(isFilter);
 }
 
+const FILTER_EXAMPLE = {
+  column: "columnName",
+  operator: "IN | NOT_IN | CONTAINS | GREATER_THAN | LESS_THAN | BETWEEN | EQUALS | ...",
+  values: ["value1", "value2"],
+  dataType: "STRING | NUMERIC | DATE | DATETIME",
+};
+
 /**
  * Guards against invalid filters being sent to Domo.
  *
@@ -46,11 +54,16 @@ export function isFilterArray(arr: any): arr is Filter[] {
 export function guardAgainstInvalidFilters(filters: Filter[] | null) {
   if (filters === null) return; // null is allowed
 
-  if (!Array.isArray(filters))
-    throw new TypeError('Filters must be provided as a Filter array or null: { "column": string, "operator": string, "values": any[], "dataType": string }[]');
+  if (!Array.isArray(filters)) {
+    console.error("Domo: Expected a Filter array or null. Received:", filters, "\nExpected format:", [FILTER_EXAMPLE]);
+    throw new DomoValidationError('Filters must be provided as a Filter array or null.', [filters]);
+  }
 
   if (filters.length === 0) return; // empty array is allowed (clears all filters)
 
-  if (!isFilterArray(filters))
-    throw new TypeError('All filters must be valid Filter objects with required properties: { "column": string, "operator": string, "values": any[], "dataType": string }[]');
+  if (!isFilterArray(filters)) {
+    const invalid = (filters as any[]).filter(f => !isFilter(f));
+    console.error("Domo: Invalid filter(s) detected:", invalid, "\nExpected format:", FILTER_EXAMPLE);
+    throw new DomoValidationError('All filters must be valid Filter objects.', invalid);
+  }
 }

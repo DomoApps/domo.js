@@ -1,6 +1,7 @@
 import { generateUniqueId, isIOS, isMobile } from "../../utils/general";
 import { guardAgainstInvalidVariables } from "../../utils/variable";
 import { Variable } from "../interfaces/variable";
+import { domoDebug } from "../../utils/debug";
 
 /**
  * Sends variables to the parent window or to the iOS webkit message handler.
@@ -67,7 +68,7 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: F
  * @param callback - The function to call when variables are updated.
  * @returns A function to unregister the callback.
  */
-export function onVariablesUpdated(callback: Function) {
+export function onVariablesUpdated(callback: (variables: Variable[]) => void) {
   this.connect(true);
   this.listeners.onVariablesUpdated.push(callback);
 
@@ -89,8 +90,9 @@ export function handleVariablesUpdated(message: any, responsePort?: MessagePort)
   if (!message) return;
   
   if (this.listeners.onVariablesUpdated.length) {
+    domoDebug.log('variables', 'variablesUpdated', message.variables);
     responsePort?.postMessage({ requestId: message.requestId, event: "ack", variables: message.variables });
-    this.listeners.onVariablesUpdated.forEach((cb: Function) =>
+    this.listeners.onVariablesUpdated.forEach((cb: (variables: Variable[]) => void) =>
       cb(message.variables)
     );
   }

@@ -1,4 +1,4 @@
-import { handleNode } from "./utils/domoutils";
+import { __mutationObserverCallback } from "./init";
 import { handleDataUpdated, onDataUpdated } from "./models/services/dataset";
 import { handleFiltersUpdated, onFiltersUpdated, requestFiltersUpdate } from "./models/services/filters";
 import { handleVariablesUpdated, onVariablesUpdated, requestVariablesUpdate } from "./models/services/variables";
@@ -26,9 +26,21 @@ import {
   setFormatHeaders,
   generateUniqueId,
 } from "./utils/general";
-import { DomoEvent, getToken } from "./models/constants/general";
+import { DomoEvent } from "./models/constants/general";
 import { AskReplyMap } from "./models/interfaces/ask-reply";
 import { handleAck, handleReply } from "./utils/ask-reply";
+import { domoDebug } from "./utils/debug";
+import { addInterceptor } from "./models/services/interceptors";
+import { Filter } from "./models/interfaces/filter";
+import { Variable } from "./models/interfaces/variable";
+
+export interface DomoListeners {
+  onDataUpdated: ((alias: string) => void)[];
+  onFiltersUpdated: ((filters: Filter[]) => void)[];
+  onAppDataUpdated: ((appData: string) => void)[];
+  onVariablesUpdated: ((variables: Variable[]) => void)[];
+  [key: string]: Function[];
+}
 
 /**
  * The Domo class provides a unified API for interacting with Domo platform features in client applications.
@@ -47,7 +59,7 @@ class Domo {
   private static requests: AskReplyMap = {};
   public static channel?: MessageChannel;
   public static connected = false;
-  public static listeners: { [index: string]: Function[] } = {
+  public static listeners: DomoListeners = {
     onDataUpdated: [],
     onFiltersUpdated: [],
     onAppDataUpdated: [],
@@ -117,6 +129,8 @@ class Domo {
     setFormatHeaders,
     isSuccess,
   };
+  static debug = domoDebug;
+  static intercept = addInterceptor;
 
   /**
    * Connects to the parent window's Domo instance using a MessageChannel.
@@ -131,6 +145,7 @@ class Domo {
     if (this.connected) return;
     this.connected = true;
     this.channel = new MessageChannel();
+    domoDebug.log('messages', 'MessageChannel created, sending subscribe', { skipFilters });
     window.parent.postMessage(
       JSON.stringify({ requestId: generateUniqueId(), event: "subscribe", skipFilters }),
       "*",
@@ -149,6 +164,7 @@ class Domo {
 
     // MessageChannel listener (current/new implementation)
     this.channel.port1.onmessage = (e: MessageEvent) => {
+      domoDebug.log('messages', 'received', e.data.event, e.data);
       const [responsePort] = e.ports;
       const handler = eventHandlers[e.data.event as keyof typeof DomoEvent];
       handler?.(e.data, responsePort);
@@ -254,29 +270,6 @@ class Domo {
     }
   }
 }
-
-/**
- * MutationObserver callback that injects the authentication token into any newly added HTML elements.
- *
- * Uses a single observer on documentElement with subtree: true to catch all DOM additions,
- * including deeply nested elements added by frameworks. The token is fetched once per
- * microtask batch (not per-node) for efficiency.
- *
- * @param mutations - An array of MutationRecord objects representing the changes to the DOM.
- */
-const __mutationObserverCallback = (mutations: any[]) => {
-  const token = getToken();
-  if (!token) return;
-
-  for (const record of mutations) {
-    for (const node of record.addedNodes) {
-      if (node instanceof HTMLElement) handleNode(node, token);
-    }
-  }
-};
-
-const ob = new MutationObserver(__mutationObserverCallback);
-ob.observe(document.documentElement, { childList: true, subtree: true });
 
 export default Domo;
 export { Domo, __mutationObserverCallback };

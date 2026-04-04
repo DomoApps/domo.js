@@ -37,7 +37,7 @@ export function requestAppDataUpdate(appData: string, onAck?: Function, onReply?
  * @param callback - The function to call when app data is received.
  * @returns A function to unregister the callback.
  */
-export function onAppDataUpdated(callback: Function) {
+export function onAppDataUpdated(callback: (appData: string) => void) {
   this.connect(true);
   this.listeners.onAppDataUpdated.push(callback);
 
@@ -59,7 +59,7 @@ export function handleAppData(message: any, responsePort?: MessagePort) {
 
   if (this.listeners.onAppDataUpdated.length) {
     responsePort?.postMessage({ requestId: message.requestId, event: "ack" });
-    this.listeners.onAppDataUpdated.forEach((cb: Function) =>
+    this.listeners.onAppDataUpdated.forEach((cb: (appData: string) => void) =>
       cb(message.appData)
     );
   }
