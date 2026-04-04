@@ -13,12 +13,12 @@ ryuu.js (published as `ryuu.js`, developed as `domo.js`) is a comprehensive Java
 ## 📚 Documentation
 
 Choose your version:
-- **[v5+ Documentation](#v5-documentation)** ⭐ Latest (recommended)
+- **[v6+ Documentation](#v6-documentation)** ⭐ Latest (recommended)
 - **[v4 and Earlier Documentation](#v4-and-earlier-documentation)** 📦 Legacy
 
 ---
 
-## v5+ Documentation
+## v6+ Documentation
 
 ## Table of Contents
 
@@ -46,7 +46,7 @@ Choose your version:
   - [Request Interceptors](#request-interceptors)
   - [Debug Mode](#debug-mode)
 - [Complete Example](#complete-example)
-- [Breaking Changes (v5.2)](#breaking-changes-v52)
+- [Breaking Changes (v6.0)](#breaking-changes-v60)
 - [Migration Guide](#migration-guide)
 - [Contributing](#contributing)
 - [License](#license)
@@ -1671,7 +1671,7 @@ new SalesDashboard();
 
 ---
 
-## Breaking Changes (v5.2)
+## Breaking Changes (v6.0)
 
 ### `Domo.env` type changes
 
@@ -1800,7 +1800,7 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and changes.
 
 ## v4 and Earlier Documentation
 
-> **Note:** This documentation is for ryuu.js v4.x and earlier. For the latest version, see [v5+ Documentation](#v5-documentation).
+> **Note:** This documentation is for ryuu.js v4.x and earlier. For the latest version, see the [v6+ Documentation](#v6-documentation).
 
 ## Table of Contents
 
@@ -1818,7 +1818,7 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and changes.
 - [Mobile Platform Support](#mobile-platform-support-1)
 - [Error Handling](#error-handling-1)
 - [Complete Example](#complete-example-1)
-- [Upgrading to v5+](#upgrading-to-v5)
+- [Upgrading to v6+](#upgrading-to-v6)
 - [Contributing](#contributing-1)
 - [License](#license-1)
 
@@ -2671,9 +2671,9 @@ new SalesDashboard();
 
 ---
 
-## Upgrading to v5+
+## Upgrading to v6+
 
-If you're using v4 and want to upgrade to the latest v5+, here's what you need to know.
+If you're using v4 and want to upgrade to the latest v6+, here's what you need to know.
 
 ### Breaking Changes
 
@@ -2745,7 +2745,7 @@ Domo.get('/data/v1/sales');
 
 4. **Test Thoroughly** - After migration, test all functionality.
 
-For complete v5 documentation, see [v5+ Documentation](#v5-documentation).
+For complete v6 documentation, see [v6+ Documentation](#v6-documentation).
 
 ---
 

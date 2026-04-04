@@ -11,11 +11,12 @@ Interactive developer toolkit for `domo.js` — runs inside a real Domo iframe. 
 - Session history sidebar — click any entry to replay the request
 
 ### Event Monitor (`#monitor`)
-- Real-time feed of all MessageChannel and postMessage traffic
-- Hooks into `Domo.debug` by monkey-patching `domo.debug.log` + raw `window.addEventListener('message')`
-- Deduplication via requestId + 200ms TTL window
-- Filter bar with checkboxes per event type, auto-scroll toggle, clear button
-- Each entry shows: timestamp, direction (in/out), event type badge, requestId, expandable payload
+- Real-time feed of **all** MessageChannel, postMessage, and mobile bridge traffic — every inbound and outbound message is captured
+- Hooks into `Domo.debug` by monkey-patching `domo.debug.log` + raw `window.addEventListener('message')` as fallback
+- Monitoring starts eagerly on app init (not lazily on tab switch) so early events (ACKs, initial filter/variable pushes) are captured
+- Each entry shows: timestamp, direction arrow (in/out), event type badge, **transport source badge** (MessageChannel / postMessage / mobile), requestId, expandable payload
+- Filter bar with checkboxes per event type: `dataUpdated`, `filtersUpdated`, `variablesUpdated`, `appData`, `ack`, `subscribe`, `filter`, `variable`, `navigate`, `http`
+- Auto-scroll toggle, clear button
 - Graceful degradation for older SDK versions without `domo.debug`
 
 ### Test Suite (`#tests`)

@@ -1,8 +1,8 @@
 # ryuu.js / domo.js
 
-JavaScript SDK (published as `ryuu.js` on npm) for building custom apps inside the Domo platform. Apps run in iframes; this library handles authenticated HTTP requests, bidirectional messaging with the parent window, mobile WebView bridges, and provides high-level helpers for Data API, AppDB, Code Engine, Workflows, and AI services.
+JavaScript SDK (published as `ryuu.js` on npm) for building custom apps inside the Domo platform. Apps run in iframes; this library handles authenticated HTTP requests, messaging with the parent window, mobile WebView bridges, and provides high-level helpers for Data API, AppDB, Code Engine, Workflows, and AI services.
 
-- **Version:** 5.2.0
+- **Version:** 6.0.0-alpha.0
 - **Zero runtime dependencies**
 - **Build:** Webpack 5 → UMD bundle at `dist/domo.js` (~28KB), exposed as global `Domo`
 - **Tests:** Jest + jsdom (`npm test`) — 235 tests across 20 suites
@@ -22,8 +22,9 @@ npm run build:demo  # node demo/build.js
 ```
 src/
 ├── index.ts                        # Re-exports everything (barrel file)
-├── domo.ts                         # Domo class: static API surface, MessageChannel setup, MutationObserver
+├── domo.ts                         # Domo class: static API surface, MessageChannel setup
 ├── domo.test.ts                    # Tests for the Domo class
+├── init.ts                         # MutationObserver setup, __mutationObserverCallback export
 ├── transport.ts                    # Shared mutable HTTP transport — namespace services read from here,
 │                                   #   Domo.extend() updates it so overrides propagate everywhere
 │
@@ -80,15 +81,28 @@ src/
 - **Static class, no instantiation.** All public API is `Domo.get()`, `Domo.onFiltersUpdated()`, etc.
 - **Service methods use `this`** referencing the Domo class. They're assigned directly as static properties (not `.bind()`); only handlers inside `connect()` use `.bind(this)`.
 - **Namespace services** (`data`, `appdb`, `ai`, `workflow`) are plain objects with functions that call through `transport.ts` — a mutable registry of `get`/`post`/`put`/`delete`. `Domo.extend()` updates both the Domo class properties and the transport, so overrides propagate to all services.
-- **MessageChannel** for iframe <-> parent communication, with a legacy `window.postMessage` listener for v4.7.0 compat.
-- **MutationObserver** — single observer on `document.documentElement` with `subtree: true`, catches all DOM additions at any depth. Injects auth token (`ryuu_sid`) into relative `href`/`src` attributes. Token fetched once per batch, early bail if no token.
+- **MessageChannel (receive-only)** — SDK creates a `MessageChannel`, transfers `port2` to the parent via `window.parent.postMessage` during subscribe. Parent sends events (filtersUpdated, variablesUpdated, ack, etc.) through `port2`; SDK listens on `port1`. **Outbound SDK messages** (requestFiltersUpdate, requestVariablesUpdate, navigate, etc.) always use `window.parent.postMessage` — this is intentional: the parent can verify `event.origin` on postMessage, whereas MessagePort events carry no origin. Legacy `window.postMessage` listener for v4.7.0 compat.
+- **MutationObserver** — single observer on `document.documentElement` with `subtree: true`, catches all DOM additions at any depth. Injects auth token (`ryuu_sid`) into relative `href`/`src` attributes. Token fetched once per batch, early bail if no token. Setup in `init.ts`.
 - **Mobile bridge:** tries global `domofilter`/`domovariable` objects first, falls back to `webkit.messageHandlers` (iOS) or `window.parent.postMessage`.
 - **`domo.env`** — synchronously populated from query params, then enriched in the background from `GET /domo/environment/v1`.
 - **Structured error hierarchy** — `DomoHttpError` > `DomoAuthError` for HTTP; `DomoConnectionError` for network; `DomoValidationError` for input validation and schema failures.
 - **Request interceptors** — onion-model middleware chain via `Domo.intercept()`. Wraps the fetch call in `domoHttp`.
 - **Debug mode** — `Domo.debug.enable()` or `localStorage.__domo_debug__`. Logs HTTP requests, MessageChannel messages, filter/variable updates with category filtering.
 
-## New APIs (v5.2+)
+## Debug Log Prefixes
+
+All messaging is logged through `domoDebug.log('messages', prefix, eventType, payload)` with structured prefixes:
+
+| Prefix | Direction | Transport | Where |
+|---|---|---|---|
+| `received:channel` | in | MessageChannel (port1) | `domo.ts` — port1.onmessage |
+| `received:postMessage` | in | window.postMessage | `domo.ts` — legacy handler |
+| `sent:postMessage` | out | window.parent.postMessage | subscribe, filter, variable, appData, navigate |
+| `sent:mobile` | out | mobile bridge | domofilter, domovariable, webkit |
+| `sent:ack` | out | window.postMessage | legacy ACKs in `domo.ts` |
+| `sent:ack:channel` | out | MessagePort (responsePort) | ACKs in filters, variables, dataset, appdata handlers |
+
+## New APIs (v6.0+)
 
 | API | Description |
 |---|---|
