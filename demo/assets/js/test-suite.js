@@ -1,32 +1,14 @@
 /**
- * Test configuration for domo.js library
- * Contains all test definitions, expected behaviors, and test metadata
+ * TestSuite — merged test definitions and execution logic.
+ * Combines test metadata from tests.js with the card-based UI builder
+ * and runner from DomoTestApp.
+ *
+ * Globals used: DOMUtils, ResultFormatter, DataRenderer, ExportUtils,
+ *               GeneralUtils (from renderer.js)
+ *               CATEGORY_META, STATUS_LABELS (from config.js)
  */
 
-// Global test data
-let lastId = null;
-
-// Test status labels
-const STATUS_LABELS = {
-  success: "Passed",
-  fail: "Failed",
-  pending: "Pending",
-  running: "Running",
-  skipped: "N/A"
-};
-
-// Event-driven features that can't be run on demand.
-// onFiltersUpdated MUST be first so its connect(skipFilters=false) is the
-// call that actually fires — the subscribe event with skipFilters:false is
-// what returns the current filters to the app. The no-op seed in
-// registerEventListeners() prevents the accompanying requestFiltersUpdate(null)
-// that would otherwise clear the parent's filters.
-const EVENT_FEATURES = [
-  "onFiltersUpdated",
-  "onDataUpdated",
-  "onVariablesUpdated",
-  "onAppDataUpdated",
-];
+// ── Event aliases and resolution helpers ────────────────────────────
 
 // Maps each canonical (v5.1+) event name to older aliases, in preference order.
 // resolveEventMethod() tries each until it finds one that exists on `domo`.
@@ -71,8 +53,40 @@ function resolveListenerKey(canonicalName) {
   return null;
 }
 
-// Test feature definitions
-const features = [
+// ── Event feature names ─────────────────────────────────────────────
+
+// Event-driven features that can't be run on demand.
+// onFiltersUpdated MUST be first so its connect(skipFilters=false) is the
+// call that actually fires — the subscribe event with skipFilters:false is
+// what returns the current filters to the app. The no-op seed in
+// registerEventListeners() prevents the accompanying requestFiltersUpdate(null)
+// that would otherwise clear the parent's filters.
+const EVENT_FEATURES = [
+  "onFiltersUpdated",
+  "onDataUpdated",
+  "onVariablesUpdated",
+  "onAppDataUpdated",
+];
+
+// ── Test data globals ───────────────────────────────────────────────
+
+let lastId = null;
+
+function getLastId() {
+  return lastId;
+}
+
+function setLastId(id) {
+  lastId = id;
+}
+
+function resetTestData() {
+  lastId = null;
+}
+
+// ── Test definitions ────────────────────────────────────────────────
+
+const testDefinitions = [
   {
     name: "http-get",
     category: "http",
@@ -148,28 +162,35 @@ const features = [
     name: "data.query",
     category: "data",
     description: "Query a dataset by alias with the Data API helper",
-    fn: async () => {
+    fields: [
+      { key: "limit", label: "Limit", value: "5", size: "small" },
+    ],
+    fn: async (params) => {
       if (!domo.data?.query) throw new Error("Not available in this version");
       const alias = "test";
+      const limit = parseInt(params?.limit || "5", 10) || 5;
       const startTime = performance.now();
-      const result = await domo.data.query(alias, { limit: 5 });
+      const result = await domo.data.query(alias, { limit });
       const endTime = performance.now();
       return {
         _render: "http", httpMethod: "GET",
-        url: `/data/v1/${alias}?limit=5`,
+        url: `/data/v1/${alias}?limit=${limit}`,
         payload: result, timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
-    pendingMsg: "Queries the <code>test</code> dataset alias with limit=5",
+    pendingMsg: "Queries the <code>test</code> dataset alias",
   },
   {
     name: "data.sql",
     category: "data",
     description: "Execute a SQL query against datasets",
-    fn: async () => {
+    fields: [
+      { key: "sql", label: "SQL", value: "SELECT * FROM test LIMIT 5", size: "wide" },
+    ],
+    fn: async (params) => {
       if (!domo.data?.sql) throw new Error("Not available in this version");
       const alias = "test";
-      const sqlQuery = "SELECT * FROM test LIMIT 5";
+      const sqlQuery = params?.sql || "SELECT * FROM test LIMIT 5";
       const startTime = performance.now();
       const result = await domo.data.sql(alias, sqlQuery);
       const endTime = performance.now();
@@ -178,7 +199,7 @@ const features = [
         payload: result, timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
-    pendingMsg: "Runs <code>SELECT * FROM test LIMIT 5</code>",
+    pendingMsg: "Runs a SQL query against the <code>test</code> alias",
   },
 
   // ── AppDB ──────────────────────────────────────────────────────
@@ -262,12 +283,17 @@ const features = [
     name: "requestFiltersUpdate",
     category: "events",
     description: "Request an update to page filters",
-    fn: () => {
+    fields: [
+      { key: "column", label: "Column", value: "id", size: "small" },
+      { key: "operator", label: "Operator", value: "GREAT_THAN_EQUALS_TO", size: "medium" },
+      { key: "value", label: "Value", value: "1", size: "small" },
+    ],
+    fn: (params) => {
       const method = domo.requestFiltersUpdate ? "requestFiltersUpdate"
         : domo.filterContainer ? "filterContainer" : null;
       if (!method) throw new Error("Not available in this version");
       const filters = [
-        { column: "id", operator: "GREAT_THAN_EQUALS_TO", values: [1], dataType: "numeric" }
+        { column: params?.column || "id", operator: params?.operator || "GREAT_THAN_EQUALS_TO", values: [isNaN(params?.value) ? params?.value : Number(params?.value || 1)], dataType: "numeric" }
       ];
       const startTime = performance.now();
       domo[method](filters);
@@ -284,11 +310,17 @@ const features = [
     name: "requestVariablesUpdate",
     category: "events",
     description: "Send variable updates to the dashboard",
-    fn: () => {
+    fields: [
+      { key: "functionId", label: "Function ID", value: "83942", size: "small" },
+      { key: "value", label: "Value", value: "1", size: "small" },
+    ],
+    fn: (params) => {
       const method = domo.requestVariablesUpdate ? "requestVariablesUpdate"
         : domo.sendVariables ? "sendVariables" : null;
       if (!method) throw new Error("Not available in this version");
-      const payload = [{ functionId: 83942, value: 1 }];
+      const fid = parseInt(params?.functionId || "83942", 10) || 83942;
+      const val = isNaN(params?.value) ? params?.value : Number(params?.value || 1);
+      const payload = [{ functionId: fid, value: val }];
       const startTime = performance.now();
       domo[method](JSON.stringify(payload));
       const endTime = performance.now();
@@ -308,7 +340,7 @@ const features = [
     pendingMsg: 'This will run when you change <a href="https://domo.demo.domo.com/datasources/f8956b7f-13cf-45f1-96dd-a27ed3910c18/details/overview" target="_blank">this dataset</a>.',
   },
   {
-    name: "onFiltersUpdated", 
+    name: "onFiltersUpdated",
     category: "events",
     description: "Listen for filter changes",
     fn: () => new Promise(), // Never resolves - event driven
@@ -316,7 +348,7 @@ const features = [
   },
   {
     name: "onVariablesUpdated",
-    category: "events", 
+    category: "events",
     description: "Listen for variable changes",
     fn: () => new Promise(), // Never resolves - event driven
     pendingMsg: "To trigger this, change the variable at the top of this page.",
@@ -325,7 +357,7 @@ const features = [
     name: "onAppDataUpdated",
     category: "events",
     description: "Listen for app data updates",
-    fn: () => new Promise(), // Never resolves - event driven  
+    fn: () => new Promise(), // Never resolves - event driven
     pendingMsg: "To trigger this, click the 'Send App Data' button—this app must be embedded.",
   },
   {
@@ -416,9 +448,12 @@ const features = [
     name: "ai.generateText",
     category: "ai",
     description: "Generate text from a prompt",
-    fn: async () => {
+    fields: [
+      { key: "prompt", label: "Prompt", value: "Tell me a one-sentence joke about data.", size: "wide" },
+    ],
+    fn: async (params) => {
       if (!domo.ai?.generateText) throw new Error("Not available in this version");
-      const input = "Tell me a one-sentence joke about data.";
+      const input = params?.prompt || "Tell me a one-sentence joke about data.";
       const startTime = performance.now();
       const result = await domo.ai.generateText(input);
       const endTime = performance.now();
@@ -434,9 +469,12 @@ const features = [
     name: "ai.textToSQL",
     category: "ai",
     description: "Generate SQL from natural language",
-    fn: async () => {
+    fields: [
+      { key: "input", label: "Question", value: "Show me total sales by region", size: "wide" },
+    ],
+    fn: async (params) => {
       if (!domo.ai?.textToSQL) throw new Error("Not available in this version");
-      const input = "Show me total sales by region";
+      const input = params?.input || "Show me total sales by region";
       const schemas = [{
         dataSourceName: "Sales",
         description: "Sales transactions",
@@ -615,17 +653,17 @@ const features = [
       const startTime = performance.now();
       const isIOSResult = GeneralUtils.isIOS();
       const endTime = performance.now();
-      
+
       // Gather detailed information for display
       const userAgent = navigator.userAgent;
       const hasIOSUserAgent = /(?:iphone|ipad|ipod)/.test(userAgent.toLowerCase());
-      const isPossibleIPadDesktopMode = /mac os x/.test(userAgent.toLowerCase()) && 
+      const isPossibleIPadDesktopMode = /mac os x/.test(userAgent.toLowerCase()) &&
         'ontouchend' in document && navigator.maxTouchPoints > 1;
       const hasIOSAPIs = window.webkit?.messageHandlers !== undefined;
       const isStandalone = navigator.standalone === true;
       const devicePixelRatio = window.devicePixelRatio || 1;
       const screenInfo = window.screen ? `${window.screen.width}x${window.screen.height}` : 'unknown';
-      
+
       return {
         data: {
           isIOS: isIOSResult,
@@ -646,24 +684,458 @@ const features = [
   },
 ];
 
-// Helper functions for test management
+// ── Helper functions ────────────────────────────────────────────────
+
 function getTestsByCategory(category) {
-  if (category === 'all') return features;
-  return features.filter(feature => feature.category === category);
+  if (category === 'all') return testDefinitions;
+  return testDefinitions.filter(feature => feature.category === category);
 }
 
 function isEventDrivenTest(testName) {
   return EVENT_FEATURES.includes(testName) || testName === "requestAppDataUpdate";
 }
 
-function resetTestData() {
-  lastId = null;
-}
+// ── TestSuite class ─────────────────────────────────────────────────
 
-function getLastId() {
-  return lastId;
-}
+class TestSuite {
+  constructor(store) {
+    this.store = store;
+    this.eventsRegistered = false;
+    this.container = null;
+    this.statsManager = null;
 
-function setLastId(id) {
-  lastId = id;
+    this.runAll = this.runAll.bind(this);
+    this.clearAll = this.clearAll.bind(this);
+    this.exportResults = this.exportResults.bind(this);
+    this.registerEventListeners = this.registerEventListeners.bind(this);
+  }
+
+  /* -------------------------------------------------------------------
+     mount(container) — builds card UI grouped by category
+     ------------------------------------------------------------------- */
+
+  mount(container) {
+    this.container = container;
+    // Stats managed inline — no external StatisticsManager dependency
+
+    // Group test definitions by category
+    const groups = {};
+    testDefinitions.forEach((f) => {
+      const cat = f.category || 'other';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(f);
+    });
+
+    Object.entries(groups).forEach(([cat, items]) => {
+      const meta = CATEGORY_META[cat] || { icon: '?', label: cat, cssClass: cat };
+
+      const group = DOMUtils.createElement("section", { className: "category-group" });
+      group.innerHTML = `
+        <div class="category-header">
+          <div class="category-icon category-icon--${meta.cssClass}">${meta.icon}</div>
+          <span class="category-title">${meta.label}</span>
+          <span class="category-count">${items.length}</span>
+          <button class="btn btn-small btn-run category-run-btn" data-category="${cat}">Run Category</button>
+        </div>
+        <div class="test-cards" id="cards-${cat}"></div>
+      `;
+      container.appendChild(group);
+
+      // Wire up "Run Category" button
+      const runCatBtn = group.querySelector('.category-run-btn');
+      if (runCatBtn) {
+        runCatBtn.addEventListener("click", () => this.runCategory(cat));
+      }
+
+      const cardsEl = group.querySelector(".test-cards");
+
+      items.forEach(({ name, description, pendingMsg, customButton, fields }) => {
+        const isEvent = isEventDrivenTest(name);
+        const card = DOMUtils.createElement("div", {
+          className: "test-card",
+          id: `card-${name}`,
+        });
+
+        // Actions
+        let actionsHTML = '';
+        if (isEvent && name !== 'requestAppDataUpdate') {
+          actionsHTML = `<span class="event-hint">event-driven</span>`;
+        } else if (customButton) {
+          actionsHTML = `<button class="btn btn-small btn-run" id="requestAppDataUpdateBtn">Send App Data</button>
+                         <span id="requestAppDataUpdateResult" style="font-size:0.72rem;color:var(--text-muted);"></span>`;
+        } else {
+          actionsHTML = `
+            <button class="btn btn-small btn-run" data-run="${name}">Run</button>
+            <button class="btn btn-small btn-clear" data-clear="${name}">Clear</button>
+          `;
+        }
+
+        // Editable fields
+        let fieldsHTML = '';
+        if (fields && fields.length) {
+          fieldsHTML = '<div class="test-card__fields">';
+          fields.forEach(function(f) {
+            const sizeClass = f.size === 'wide' ? 'test-card__field--wide' : f.size === 'medium' ? 'test-card__field--medium' : '';
+            fieldsHTML += `<label class="test-card__field ${sizeClass}">`;
+            fieldsHTML += `<span>${DataRenderer.escapeHTML(f.label)}</span>`;
+            fieldsHTML += `<input class="test-card__field-input" data-test="${name}" data-key="${f.key}" value="${DataRenderer.escapeHTML(f.value)}" />`;
+            fieldsHTML += `</label>`;
+          });
+          fieldsHTML += '</div>';
+        }
+
+        const detailsContent = isEvent && !customButton
+          ? (pendingMsg || "Not registered")
+          : (pendingMsg || "");
+
+        card.innerHTML = `
+          <div class="test-card__info">
+            <div class="test-card__name">${name}</div>
+            <div class="test-card__desc">${description || ''}</div>
+            ${fieldsHTML}
+            <div class="test-card__details" id="details-${name}">${detailsContent}</div>
+          </div>
+          <div id="status-${name}">
+            <span class="status pending">Pending</span>
+          </div>
+          <div class="test-card__actions">${actionsHTML}</div>
+        `;
+
+        // Wire up Run / Clear buttons via delegation
+        const runBtn = card.querySelector('[data-run]');
+        if (runBtn) {
+          runBtn.addEventListener("click", () => this.runSingle(name));
+        }
+        const clearBtn = card.querySelector('[data-clear]');
+        if (clearBtn) {
+          clearBtn.addEventListener("click", () => this.clearSingle(name));
+        }
+
+        cardsEl.appendChild(card);
+      });
+    });
+
+    // Build hidden table rows for StatisticsManager & ExportUtils compat
+    const tbody = DOMUtils.querySelector("#reportTable tbody");
+    if (tbody) {
+      testDefinitions.forEach(({ name }) => {
+        const tr = DOMUtils.createElement("tr", { id: `row-${name}` });
+        tr.innerHTML = `
+          <td class="feature-name">${name}</td>
+          <td><span class="status pending">Pending</span></td>
+          <td class="details"></td>
+          <td></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Wire up the Send App Data button
+    this._setupRequestAppDataUpdate();
+    this._updateStats();
+  }
+
+  /* -------------------------------------------------------------------
+     registerEventListeners()
+     ------------------------------------------------------------------- */
+
+  registerEventListeners() {
+    if (this.eventsRegistered) return;
+
+    // Seed the filters listener array to prevent the SDK from clearing
+    // the parent page's filters.
+    const noop = () => {};
+    const filtersKey = resolveListenerKey("onFiltersUpdated");
+    if (filtersKey) {
+      window.domo.listeners[filtersKey].push(noop);
+    }
+
+    EVENT_FEATURES.forEach((canonicalName) => {
+      const resolvedMethod = resolveEventMethod(canonicalName);
+
+      if (!resolvedMethod) {
+        this._updateCard(canonicalName, "fail", "Not available in this version");
+        return;
+      }
+
+      try {
+        const label = resolvedMethod !== canonicalName
+          ? `${canonicalName} (via ${resolvedMethod})`
+          : canonicalName;
+        GeneralUtils.logInfo("registerEventListeners", `Registering: ${label}`);
+
+        window.domo[resolvedMethod]((arg) => {
+          GeneralUtils.logInfo("Event", `${resolvedMethod} triggered`, arg);
+          const via = resolvedMethod !== canonicalName ? resolvedMethod : null;
+
+          // Parse the arg for display
+          let payload = arg;
+          if (typeof arg === "string") {
+            try { payload = JSON.parse(arg); } catch (_) { /* keep as string */ }
+          }
+
+          const msg = DataRenderer.renderPayload(
+            "received", resolvedMethod, payload,
+            { via: via }
+          );
+
+          this._updateCard(canonicalName, "success", msg);
+
+          // Flash the card
+          const card = DOMUtils.getElementById(`card-${canonicalName}`);
+          if (card) {
+            card.classList.remove("test-card--event-fired");
+            void card.offsetWidth; // force reflow
+            card.classList.add("test-card--event-fired");
+          }
+        });
+
+        const feature = testDefinitions.find(f => f.name === canonicalName);
+        let pendingMsg = feature?.pendingMsg || "Listening...";
+        if (resolvedMethod !== canonicalName) {
+          pendingMsg += ` <span style="color:var(--text-muted);font-size:0.7rem;">(via ${resolvedMethod})</span>`;
+        }
+        this._updateCard(canonicalName, "pending", pendingMsg);
+      } catch (e) {
+        GeneralUtils.logError(`registerEventListeners - ${canonicalName}`, e);
+        this._updateCard(canonicalName, "fail", e.message);
+      }
+    });
+
+    // Remove the noop seed
+    if (filtersKey) {
+      const idx = window.domo.listeners[filtersKey].indexOf(noop);
+      if (idx >= 0) window.domo.listeners[filtersKey].splice(idx, 1);
+    }
+
+    this.eventsRegistered = true;
+    this._dismissEventBanner();
+    this._updateStats();
+  }
+
+  /* -------------------------------------------------------------------
+     runAll() — runs all non-event tests sequentially
+     ------------------------------------------------------------------- */
+
+  async runAll() {
+    // Reset non-event cards to pending
+    for (const { name } of testDefinitions) {
+      if (isEventDrivenTest(name)) continue;
+      this._updateCard(name, "pending", "");
+    }
+
+    for (const test of testDefinitions) {
+      if (isEventDrivenTest(test.name)) continue;
+      await this._runTest(test);
+    }
+
+    this._updateStats();
+  }
+
+  /* -------------------------------------------------------------------
+     runCategory(category) — runs tests for a specific category
+     ------------------------------------------------------------------- */
+
+  async runCategory(category) {
+    const tests = getTestsByCategory(category);
+
+    for (const test of tests) {
+      if (isEventDrivenTest(test.name)) continue;
+      await this._runTest(test);
+    }
+
+    this._updateStats();
+  }
+
+  /* -------------------------------------------------------------------
+     runSingle(testName) — runs one test
+     ------------------------------------------------------------------- */
+
+  async runSingle(testName) {
+    const test = testDefinitions.find(f => f.name === testName);
+    if (!test || isEventDrivenTest(testName)) return;
+
+    await this._runTest(test);
+    this._updateStats();
+  }
+
+  /* -------------------------------------------------------------------
+     clearAll() — resets all non-event test cards
+     ------------------------------------------------------------------- */
+
+  clearAll() {
+    testDefinitions.forEach(({ name, pendingMsg }) => {
+      if (!isEventDrivenTest(name)) {
+        this._updateCard(name, "pending", pendingMsg || "");
+      }
+    });
+
+    resetTestData();
+
+    const appDataResult = DOMUtils.getElementById("requestAppDataUpdateResult");
+    if (appDataResult) DOMUtils.setElementContent(appDataResult, "");
+
+    this._updateStats();
+  }
+
+  /* -------------------------------------------------------------------
+     clearSingle(testName) — resets one card
+     ------------------------------------------------------------------- */
+
+  clearSingle(testName) {
+    const feature = testDefinitions.find(f => f.name === testName);
+    if (!feature) return;
+
+    this._updateCard(testName, "pending", feature.pendingMsg || "");
+    this._updateStats();
+  }
+
+  /* -------------------------------------------------------------------
+     exportResults() — reuses ExportUtils
+     ------------------------------------------------------------------- */
+
+  exportResults() {
+    const results = ExportUtils.createResultsExport(testDefinitions);
+    const filename = `domo-js-test-results-${new Date().toISOString().split('T')[0]}.json`;
+    ExportUtils.downloadJSON(results, filename);
+  }
+
+  /* -------------------------------------------------------------------
+     _runTest(test) — internal: run a single test, update card
+     ------------------------------------------------------------------- */
+
+  _readFieldValues(testName) {
+    const params = {};
+    const inputs = document.querySelectorAll(`input[data-test="${testName}"]`);
+    inputs.forEach(function(input) {
+      params[input.getAttribute('data-key')] = input.value;
+    });
+    return Object.keys(params).length > 0 ? params : undefined;
+  }
+
+  async _runTest(test) {
+    const { name, fn } = test;
+
+    try {
+      this._updateCard(name, "running", "Running...");
+      const params = this._readFieldValues(name);
+      const result = await fn(params);
+      const details = ResultFormatter.formatTestResult(result, name);
+
+      this._updateCard(name, "success", details);
+    } catch (e) {
+      const msg = e.message || String(e);
+      if (msg === "Not available in this version") {
+        this._updateCard(name, "skipped", msg);
+      } else {
+        GeneralUtils.logError(`Test ${name}`, e);
+        this._updateCard(name, "fail", msg);
+      }
+    }
+  }
+
+  /* -------------------------------------------------------------------
+     _updateCard(name, status, details) — updates card + hidden row
+     ------------------------------------------------------------------- */
+
+  _updateCard(name, status, details) {
+    // Toggle dimmed state for skipped tests
+    const card = DOMUtils.getElementById(`card-${name}`);
+    if (card) {
+      card.classList.toggle("test-card--skipped", status === "skipped");
+    }
+
+    // Update card status badge
+    const statusEl = DOMUtils.getElementById(`status-${name}`);
+    if (statusEl) {
+      const icon = ResultFormatter.getStatusIcon(status);
+      const label = STATUS_LABELS[status] || STATUS_LABELS.pending;
+      statusEl.innerHTML = `<span class="status ${status}">${icon} ${label}</span>`;
+    }
+
+    // Update details area
+    if (!isEventDrivenTest(name) || status === "success") {
+      const detailsEl = DOMUtils.getElementById(`details-${name}`);
+      if (detailsEl) {
+        detailsEl.innerHTML = details;
+      }
+    }
+
+    // Sync hidden table row
+    const row = DOMUtils.getElementById(`row-${name}`);
+    if (row) {
+      const statusIcon = ResultFormatter.getStatusIcon(status);
+      const statusCell = row.children[1];
+      DOMUtils.setElementContent(statusCell,
+        `<span class="status ${status}">${statusIcon} ${STATUS_LABELS[status] || STATUS_LABELS.pending}</span>`,
+        true
+      );
+
+      if (!isEventDrivenTest(name)) {
+        const detailsCell = row.children[2];
+        DOMUtils.setElementContent(detailsCell, details, true);
+      }
+    }
+  }
+
+  /* -------------------------------------------------------------------
+     _updateStats() — counts pass/fail/pending/skipped, updates stat elements
+     ------------------------------------------------------------------- */
+
+  _updateStats() {
+    var total = 0, passed = 0, failed = 0, pending = 0;
+    var statuses = document.querySelectorAll('#tab-content-tests .status');
+    statuses.forEach(function(el) {
+      total++;
+      if (el.classList.contains('success')) passed++;
+      else if (el.classList.contains('fail')) failed++;
+      else if (el.classList.contains('pending') || el.classList.contains('running')) pending++;
+    });
+    var totalEl = document.getElementById('totalTests');
+    var passedEl = document.getElementById('passedTests');
+    var failedEl = document.getElementById('failedTests');
+    var pendingEl = document.getElementById('pendingTests');
+    if (totalEl) totalEl.textContent = String(total);
+    if (passedEl) passedEl.textContent = String(passed);
+    if (failedEl) failedEl.textContent = String(failed);
+    if (pendingEl) pendingEl.textContent = String(pending);
+  }
+
+  /* -------------------------------------------------------------------
+     _setupRequestAppDataUpdate() — wire up the Send App Data button
+     ------------------------------------------------------------------- */
+
+  _setupRequestAppDataUpdate() {
+    const btn = DOMUtils.getElementById("requestAppDataUpdateBtn");
+    if (!btn) return;
+
+    const resultSpan = DOMUtils.getElementById("requestAppDataUpdateResult");
+
+    btn.addEventListener("click", async () => {
+      try {
+        const feature = testDefinitions.find((f) => f.name === "requestAppDataUpdate");
+        await feature.fn();
+        if (resultSpan) {
+          resultSpan.textContent = "Sent!";
+          resultSpan.style.color = "var(--accent-green)";
+        }
+      } catch (e) {
+        if (resultSpan) {
+          resultSpan.textContent = `Failed: ${e?.message || e}`;
+          resultSpan.style.color = "var(--accent-red)";
+        }
+      }
+    });
+  }
+
+  /* -------------------------------------------------------------------
+     _dismissEventBanner() — same animation logic as current
+     ------------------------------------------------------------------- */
+
+  _dismissEventBanner() {
+    const banner = DOMUtils.getElementById("eventBanner");
+    if (!banner || banner.classList.contains("event-banner--dismissed")) return;
+    banner.classList.add("event-banner--dismissed");
+    banner.addEventListener("animationend", () => banner.remove(), { once: true });
+  }
 }

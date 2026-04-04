@@ -1,72 +1,66 @@
 # demo/
 
-Interactive test-and-report app that exercises every `domo.js` API inside a real Domo iframe. Dark-themed UI with card-based layout, syntax-highlighted JSON rendering, and a version picker to test against any published ryuu.js release.
+Interactive developer toolkit for `domo.js` — runs inside a real Domo iframe. Three-tab layout: Request Builder for ad-hoc API exploration, Event Monitor for real-time wire visibility, and Test Suite for automated regression testing. Dark-themed with glassmorphism, version picker to test against any published ryuu.js release.
 
-## What it tests
+## Tabs
 
-- **HTTP CRUD** — `domo.get`, `domo.post`, `domo.put`, `domo.delete` against an AppDB collection (`SanityTest`).
-- **Data API** — `domo.data.query` and `domo.data.sql` against the `test` dataset alias.
-- **AppDB** — `domo.appdb.list`, `domo.appdb.create`, `domo.appdb.update`, `domo.appdb.remove` on the `SanityTest` collection.
-- **Event listeners** — `onDataUpdated`, `onFiltersUpdated`, `onVariablesUpdated`, `onAppDataUpdated` (event-driven; triggered by dashboard interaction, not by the Run button).
-- **Event requests** — `requestFiltersUpdate`, `requestVariablesUpdate`, `requestAppDataUpdate` (outbound messages to the parent frame).
-- **Code Engine** — `domo.codeEngine("awesomeFunction", ...)` against a mapped package.
-- **Workflows** — `domo.workflow.start` and `domo.workflow.getInstance` against a mapped workflow.
-- **AI Services** — `domo.ai.generateText` and `domo.ai.textToSQL`.
-- **Environment** — `domo.env` showing typed environment context (userId, userName, host, etc.).
-- **iOS detection** — multi-factor `isIOS()` check with detailed indicator breakdown.
-- **Device detection** — header badge showing detected platform from user agent.
-- **DX Tools** (v5.2+ features):
-  - `domo.debug` — enables/disables debug mode, verifies category logging.
-  - `domo.intercept()` — registers a timing interceptor, fires a real request, verifies it was called, then removes it.
-  - Structured errors — hits a 404 endpoint and inspects the typed error properties (`name`, `status`, `body`, `headers`).
-  - Schema validation — tests both a passing and rejecting schema against a real endpoint.
+### Request Builder (`#request`)
+- Method dropdown (GET/POST/PUT/DELETE) + URL input with autocomplete from endpoint presets
+- Body textarea (auto-hides for GET/DELETE), collapsible options panel (format, content-type, schema)
+- Response panel showing syntax-highlighted JSON, timing, structured error type badges on failure
+- Session history sidebar — click any entry to replay the request
 
-## UI Features
+### Event Monitor (`#monitor`)
+- Real-time feed of all MessageChannel and postMessage traffic
+- Hooks into `Domo.debug` by monkey-patching `domo.debug.log` + raw `window.addEventListener('message')`
+- Deduplication via requestId + 200ms TTL window
+- Filter bar with checkboxes per event type, auto-scroll toggle, clear button
+- Each entry shows: timestamp, direction (in/out), event type badge, requestId, expandable payload
+- Graceful degradation for older SDK versions without `domo.debug`
 
-- **Dark theme** with glassmorphism, animated gradient mesh background.
-- **Card-based layout** grouped by category (HTTP, Data, AppDB, Events, Code Engine, Workflows, AI, Utilities, DX Tools).
-- **Version picker** — dropdown loads any published ryuu.js version from CDN via `document.write` in `<head>`. Changes reload the page with `?v=` param.
-- **Event warning banner** — animated gradient-border banner shown until events are registered.
-- **Rich data rendering** — `DataRenderer` class produces syntax-highlighted JSON blocks with direction indicators (sent/received), method badges, and timing.
-- **Version-resilient** — event registration resolves old method names (`onFiltersUpdate`, `filterContainer`, `sendVariables`, etc.) for pre-5.x versions.
+### Test Suite (`#tests`)
+- **HTTP CRUD** — `domo.get`, `domo.post`, `domo.put`, `domo.delete` against AppDB collection (`SanityTest`)
+- **Data API** — `domo.data.query` and `domo.data.sql` against the `test` dataset alias
+- **AppDB** — `domo.appdb.list`, `domo.appdb.create`, `domo.appdb.update`, `domo.appdb.remove`
+- **Event listeners** — `onDataUpdated`, `onFiltersUpdated`, `onVariablesUpdated`, `onAppDataUpdated` (event-driven)
+- **Event requests** — `requestFiltersUpdate`, `requestVariablesUpdate`, `requestAppDataUpdate`
+- **Code Engine** — `domo.codeEngine("awesomeFunction", ...)`
+- **Workflows** — `domo.workflow.start` and `domo.workflow.getInstance`
+- **AI Services** — `domo.ai.generateText` and `domo.ai.textToSQL`
+- **Utilities** — `domo.env`, iOS detection
+- **DX Tools** — debug mode, interceptors, structured errors, schema validation
+- Run All / Run Category / Run Single, with event warning banner
+
+## Architecture
+
+```
+demo/assets/js/
+├── config.js           # Manifest aliases, endpoint presets, category meta, constants
+├── store.js            # Reactive pub/sub state store (session only)
+├── renderer.js         # DataRenderer, ResultFormatter, RequestRenderer, EventRenderer, DOMUtils, GeneralUtils, ExportUtils
+├── request-builder.js  # Request Builder tab — form, presets, response display, history
+├── event-monitor.js    # Event Monitor tab — debug hook, feed, filters, dedup, auto-scroll
+├── test-suite.js       # Test definitions + TestSuite class (merged from old tests.js + app.js)
+└── app.js              # Tab manager, version picker, env panel, initialization
+```
+
+Script load order: config → renderer → store → request-builder → event-monitor → test-suite → app
 
 ## Build system
 
 | Script | What it does |
 |---|---|
-| `node build.js` | Copies `assets/`, `domo.js`, `manifest.json`, `README.md`, `thumbnail.png` into `public-assets/` and rewrites `index.html` paths to point there. This is the layout Domo's CLI expects for upload. |
-| `node clean.js` | Reverses `build.js` — deletes `public-assets/` and restores original `index.html` paths. |
+| `node build.js` | Copies `assets/`, `domo.js`, `manifest.json`, `README.md`, `thumbnail.png` into `public-assets/` and rewrites `index.html` paths. |
+| `node clean.js` | Reverses `build.js` — deletes `public-assets/` and restores original paths. |
 
-The `public-assets/` directory is a build artifact. Source-of-truth files live at the top level of `demo/`.
-
-## Annotated File Tree
-
-```
-demo/
-├── CLAUDE.md               # This file
-├── index.html              # App shell — loads Inter font, CSS, version picker in <head>, app scripts at bottom
-├── manifest.json           # Domo app manifest (dataset "test", collection "SanityTest", workflow "testWorkflow", package "awesomeFunction")
-├── domo.js                 # Copy of the built library (dist/domo.js) used by the demo
-├── thumbnail.png           # App thumbnail shown in Domo's app store
-├── README.md               # User-facing documentation (setup, usage, troubleshooting)
-├── build.js                # Node script: copies assets → public-assets/, rewrites index.html paths
-├── clean.js                # Node script: reverses build.js (deletes public-assets/, restores paths)
-│
-├── assets/                 # Source assets (the canonical copies)
-│   ├── css/
-│   │   └── styles.css      # Dark theme — glassmorphism, card layout, animations, data blocks, JSON highlighting
-│   └── js/
-│       ├── tests.js        # Test definitions array (`features`), event aliases, version resolution helpers
-│       ├── utils.js        # DOMUtils, StatisticsManager, ResultFormatter, DataRenderer, ExportUtils, GeneralUtils
-│       └── app.js          # DomoTestApp class — card builder, event registration, version picker, test execution
-│
-└── public-assets/          # Build artifact (generated by build.js, git-tracked)
-```
+No changes needed to build.js/clean.js — `ITEMS_TO_MOVE` includes `'assets'` as a directory, so all JS files are copied automatically.
 
 ## Key patterns
 
-- **No framework.** Vanilla JS with class-based organization (`DomoTestApp`, `DOMUtils`, `DataRenderer`, etc.).
-- **Script load order matters:** `domo.js` (synchronously via `document.write`) → `tests.js` → `utils.js` → `app.js`.
-- **Event-driven tests** register callbacks via `domo.onXxxUpdated()` and update the card when the event fires. They cannot be triggered by the "Run All" button.
-- **Sequential dependencies:** AppDB create stores `window.__lastAppDbDocId`, which update and remove depend on. Workflow start stores `window.__lastWorkflowInstanceId` for getInstance.
-- **Version resolution:** `resolveEventMethod()` and `resolveListenerKey()` try canonical names first, then legacy aliases, returning null if unavailable.
+- **No framework.** Vanilla JS with class-based organization.
+- **Script load order matters:** domo.js (synchronous) → config → renderer → store → request-builder → event-monitor → test-suite → app.
+- **Tab state in URL hash** (`#request`, `#monitor`, `#tests`) — bookmarkable, survives reload.
+- **Reactive store** — `SimpleStore` with `get/set/push/on/clear`. Components subscribe to state changes.
+- **Event monitor hooks** into `domo.debug.log` by monkey-patching — captures all SDK-level events without modifying SDK source.
+- **Version-resilient** — `resolveEventMethod()` and `resolveListenerKey()` try canonical names first, then legacy aliases.
+- **Manifest values hardcoded** — dataset `test`, collection `SanityTest`, workflow `testWorkflow`, package `awesomeFunction` must match manifest.json.

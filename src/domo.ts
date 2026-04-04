@@ -164,7 +164,7 @@ class Domo {
 
     // MessageChannel listener (current/new implementation)
     this.channel.port1.onmessage = (e: MessageEvent) => {
-      domoDebug.log('messages', 'received', e.data.event, e.data);
+      domoDebug.log('messages', 'received:channel', e.data.event, e.data);
       const [responsePort] = e.ports;
       const handler = eventHandlers[e.data.event as keyof typeof DomoEvent];
       handler?.(e.data, responsePort);
@@ -195,6 +195,7 @@ class Domo {
       // Detect legacy data update format (has 'alias' property but no 'event' property)
       if (message.hasOwnProperty('alias') && !message.hasOwnProperty('event')) {
         // Legacy data update message
+        domoDebug.log('messages', 'received:postMessage', DomoEvent.dataUpdated, message);
         const handler = eventHandlers[DomoEvent.dataUpdated];
         if (handler) {
           handler(message);
@@ -210,6 +211,7 @@ class Domo {
 
       // Handle standard event-based messages
       if (message.event) {
+        domoDebug.log('messages', 'received:postMessage', message.event, message);
         const handler = eventHandlers[message.event as keyof typeof DomoEvent];
         if (handler) {
           handler(message);
