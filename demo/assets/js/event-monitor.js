@@ -245,6 +245,15 @@ class EventMonitor {
       return;
     }
 
+    // 'messages' category with 'sent:ack' prefix — outgoing ACKs sent back to the parent
+    if (category === 'messages' && typeof args[0] === 'string' && args[0] === 'sent:ack') {
+      var eventType = args[1] || 'ack';
+      var payload = args.length > 2 ? args[2] : args[1];
+      var requestId = (payload && typeof payload === 'object') ? payload.requestId : null;
+      this._captureEvent({ direction: 'out', eventType: eventType, requestId: requestId, payload: payload, source: 'postMessage' });
+      return;
+    }
+
     // 'messages' category with other prefixes = outgoing (subscribe, etc.)
     if (category === 'messages' && args[0] !== 'received') {
       this._captureEvent({

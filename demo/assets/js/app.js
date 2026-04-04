@@ -24,6 +24,10 @@ class DomoApp {
     this.eventMonitor.mount(document.getElementById('tab-content-monitor'));
     this.testSuite.mount(document.getElementById('tab-content-tests'));
 
+    // Start event monitoring immediately so early events (ACKs, initial
+    // filter/variable pushes) are captured before the user switches tabs.
+    this.eventMonitor.startMonitoring();
+
     // Wire up test suite UI controls
     this._wireTestSuiteControls();
 
@@ -58,10 +62,6 @@ class DomoApp {
     // Update hash without scrolling
     history.replaceState(null, '', '#' + tabId);
 
-    // Start monitoring when switching to monitor tab
-    if (tabId === 'monitor') {
-      this.eventMonitor.startMonitoring();
-    }
   }
 
   _wireTestSuiteControls() {

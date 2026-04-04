@@ -203,6 +203,7 @@ class Domo {
           // Send legacy acknowledgment back to parent
           if (event.source && typeof (event.source as any).postMessage === 'function') {
             const ack = JSON.stringify({ event: "ack", alias: message.alias });
+            domoDebug.log('messages', 'sent:ack', 'ack', { event: "ack", alias: message.alias });
             (event.source as any).postMessage(ack, event.origin);
           }
         }
@@ -232,6 +233,7 @@ class Domo {
               ack.variables = message.variables;
             }
 
+            domoDebug.log('messages', 'sent:ack', 'ack', ack);
             (event.source as any).postMessage(JSON.stringify(ack), event.origin);
           }
         }
