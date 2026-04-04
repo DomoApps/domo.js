@@ -245,23 +245,24 @@ class EventMonitor {
       return;
     }
 
-    // 'messages' category with 'sent:ack' prefix — outgoing ACKs sent back to the parent
-    if (category === 'messages' && typeof args[0] === 'string' && args[0] === 'sent:ack') {
-      var eventType = args[1] || 'ack';
+    // 'messages' category with 'sent:*' prefix — all outgoing messages
+    // Prefix format: 'sent:{transport}' or 'sent:ack:{transport}'
+    //   sent:postMessage   — outgoing request via window.parent.postMessage
+    //   sent:mobile        — outgoing request via mobile bridge (domofilter/domovariable/webkit)
+    //   sent:ack           — outgoing ACK via legacy postMessage
+    //   sent:ack:channel   — outgoing ACK via MessagePort
+    if (category === 'messages' && typeof args[0] === 'string' && args[0].indexOf('sent:') === 0) {
+      var prefix = args[0];
+      var source;
+      if (prefix === 'sent:ack:channel') source = 'MessageChannel';
+      else if (prefix === 'sent:postMessage' || prefix === 'sent:ack') source = 'postMessage';
+      else if (prefix === 'sent:mobile') source = 'mobile';
+      else source = prefix.replace('sent:', '');
+
+      var eventType = args[1] || 'unknown';
       var payload = args.length > 2 ? args[2] : args[1];
       var requestId = (payload && typeof payload === 'object') ? payload.requestId : null;
-      this._captureEvent({ direction: 'out', eventType: eventType, requestId: requestId, payload: payload, source: 'postMessage' });
-      return;
-    }
-
-    // 'messages' category with other prefixes = outgoing (subscribe, etc.)
-    if (category === 'messages' && args[0] !== 'received') {
-      this._captureEvent({
-        direction: 'out',
-        eventType: 'messages',
-        requestId: null,
-        payload: { detail: args.join(' ') },
-      });
+      this._captureEvent({ direction: 'out', eventType: eventType, requestId: requestId, payload: payload, source: source });
       return;
     }
 

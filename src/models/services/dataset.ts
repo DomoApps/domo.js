@@ -1,3 +1,5 @@
+import { domoDebug } from "../../utils/debug";
+
 /**
  * Registers a callback to be invoked when a data update message is received.
  * Uses MessageChannel for event communication, matching the pattern of other event listeners.
@@ -28,7 +30,9 @@ export function handleDataUpdated(message: any, responsePort?: MessagePort) {
   if (!message) return;
 
   if (this.listeners.onDataUpdated.length) {
-    responsePort?.postMessage({ requestId: message.requestId, event: "ack", alias: message.alias });
+    const ack = { requestId: message.requestId, event: "ack", alias: message.alias };
+    domoDebug.log('messages', 'sent:ack:channel', 'ack', ack);
+    responsePort?.postMessage(ack);
     this.listeners.onDataUpdated.forEach((cb: Function) => cb(message.alias));
   }
 }

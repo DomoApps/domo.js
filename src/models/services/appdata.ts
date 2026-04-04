@@ -1,4 +1,5 @@
 import { generateUniqueId } from "../../utils/general";
+import { domoDebug } from "../../utils/debug";
 
 /**
  * Sends app data to the parent window.
@@ -27,6 +28,7 @@ export function requestAppDataUpdate(appData: string, onAck?: Function, onReply?
     },
   };
 
+  domoDebug.log('messages', 'sent:postMessage', 'appData', payload);
   window.parent.postMessage(JSON.stringify(payload), "*");
 }
 
@@ -58,7 +60,9 @@ export function handleAppData(message: any, responsePort?: MessagePort) {
   if (!message) return;
 
   if (this.listeners.onAppDataUpdated.length) {
-    responsePort?.postMessage({ requestId: message.requestId, event: "ack" });
+    const ack = { requestId: message.requestId, event: "ack" };
+    domoDebug.log('messages', 'sent:ack:channel', 'ack', ack);
+    responsePort?.postMessage(ack);
     this.listeners.onAppDataUpdated.forEach((cb: (appData: string) => void) =>
       cb(message.appData)
     );

@@ -35,12 +35,14 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: F
   };
 
   if (!mobile) {
+    domoDebug.log('messages', 'sent:postMessage', 'variable', message);
     window.parent.postMessage(JSON.stringify(message), "*");
     return requestId;
   }
 
   try {
     const messagePayload = typeof sanitizedVariables === 'string' ? sanitizedVariables : JSON.stringify(sanitizedVariables);
+    domoDebug.log('messages', 'sent:mobile', 'variable', { via: 'domovariable', variables: sanitizedVariables });
     domovariable.postMessage(messagePayload);
   }
   catch (err) {
@@ -48,12 +50,15 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: F
     try {
       if (ios) {
         const messagePayload = typeof sanitizedVariables === 'string' ? sanitizedVariables : JSON.stringify(sanitizedVariables);
+        domoDebug.log('messages', 'sent:mobile', 'variable', { via: 'webkit', variables: sanitizedVariables });
         window.webkit?.messageHandlers?.domovariable?.postMessage(messagePayload);
       } else {
+        domoDebug.log('messages', 'sent:postMessage', 'variable', message);
         window.parent.postMessage(JSON.stringify(message), "*");
       }
     } catch (error_) {
       console.error("Failed to post message using webkit:", error_);
+      domoDebug.log('messages', 'sent:postMessage', 'variable', message);
       window.parent.postMessage(JSON.stringify(message), "*");
     }
   }
@@ -91,7 +96,9 @@ export function handleVariablesUpdated(message: any, responsePort?: MessagePort)
   
   if (this.listeners.onVariablesUpdated.length) {
     domoDebug.log('variables', 'variablesUpdated', message.variables);
-    responsePort?.postMessage({ requestId: message.requestId, event: "ack", variables: message.variables });
+    const ack = { requestId: message.requestId, event: "ack", variables: message.variables };
+    domoDebug.log('messages', 'sent:ack:channel', 'ack', ack);
+    responsePort?.postMessage(ack);
     this.listeners.onVariablesUpdated.forEach((cb: (variables: Variable[]) => void) =>
       cb(message.variables)
     );

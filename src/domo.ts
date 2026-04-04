@@ -145,9 +145,10 @@ class Domo {
     if (this.connected) return;
     this.connected = true;
     this.channel = new MessageChannel();
-    domoDebug.log('messages', 'MessageChannel created, sending subscribe', { skipFilters });
+    const subscribePayload = { requestId: generateUniqueId(), event: "subscribe", skipFilters };
+    domoDebug.log('messages', 'sent:postMessage', 'subscribe', subscribePayload);
     window.parent.postMessage(
-      JSON.stringify({ requestId: generateUniqueId(), event: "subscribe", skipFilters }),
+      JSON.stringify(subscribePayload),
       "*",
       [this.channel.port2]
     );

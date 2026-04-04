@@ -46,6 +46,7 @@ export function requestFiltersUpdate(
   };
 
   if (!mobile) {
+    domoDebug.log('messages', 'sent:postMessage', 'filter', request);
     window.parent.postMessage(JSON.stringify(request), "*");
     return request.requestId;
   }
@@ -59,14 +60,21 @@ export function requestFiltersUpdate(
 
 
   try {
+    domoDebug.log('messages', 'sent:mobile', 'filter', { via: 'domofilter', filters: sanitizedFilters });
     domofilter.postMessage(JSON.stringify(sanitizedFilters));
   } catch (error_) {
     console.error("Failed to post message using domofilter:", error_);
     try {
-      if (ios) window.webkit?.messageHandlers?.domofilter?.postMessage(sanitizedFilters);
-      else window.parent.postMessage(JSON.stringify(request), "*");
+      if (ios) {
+        domoDebug.log('messages', 'sent:mobile', 'filter', { via: 'webkit', filters: sanitizedFilters });
+        window.webkit?.messageHandlers?.domofilter?.postMessage(sanitizedFilters);
+      } else {
+        domoDebug.log('messages', 'sent:postMessage', 'filter', request);
+        window.parent.postMessage(JSON.stringify(request), "*");
+      }
     } catch (err) {
       console.error("Failed to post message using webkit:", err);
+      domoDebug.log('messages', 'sent:postMessage', 'filter', request);
       window.parent.postMessage(JSON.stringify(request), "*");
     }
   }
@@ -109,7 +117,9 @@ export function handleFiltersUpdated(message: any, responsePort?: MessagePort): 
 
   if (this.listeners.onFiltersUpdated.length) {
     domoDebug.log('filters', 'filtersUpdated', message.filters);
-    responsePort?.postMessage({ requestId: message.requestId, event: "ack", filters: message.filters });
+    const ack = { requestId: message.requestId, event: "ack", filters: message.filters };
+    domoDebug.log('messages', 'sent:ack:channel', 'ack', ack);
+    responsePort?.postMessage(ack);
     this.listeners.onFiltersUpdated.forEach((cb: (filters: Filter[]) => void) =>
       cb(message.filters)
     );
