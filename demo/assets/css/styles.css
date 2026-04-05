@@ -1415,6 +1415,16 @@ body::before {
   gap: 0.75rem;
 }
 
+.request-builder__hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 0.5rem 0.75rem;
+  background: rgba(139, 92, 246, 0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  line-height: 1.4;
+}
+
 .request-builder__url-wrap {
   position: relative;
   flex: 1;
