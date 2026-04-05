@@ -41,7 +41,7 @@ export function isFilterArray(arr: any): arr is Filter[] {
 
 const FILTER_EXAMPLE = {
   column: "columnName",
-  operator: "IN | NOT_IN | CONTAINS | GREATER_THAN | LESS_THAN | BETWEEN | EQUALS | ...",
+  operator: "IN | NOT_IN | CONTAINS | NOT_CONTAINS | STARTS_WITH | NOT_STARTS_WITH | ENDS_WITH | NOT_ENDS_WITH | GREATER_THAN | GREAT_THAN_EQUALS_TO | LESS_THAN | LESS_THAN_EQUALS_TO | BETWEEN | EQUALS | NOT_EQUALS",
   values: ["value1", "value2"],
   dataType: "STRING | NUMERIC | DATE | DATETIME",
 };
