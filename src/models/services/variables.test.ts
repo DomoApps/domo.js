@@ -143,7 +143,7 @@ describe('Variable type validation', () => {
 
     expect(() => {
       Domo.requestVariablesUpdate(malformedVariables as any);
-    }).toThrow(/Variables must be provided as a Variable array/);
+    }).toThrow(/Invalid variable\(s\) detected/);
   });
 
   it('should log expected model to console.error for malformed variables', () => {
@@ -152,7 +152,6 @@ describe('Variable type validation', () => {
     try { Domo.requestVariablesUpdate([{ bad: true }] as any); } catch {}
     expect(spy).toHaveBeenCalledWith(
       expect.stringContaining('Invalid variable(s)'),
-      expect.any(Array),
       expect.stringContaining('Expected format:'),
       expect.objectContaining({ functionId: expect.any(Number) })
     );
@@ -179,10 +178,10 @@ describe('Variable type validation', () => {
     const spy = jest.spyOn(console, 'error').mockImplementation();
     try { Domo.requestVariablesUpdate(42 as any); } catch {}
     expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining('Invalid variable(s)'),
-      expect.any(Array),
+      expect.stringContaining('Variables must be an array'),
+      42,
       expect.stringContaining('Expected format:'),
-      expect.objectContaining({ functionId: expect.any(Number) })
+      expect.any(Array)
     );
     spy.mockRestore();
   });

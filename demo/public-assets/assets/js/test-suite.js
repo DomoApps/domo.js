@@ -252,7 +252,8 @@ const testDefinitions = [
       const method = domo.requestVariablesUpdate ? "requestVariablesUpdate"
         : domo.sendVariables ? "sendVariables" : null;
       if (!method) throw new Error("Not available in this version");
-      const fid = parseInt(params?.functionId || "83942", 10) || 83942;
+      const parsed = parseInt(params?.functionId, 10);
+      const fid = isNaN(parsed) ? (params?.functionId || 83942) : parsed;
       const val = isNaN(params?.value) ? params?.value : Number(params?.value || 1);
       const payload = [{ functionId: fid, value: val }];
       const startTime = performance.now();
