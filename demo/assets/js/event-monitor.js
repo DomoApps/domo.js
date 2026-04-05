@@ -304,27 +304,36 @@ class EventMonitor {
     }
   }
 
-  _renderFeed(log) {
+  _renderFeed(log, skipAutoScroll) {
     if (!this.feedEl) return;
     if (!log || log.length === 0) {
       this.feedEl.innerHTML = '<div class="event-monitor__empty"><span class="event-monitor__empty-icon">~</span><span>Waiting for events...</span><span class="event-monitor__empty-hint">Interact with filters/variables on the page, or register event listeners in the Test Suite</span></div>';
       return;
     }
 
+    // Preserve scroll position across innerHTML rebuilds
+    var savedScrollTop = this.feedEl.scrollTop;
+
     var filters = this.store.get('eventFilters');
+    var existingIds = this._renderedIds || new Set();
     var html = '';
+    var newIds = new Set();
     for (var i = 0; i < log.length; i++) {
       var entry = log[i];
       // Apply filter
       if (filters[entry.eventType] === false) continue;
 
+      newIds.add(entry.id);
+      var isNew = !existingIds.has(entry.id);
       var dirClass = entry.direction === 'in' ? 'event-entry--in' : 'event-entry--out';
       var arrowClass = entry.direction === 'in' ? 'event-entry__arrow--in' : 'event-entry__arrow--out';
       var arrow = entry.direction === 'in' ? '\u2193' : '\u2191';
       var time = this._formatTime(entry.timestamp);
       var idStr = entry.requestId ? entry.requestId.substring(0, 20) + (entry.requestId.length > 20 ? '...' : '') : '';
 
-      html += '<div class="event-entry ' + dirClass + '" data-id="' + entry.id + '">';
+      // Only animate genuinely new entries, not re-renders
+      var animClass = isNew ? '' : ' event-entry--no-anim';
+      html += '<div class="event-entry ' + dirClass + animClass + '" data-id="' + entry.id + '">';
       html += '<div class="event-entry__row">';
       html += '<span class="event-entry__time">' + time + '</span>';
       html += '<span class="event-entry__arrow ' + arrowClass + '">' + arrow + '</span>';
@@ -341,7 +350,11 @@ class EventMonitor {
       }
       html += '</div>';
     }
+    this._renderedIds = newIds;
     this.feedEl.innerHTML = html;
+
+    // Restore scroll position
+    this.feedEl.scrollTop = savedScrollTop;
 
     // Bind expand/collapse
     var self = this;
@@ -353,8 +366,8 @@ class EventMonitor {
       });
     });
 
-    // Auto-scroll
-    if (this.store.get('autoScroll') && this.feedEl.lastElementChild) {
+    // Auto-scroll (skip when toggling expand/collapse so user doesn't lose position)
+    if (!skipAutoScroll && this.store.get('autoScroll') && this.feedEl.lastElementChild) {
       this.feedEl.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }
@@ -364,7 +377,7 @@ class EventMonitor {
     var entry = log.find(function(e) { return e.id === entryId; });
     if (entry) {
       entry.expanded = !entry.expanded;
-      this._renderFeed(log);
+      this._renderFeed(log, true);
     }
   }
 

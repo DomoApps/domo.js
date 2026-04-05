@@ -1887,7 +1887,7 @@ body::before {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 6px;
   scroll-behavior: smooth;
 }
 
@@ -1921,12 +1921,18 @@ body::before {
 .event-entry {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
+  min-height: 32px;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   overflow: hidden;
   transition: background var(--transition-fast);
   animation: fadeSlideUp 0.2s ease both;
+}
+
+.event-entry--no-anim {
+  animation: none;
 }
 
 .event-entry:hover {
@@ -1945,7 +1951,7 @@ body::before {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 12px;
+  padding: 10px 12px;
   cursor: pointer;
   user-select: none;
 }
