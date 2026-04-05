@@ -1,5 +1,6 @@
 import { generateUniqueId } from "../../utils/general";
 import { domoDebug } from "../../utils/debug";
+import { OnAckCallback, OnReplyCallback } from "../interfaces/ask-reply";
 
 /**
  * Sends app data to the parent window.
@@ -9,7 +10,7 @@ import { domoDebug } from "../../utils/debug";
  * @param onAck - Optional callback to invoke when the message is acknowledged.
  * @param onReply - Optional callback to invoke when a reply is received.
  */
-export function requestAppDataUpdate(appData: string, onAck?: Function, onReply?: Function) {
+export function requestAppDataUpdate(appData: string, onAck?: OnAckCallback, onReply?: OnReplyCallback) {
   const requestId = generateUniqueId();
 
   const payload = {

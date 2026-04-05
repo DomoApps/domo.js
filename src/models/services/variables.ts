@@ -1,6 +1,8 @@
-import { generateUniqueId, isIOS, isMobile } from "../../utils/general";
+import { generateUniqueId } from "../../utils/general";
+import { sendToParent } from "../../utils/messaging";
 import { guardAgainstInvalidVariables } from "../../utils/variable";
 import { Variable } from "../interfaces/variable";
+import { OnAckCallback, OnReplyCallback } from "../interfaces/ask-reply";
 import { domoDebug } from "../../utils/debug";
 
 /**
@@ -12,13 +14,11 @@ import { domoDebug } from "../../utils/debug";
  * @param onReply - Optional callback to invoke when a reply is received.
  * @returns The request ID for tracking the request.
  */
-export function requestVariablesUpdate(variables: string | Variable[], onAck?: Function, onReply?: Function): string {
+export function requestVariablesUpdate(variables: string | Variable[], onAck?: OnAckCallback, onReply?: OnReplyCallback): string {
   guardAgainstInvalidVariables(variables);
   const sanitizedVariables = typeof variables === 'string' ? JSON.parse(variables) : variables;
   const requestId = generateUniqueId();
-  const ios = isIOS();
-  const mobile = isMobile();
-  const message = {
+  const desktopPayload = {
     requestId,
     event: "variable",
     variables: sanitizedVariables,
@@ -26,7 +26,7 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: F
 
   this.requests[requestId] = {
     request: {
-      payload: message,
+      payload: desktopPayload,
       onAck,
       onReply,
       status: "pending",
@@ -34,35 +34,16 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: F
     },
   };
 
-  if (!mobile) {
-    domoDebug.log('messages', 'sent:postMessage', 'variable', message);
-    window.parent.postMessage(JSON.stringify(message), "*");
-    return requestId;
-  }
+  const stringifiedVariables = JSON.stringify(sanitizedVariables);
 
-  try {
-    const messagePayload = typeof sanitizedVariables === 'string' ? sanitizedVariables : JSON.stringify(sanitizedVariables);
-    domoDebug.log('messages', 'sent:mobile', 'variable', { via: 'domovariable', variables: sanitizedVariables });
-    domovariable.postMessage(messagePayload);
-  }
-  catch (err) {
-    console.error("Failed to post message using domovariable:", err);
-    try {
-      if (ios) {
-        const messagePayload = typeof sanitizedVariables === 'string' ? sanitizedVariables : JSON.stringify(sanitizedVariables);
-        domoDebug.log('messages', 'sent:mobile', 'variable', { via: 'webkit', variables: sanitizedVariables });
-        window.webkit?.messageHandlers?.domovariable?.postMessage(messagePayload);
-      } else {
-        domoDebug.log('messages', 'sent:postMessage', 'variable', message);
-        window.parent.postMessage(JSON.stringify(message), "*");
-      }
-    } catch (error_) {
-      console.error("Failed to post message using webkit:", error_);
-      domoDebug.log('messages', 'sent:postMessage', 'variable', message);
-      window.parent.postMessage(JSON.stringify(message), "*");
-    }
-  }
-  
+  sendToParent(
+    'variable',
+    desktopPayload,
+    'domovariable',
+    stringifiedVariables,
+    stringifiedVariables
+  );
+
   return requestId;
 }
 

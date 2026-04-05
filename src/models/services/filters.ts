@@ -1,6 +1,8 @@
-import { generateUniqueId, isIOS, isMobile } from "../../utils/general";
+import { generateUniqueId } from "../../utils/general";
+import { sendToParent } from "../../utils/messaging";
 import { guardAgainstInvalidFilters } from "../../utils/filter";
 import { Filter } from "../interfaces/filter";
+import { OnAckCallback, OnReplyCallback } from "../interfaces/ask-reply";
 import { domoDebug } from "../../utils/debug";
 
 /**
@@ -15,15 +17,13 @@ import { domoDebug } from "../../utils/debug";
 export function requestFiltersUpdate(
   filters: Filter[] | null,
   pageStateUpdate: boolean | null = null,
-  onAck?: Function,
-  onReply?: Function
+  onAck?: OnAckCallback,
+  onReply?: OnReplyCallback
 ): string {
   guardAgainstInvalidFilters(filters);
   const requestId = generateUniqueId();
-  const ios = isIOS();
-  const mobile = isMobile();
 
-  const request = {
+  const desktopPayload = {
     requestId,
     event: "filter",
     filter: filters?.map((filter) => ({
@@ -37,7 +37,7 @@ export function requestFiltersUpdate(
 
   this.requests[requestId] = {
     request: {
-      payload: request,
+      payload: desktopPayload,
       onAck,
       onReply,
       status: "pending",
@@ -45,39 +45,20 @@ export function requestFiltersUpdate(
     },
   };
 
-  if (!mobile) {
-    domoDebug.log('messages', 'sent:postMessage', 'filter', request);
-    window.parent.postMessage(JSON.stringify(request), "*");
-    return request.requestId;
-  }
-
-  const sanitizedFilters = filters?.map((filter) => ({
+  const mobileFilters = filters?.map((filter) => ({
     column: filter.column,
     operand: filter.operator || (filter as any).operand,
     values: filter.values,
     dataType: filter.dataType,
   }));
 
-
-  try {
-    domoDebug.log('messages', 'sent:mobile', 'filter', { via: 'domofilter', filters: sanitizedFilters });
-    domofilter.postMessage(JSON.stringify(sanitizedFilters));
-  } catch (error_) {
-    console.error("Failed to post message using domofilter:", error_);
-    try {
-      if (ios) {
-        domoDebug.log('messages', 'sent:mobile', 'filter', { via: 'webkit', filters: sanitizedFilters });
-        window.webkit?.messageHandlers?.domofilter?.postMessage(sanitizedFilters);
-      } else {
-        domoDebug.log('messages', 'sent:postMessage', 'filter', request);
-        window.parent.postMessage(JSON.stringify(request), "*");
-      }
-    } catch (err) {
-      console.error("Failed to post message using webkit:", err);
-      domoDebug.log('messages', 'sent:postMessage', 'filter', request);
-      window.parent.postMessage(JSON.stringify(request), "*");
-    }
-  }
+  sendToParent(
+    'filter',
+    desktopPayload,
+    'domofilter',
+    JSON.stringify(mobileFilters),
+    mobileFilters
+  );
 
   return requestId;
 }
