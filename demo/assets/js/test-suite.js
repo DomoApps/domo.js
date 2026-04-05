@@ -68,95 +68,9 @@ const EVENT_FEATURES = [
   "onAppDataUpdated",
 ];
 
-// ── Test data globals ───────────────────────────────────────────────
-
-let lastId = null;
-
-function getLastId() {
-  return lastId;
-}
-
-function setLastId(id) {
-  lastId = id;
-}
-
-function resetTestData() {
-  lastId = null;
-}
-
 // ── Test definitions ────────────────────────────────────────────────
 
 const testDefinitions = [
-  {
-    name: "http-get",
-    category: "http",
-    description: "Test HTTP GET requests to retrieve data",
-    fn: async () => {
-      if (!domo.get) throw new Error("Not available in this version");
-      const url = "/domo/datastores/v1/collections/SanityTest/documents/";
-      const startTime = performance.now();
-      const result = await domo.get(url);
-      const endTime = performance.now();
-      return {
-        _render: "http", httpMethod: "GET", url: url,
-        payload: result, timing: `${(endTime - startTime).toFixed(2)}ms`
-      };
-    },
-  },
-  {
-    name: "http-post",
-    category: "http",
-    description: "Test HTTP POST requests to create new records",
-    fn: async () => {
-      if (!domo.post) throw new Error("Not available in this version");
-      const url = "/domo/datastores/v1/collections/SanityTest/documents/";
-      const body = { foo: "bar", timestamp: new Date().toISOString() };
-      const startTime = performance.now();
-      const res = await domo.post(url, body);
-      const endTime = performance.now();
-      if (!res?.id) throw new Error("POST did not return an ID");
-      lastId = res.id;
-      return {
-        _render: "http", httpMethod: "POST", url: url,
-        payload: res, timing: `${(endTime - startTime).toFixed(2)}ms`
-      };
-    },
-  },
-  {
-    name: "http-put",
-    category: "http",
-    description: "Test HTTP PUT requests to update existing records",
-    fn: async () => {
-      if (!lastId) throw new Error("No ID from POST test - run POST first");
-      if (!domo.put) throw new Error("Not available in this version");
-      const url = `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`;
-      const body = { foo: "baz", updated: new Date().toISOString() };
-      const startTime = performance.now();
-      const result = await domo.put(url, body);
-      const endTime = performance.now();
-      return {
-        _render: "http", httpMethod: "PUT", url: url,
-        payload: result, timing: `${(endTime - startTime).toFixed(2)}ms`
-      };
-    },
-  },
-  {
-    name: "http-delete",
-    category: "http",
-    description: "Test HTTP DELETE requests to remove records",
-    fn: async () => {
-      if (!lastId) throw new Error("No ID from POST test - run POST first");
-      if (!domo.delete) throw new Error("Not available in this version");
-      const url = `/domo/datastores/v1/collections/SanityTest/documents/${lastId}`;
-      const startTime = performance.now();
-      const result = await domo.delete(url);
-      const endTime = performance.now();
-      return {
-        _render: "http", httpMethod: "DELETE", url: url,
-        payload: result, timing: `${(endTime - startTime).toFixed(2)}ms`
-      };
-    },
-  },
   // ── Data API ────────────────────────────────────────────────────
   {
     name: "data.query",
@@ -222,14 +136,25 @@ const testDefinitions = [
   {
     name: "appdb.create",
     category: "appdb",
-    description: "Create a new document",
-    fn: async () => {
+    description: "Create a new document (auto-wraps in content if needed)",
+    fields: [
+      { key: "doc", label: "Document (JSON)", value: '{"foo":"bar"}', size: "wide" },
+    ],
+    fn: async (params) => {
       if (!domo.appdb?.create) throw new Error("Not available in this version");
-      const doc = { foo: "bar", timestamp: new Date().toISOString() };
+      let doc;
+      try { doc = JSON.parse(params?.doc || '{"foo":"bar"}'); } catch (e) { throw new Error("Invalid JSON: " + e.message); }
+      doc.timestamp = new Date().toISOString();
       const startTime = performance.now();
       const result = await domo.appdb.create("SanityTest", doc);
       const endTime = performance.now();
-      if (result?.id) window.__lastAppDbDocId = result.id;
+      if (result?.id) {
+        window.__lastAppDbDocId = result.id;
+        // Auto-populate docId fields on update and remove cards
+        document.querySelectorAll('input[data-key="docId"]').forEach(function(input) {
+          input.value = result.id;
+        });
+      }
       return {
         _render: "payload", direction: "sent", method: "appdb.create",
         payload: { sent: doc, response: result },
@@ -240,12 +165,18 @@ const testDefinitions = [
   {
     name: "appdb.update",
     category: "appdb",
-    description: "Update an existing document",
-    fn: async () => {
+    description: "Update an existing document (auto-wraps in content if needed)",
+    fields: [
+      { key: "docId", label: "Document ID", value: '', size: "wide" },
+      { key: "doc", label: "Document (JSON)", value: '{"foo":"baz"}', size: "wide" },
+    ],
+    fn: async (params) => {
       if (!domo.appdb?.update) throw new Error("Not available in this version");
-      const docId = window.__lastAppDbDocId;
-      if (!docId) throw new Error("Run appdb.create first");
-      const doc = { foo: "baz", updated: new Date().toISOString() };
+      const docId = params?.docId || window.__lastAppDbDocId;
+      if (!docId) throw new Error("Supply a document ID or run appdb.create first");
+      let doc;
+      try { doc = JSON.parse(params?.doc || '{"foo":"baz"}'); } catch (e) { throw new Error("Invalid JSON: " + e.message); }
+      doc.updated = new Date().toISOString();
       const startTime = performance.now();
       const result = await domo.appdb.update("SanityTest", docId, doc);
       const endTime = performance.now();
@@ -261,10 +192,13 @@ const testDefinitions = [
     name: "appdb.remove",
     category: "appdb",
     description: "Delete a document by ID",
-    fn: async () => {
+    fields: [
+      { key: "docId", label: "Document ID", value: '', size: "wide" },
+    ],
+    fn: async (params) => {
       if (!domo.appdb?.remove) throw new Error("Not available in this version");
-      const docId = window.__lastAppDbDocId;
-      if (!docId) throw new Error("Run appdb.create first");
+      const docId = params?.docId || window.__lastAppDbDocId;
+      if (!docId) throw new Error("Supply a document ID or run appdb.create first");
       const startTime = performance.now();
       const result = await domo.appdb.remove("SanityTest", docId);
       const endTime = performance.now();
@@ -364,11 +298,14 @@ const testDefinitions = [
     name: "requestAppDataUpdate",
     category: "events",
     description: "Send app data to the dashboard",
-    fn: () => {
+    fields: [
+      { key: "appData", label: "App Data", value: "onAppDataUpdated works", size: "wide" },
+    ],
+    fn: (params) => {
       const method = domo.requestAppDataUpdate ? "requestAppDataUpdate"
         : domo.sendAppData ? "sendAppData" : null;
       if (!method) throw new Error("Not available in this version");
-      const payload = "onAppDataUpdated works";
+      const payload = params?.appData || "onAppDataUpdated works";
       const startTime = performance.now();
       domo[method](payload);
       const endTime = performance.now();
@@ -386,10 +323,14 @@ const testDefinitions = [
     name: "codeEngine",
     category: "codeengine",
     description: "Run a Code Engine function by alias",
-    fn: async () => {
+    fields: [
+      { key: "input", label: "Input (JSON)", value: '{"number1AppInput":5,"number2AppInput":10}', size: "wide" },
+    ],
+    fn: async (params) => {
       if (!domo.codeEngine) throw new Error("Not available in this version");
       const alias = "awesomeFunction";
-      const input = { number1AppInput: 5, number2AppInput: 10 };
+      let input;
+      try { input = JSON.parse(params?.input || '{"number1AppInput":5,"number2AppInput":10}'); } catch (e) { throw new Error("Invalid JSON: " + e.message); }
       const startTime = performance.now();
       const result = await domo.codeEngine(alias, input);
       const endTime = performance.now();
@@ -970,8 +911,6 @@ class TestSuite {
       }
     });
 
-    resetTestData();
-
     const appDataResult = DOMUtils.getElementById("requestAppDataUpdateResult");
     if (appDataResult) DOMUtils.setElementContent(appDataResult, "");
 
@@ -1114,7 +1053,8 @@ class TestSuite {
     btn.addEventListener("click", async () => {
       try {
         const feature = testDefinitions.find((f) => f.name === "requestAppDataUpdate");
-        await feature.fn();
+        const params = this._readFieldValues("requestAppDataUpdate");
+        await feature.fn(params);
         if (resultSpan) {
           resultSpan.textContent = "Sent!";
           resultSpan.style.color = "var(--accent-green)";

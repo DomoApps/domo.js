@@ -48,7 +48,6 @@ const APP_CONFIG = {
 
 // Category metadata for test suite cards
 const CATEGORY_META = {
-  http:       { icon: '/', label: 'HTTP',         cssClass: 'http' },
   data:       { icon: 'Q', label: 'Data API',     cssClass: 'data' },
   appdb:      { icon: 'D', label: 'AppDB',        cssClass: 'appdb' },
   events:     { icon: '~', label: 'Events',       cssClass: 'events' },
