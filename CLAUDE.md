@@ -49,7 +49,7 @@ src/
 │   │   ├── filter.ts               # Filter union type, operator/dataType enums
 │   │   ├── json.ts                 # Loose JSON type (Json, JsonMap, JsonArray)
 │   │   ├── request.ts              # RequestOptions (incl. schema), QueryParams, ResponseBody types
-│   │   └── variable.ts             # Variable interface { functionId, value }
+│   │   └── variable.ts             # Variable interface { functionId?, name?, value }
 │   │
 │   └── services/                   # Business logic
 │       ├── ai.ts                   # domo.ai.generateText, domo.ai.textToSQL

@@ -243,19 +243,29 @@ const testDefinitions = [
   {
     name: "requestVariablesUpdate",
     category: "events",
-    description: "Send variable updates to the dashboard",
+    description: "Send variable updates by functionId, name, or both",
     fields: [
       { key: "functionId", label: "Function ID", value: "83942", size: "small" },
+      { key: "name", label: "Variable Name", value: "", size: "medium" },
       { key: "value", label: "Value", value: "1", size: "small" },
     ],
     fn: (params) => {
       const method = domo.requestVariablesUpdate ? "requestVariablesUpdate"
         : domo.sendVariables ? "sendVariables" : null;
       if (!method) throw new Error("Not available in this version");
-      const parsed = parseInt(params?.functionId, 10);
-      const fid = isNaN(parsed) ? (params?.functionId || 83942) : parsed;
       const val = isNaN(params?.value) ? params?.value : Number(params?.value || 1);
-      const payload = [{ functionId: fid, value: val }];
+      const variable = { value: val };
+      const fidStr = (params?.functionId || "").trim();
+      if (fidStr) {
+        const parsed = parseInt(fidStr, 10);
+        if (!isNaN(parsed)) variable.functionId = parsed;
+      }
+      const nameStr = (params?.name || "").trim();
+      if (nameStr) variable.name = nameStr;
+      if (!variable.functionId && !variable.name) {
+        throw new Error("Provide at least a Function ID or Variable Name");
+      }
+      const payload = [variable];
       const startTime = performance.now();
       domo[method](JSON.stringify(payload));
       const endTime = performance.now();

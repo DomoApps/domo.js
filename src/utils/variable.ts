@@ -11,7 +11,7 @@ export function isVariable(obj: any): obj is Variable {
   return (
     obj !== null &&
     typeof obj === 'object' &&
-    typeof obj.functionId === 'number' &&
+    (typeof obj.functionId === 'number' || typeof obj.name === 'string') &&
     obj.hasOwnProperty('value')
   );
 }
@@ -26,10 +26,18 @@ export function getVariableErrors(obj: any): string[] {
     errors.push('Variable must be a non-null object.');
     return errors;
   }
-  if (!obj.hasOwnProperty('functionId')) {
-    errors.push('Missing required property "functionId".');
-  } else if (typeof obj.functionId !== 'number') {
-    errors.push(`"functionId" must be a number, received ${typeof obj.functionId} ("${obj.functionId}").`);
+  const hasFunctionId = typeof obj.functionId === 'number';
+  const hasName = typeof obj.name === 'string';
+  if (!hasFunctionId && !hasName) {
+    if (obj.hasOwnProperty('functionId') && typeof obj.functionId !== 'number') {
+      errors.push(`"functionId" must be a number, received ${typeof obj.functionId} ("${obj.functionId}").`);
+    }
+    if (obj.hasOwnProperty('name') && typeof obj.name !== 'string') {
+      errors.push(`"name" must be a string, received ${typeof obj.name} ("${obj.name}").`);
+    }
+    if (!errors.length) {
+      errors.push('At least one of "functionId" (number) or "name" (string) must be provided.');
+    }
   }
   if (!obj.hasOwnProperty('value')) {
     errors.push('Missing required property "value".');
@@ -39,7 +47,7 @@ export function getVariableErrors(obj: any): string[] {
 
 /**
  * Type guard to check if an array contains valid Variables.
- * 
+ *
  * @param arr - The array to check
  * @returns True if the array contains only valid Variables, false otherwise
  */
@@ -48,7 +56,7 @@ export function isVariableArray(arr: any): arr is Variable[] {
 }
 
 const VARIABLE_EXAMPLE = {
-  functionId: 1,
+  "functionId (or name)": "number (or string)",
   value: "any value (string, number, etc.)",
 };
 

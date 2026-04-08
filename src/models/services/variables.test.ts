@@ -103,17 +103,42 @@ describe('onVariablesUpdated', () => {
 });
 
 describe('Variable type validation', () => {
-  it('should accept valid Variable array', () => {
+  it('should accept valid Variable array with functionId', () => {
     const validVariables = [
       { functionId: 1, value: 'test' },
       { functionId: 2, value: 42 },
       { functionId: 3, value: { nested: 'object' } }
     ];
-    
+
     expect(() => {
       Domo.requestVariablesUpdate(validVariables);
     }).not.toThrow();
-    
+
+    expect(window.parent.postMessage).toHaveBeenCalled();
+  });
+
+  it('should accept valid Variable array with name', () => {
+    const validVariables = [
+      { name: 'My Variable', value: 'test' },
+      { name: 'Another Variable', value: 42 }
+    ];
+
+    expect(() => {
+      Domo.requestVariablesUpdate(validVariables);
+    }).not.toThrow();
+
+    expect(window.parent.postMessage).toHaveBeenCalled();
+  });
+
+  it('should accept valid Variable array with both functionId and name', () => {
+    const validVariables = [
+      { functionId: 1, name: 'My Variable', value: 'test' }
+    ];
+
+    expect(() => {
+      Domo.requestVariablesUpdate(validVariables);
+    }).not.toThrow();
+
     expect(window.parent.postMessage).toHaveBeenCalled();
   });
 
@@ -123,18 +148,18 @@ describe('Variable type validation', () => {
       { functionId: 2, value: 42 }
     ];
     const jsonString = JSON.stringify(validVariables);
-    
+
     expect(() => {
       Domo.requestVariablesUpdate(jsonString);
     }).not.toThrow();
-    
+
     expect(window.parent.postMessage).toHaveBeenCalled();
   });
 
   it('should throw for malformed Variable array', () => {
     const malformedVariables = [
-      { wrongField: 1, value: 'test' }, // missing functionId
-      { functionId: 'not-a-number', value: 42 } // functionId is not a number
+      { wrongField: 1, value: 'test' }, // missing both functionId and name
+      { functionId: 'not-a-number', value: 42 } // functionId is not a number, no name
     ];
 
     expect(() => {
@@ -153,7 +178,7 @@ describe('Variable type validation', () => {
     expect(spy).toHaveBeenCalledWith(
       expect.stringContaining('Invalid variable(s)'),
       expect.stringContaining('Expected format:'),
-      expect.objectContaining({ functionId: expect.any(Number) })
+      expect.objectContaining({ value: expect.any(String) })
     );
     spy.mockClear();
 
@@ -184,5 +209,15 @@ describe('Variable type validation', () => {
       expect.any(Array)
     );
     spy.mockRestore();
+  });
+
+  it('should throw for Variable missing both functionId and name', () => {
+    const invalidVariables = [
+      { value: 'test' } // no functionId or name
+    ];
+
+    expect(() => {
+      Domo.requestVariablesUpdate(invalidVariables as any);
+    }).toThrow(/Invalid variable\(s\) detected/);
   });
 });
