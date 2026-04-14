@@ -240,6 +240,30 @@ describe("appdb collection management", () => {
   });
 });
 
+describe("appdb query with spaces in groupby", () => {
+  it("should encode spaces in groupby field names as +", async () => {
+    mockFetchOk([]);
+    await Domo.appdb.query(COLL, {}, {
+      groupby: "content.Work Item Owner",
+      count: "ownerCount",
+    });
+    const url = (global.fetch as jest.Mock).mock.calls[0][0] as string;
+    expect(url).toContain("groupby=content.Work+Item+Owner");
+    expect(url).toContain("count=ownerCount");
+  });
+
+  it("should encode spaces in multiple groupby fields", async () => {
+    mockFetchOk([]);
+    await Domo.appdb.query(COLL, {}, {
+      groupby: "content.Work Item Owner, content.Task Name",
+      sum: "content.Story Points totalPoints",
+    });
+    const url = (global.fetch as jest.Mock).mock.calls[0][0] as string;
+    expect(url).toContain("groupby=content.Work+Item+Owner%2C+content.Task+Name");
+    expect(url).toContain("sum=content.Story+Points+totalPoints");
+  });
+});
+
 describe("appdb URL encoding", () => {
   it("should encode special characters", async () => {
     mockFetchOk({});

@@ -212,6 +212,39 @@ const testDefinitions = [
     pendingMsg: "Run <code>appdb.create</code> first to get a document ID",
   },
 
+  {
+    name: "appdb.query",
+    category: "appdb",
+    description: "Query with aggregations (groupby fields with spaces)",
+    fields: [
+      { key: "groupby", label: "Group By", value: "content.Work Item Owner", size: "wide" },
+      { key: "count", label: "Count Alias", value: "ownerCount", size: "small" },
+    ],
+    fn: async (params) => {
+      if (!domo.appdb?.query) throw new Error("Not available in this version");
+      const groupby = params?.groupby || "content.Work Item Owner";
+      const count = params?.count || "ownerCount";
+      const aggs = { groupby, count };
+      const startTime = performance.now();
+      const result = await domo.appdb.query("SanityTest", {}, aggs);
+      const endTime = performance.now();
+
+      // Build the URL the same way the SDK does so we can show it
+      const qp = new URLSearchParams();
+      if (groupby) qp.set("groupby", groupby);
+      if (count) qp.set("count", count);
+      const url = `/domo/datastores/v1/collections/SanityTest/documents/query?${qp.toString()}`;
+
+      return {
+        _render: "http", httpMethod: "POST",
+        url,
+        payload: result,
+        timing: `${(endTime - startTime).toFixed(2)}ms`,
+      };
+    },
+    pendingMsg: "Queries <code>SanityTest</code> with groupby containing spaces",
+  },
+
   // ── Events ─────────────────────────────────────────────────────
   {
     name: "requestFiltersUpdate",
