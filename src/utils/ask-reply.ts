@@ -12,12 +12,12 @@ export function handleAck(data: any, responsePort: MessagePort) {
   if (!requestId) return;
 
   const entry = this.requests[requestId];
-  if (!entry) return console.warn(`No request found for ID: ${requestId}`);
+  if (!entry) return; // No matching request — this is a host-initiated push, not a reply
 
-  if (entry.request.status !== "pending")
-    console.warn(
-      `Request ${requestId} is not pending, current status: ${entry.request.status}`
-    );
+  // Skip if the request has already moved past pending (ack arrived after reply, or duplicate ack)
+  if (entry.request.status !== "pending") {
+    return;
+  }
 
   entry.request.status = "acknowledged";
   entry.request.ackAt = Date.now();
@@ -40,12 +40,16 @@ export function handleReply(requestId: string, payload: any, error?: Error) {
   if (!requestId) return;
 
   const entry = this.requests[requestId];
-  if (!entry) return console.warn(`No request found for ID: ${requestId}`);
+  if (!entry) return; // No matching request — this is a host-initiated push, not a reply
 
-  if (entry.request.status !== "acknowledged")
+  // A reply can arrive without a separate ack (the reply itself serves as ack+reply).
+  // Only warn if the request has already been finalized.
+  if (entry.request.status === "fulfilled" || entry.request.status === "rejected") {
     console.warn(
-      `Request ${requestId} is not acknowledged, current status: ${entry.request.status}`
+      `Request ${requestId} already finalized, current status: ${entry.request.status}`
     );
+    return;
+  }
 
   const status = error ? "rejected" : "fulfilled";
   const repliedAt = Date.now();

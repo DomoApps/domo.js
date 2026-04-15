@@ -1,11 +1,22 @@
 {
   "name": "ryuu.js",
-  "version": "5.1.4",
+  "version": "6.0.0-alpha.0",
   "description": "Ryuu JavaScript Utility Library",
   "main": "dist/domo.js",
+  "sideEffects": [
+    "./src/domo.ts",
+    "./src/init.ts",
+    "./dist/domo.js"
+  ],
+  "files": [
+    "dist/domo.js",
+    "dist/domo.js.map",
+    "dist/**/*.d.ts",
+    "LICENSE"
+  ],
   "license": "SEE LICENSE IN LICENSE",
-  "dependencies": {},
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/jest": "^29.5.14",
     "http-server": "^14.0.0",
     "jest": "^29.7.0",

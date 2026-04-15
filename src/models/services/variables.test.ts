@@ -103,17 +103,42 @@ describe('onVariablesUpdated', () => {
 });
 
 describe('Variable type validation', () => {
-  it('should accept valid Variable array', () => {
+  it('should accept valid Variable array with functionId', () => {
     const validVariables = [
       { functionId: 1, value: 'test' },
       { functionId: 2, value: 42 },
       { functionId: 3, value: { nested: 'object' } }
     ];
-    
+
     expect(() => {
       Domo.requestVariablesUpdate(validVariables);
     }).not.toThrow();
-    
+
+    expect(window.parent.postMessage).toHaveBeenCalled();
+  });
+
+  it('should accept valid Variable array with name', () => {
+    const validVariables = [
+      { name: 'My Variable', value: 'test' },
+      { name: 'Another Variable', value: 42 }
+    ];
+
+    expect(() => {
+      Domo.requestVariablesUpdate(validVariables);
+    }).not.toThrow();
+
+    expect(window.parent.postMessage).toHaveBeenCalled();
+  });
+
+  it('should accept valid Variable array with both functionId and name', () => {
+    const validVariables = [
+      { functionId: 1, name: 'My Variable', value: 'test' }
+    ];
+
+    expect(() => {
+      Domo.requestVariablesUpdate(validVariables);
+    }).not.toThrow();
+
     expect(window.parent.postMessage).toHaveBeenCalled();
   });
 
@@ -123,26 +148,76 @@ describe('Variable type validation', () => {
       { functionId: 2, value: 42 }
     ];
     const jsonString = JSON.stringify(validVariables);
-    
+
     expect(() => {
       Domo.requestVariablesUpdate(jsonString);
     }).not.toThrow();
-    
+
     expect(window.parent.postMessage).toHaveBeenCalled();
   });
 
   it('should throw for malformed Variable array', () => {
     const malformedVariables = [
-      { wrongField: 1, value: 'test' }, // missing functionId
-      { functionId: 'not-a-number', value: 42 } // functionId is not a number
+      { wrongField: 1, value: 'test' }, // missing both functionId and name
+      { functionId: 'not-a-number', value: 42 } // functionId is not a number, no name
     ];
-    
+
     expect(() => {
       Domo.requestVariablesUpdate(malformedVariables as any);
     }).toThrow(Error);
-    
+
     expect(() => {
       Domo.requestVariablesUpdate(malformedVariables as any);
-    }).toThrow(/Variables must be provided as a Variable array/);
+    }).toThrow(/Invalid variable\(s\) detected/);
+  });
+
+  it('should log expected model to console.error for malformed variables', () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation();
+
+    try { Domo.requestVariablesUpdate([{ bad: true }] as any); } catch {}
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid variable(s)'),
+      expect.stringContaining('Expected format:'),
+      expect.objectContaining({ value: expect.any(String) })
+    );
+    spy.mockClear();
+
+    try { Domo.requestVariablesUpdate('not-json' as any); } catch {}
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('not valid JSON'),
+      'not-json',
+      expect.stringContaining('Expected format:'),
+      expect.any(Array)
+    );
+    spy.mockClear();
+
+    try { Domo.requestVariablesUpdate([] as any); } catch {}
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('cannot be empty'),
+      expect.any(Array)
+    );
+    spy.mockRestore();
+  });
+
+  it('should log expected model to console.error for non-array input', () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation();
+    try { Domo.requestVariablesUpdate(42 as any); } catch {}
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('Variables must be an array'),
+      42,
+      expect.stringContaining('Expected format:'),
+      expect.any(Array)
+    );
+    spy.mockRestore();
+  });
+
+  it('should throw for Variable missing both functionId and name', () => {
+    const invalidVariables = [
+      { value: 'test' } // no functionId or name
+    ];
+
+    expect(() => {
+      Domo.requestVariablesUpdate(invalidVariables as any);
+    }).toThrow(/Invalid variable\(s\) detected/);
   });
 });

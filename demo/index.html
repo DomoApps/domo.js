@@ -3,88 +3,231 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>domo.js Feature Report</title>
+  <title>domo.js Developer Toolkit</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="public-assets/assets/css/styles.css">
+
+  <!-- Synchronously load the chosen ryuu.js version before any app code -->
+  <script>
+    var RYUUJS_VERSIONS = [
+      "5.1.4","5.1.3","5.1.2","5.1.1","5.1.0",
+      "5.0.1","5.0.0",
+      "4.7.0","4.6.0","4.5.0","4.4.1","4.4.0","4.3.1","4.3.0",
+      "4.2.0","4.1.1","4.1.0","4.0.1","4.0.0",
+      "3.0.6","3.0.5","3.0.4","3.0.3","3.0.2","3.0.1","3.0.0",
+      "2.6.8","2.6.7","2.6.5","2.6.4","2.6.3","2.6.2","2.6.1","2.6.0",
+      "2.5.10","2.5.9","2.5.8","2.5.7","2.5.6","2.5.5","2.5.4","2.5.3","2.5.2","2.5.1","2.5.0",
+      "2.4.1","2.4.0","2.3.1","2.3.0","2.2.0","2.1.2","2.1.1","2.1.0","2.0.4","2.0.3","2.0.2","2.0.1"
+    ];
+    var RYUUJS_CHOSEN = new URLSearchParams(window.location.search).get("v") || "local";
+    var _src = RYUUJS_CHOSEN === "local"
+      ? "domo.js"
+      : "https://cdn.jsdelivr.net/npm/ryuu.js@" + RYUUJS_CHOSEN + "/dist/domo.js";
+    document.write('<script src="' + _src + '"><\/script>');
+  </script>
 </head>
 <body>
   <div class="container">
     <!-- Header -->
     <header class="header">
       <h1>domo.js</h1>
-      <p>Feature report &amp; interactive test suite</p>
-      <div id="deviceInfo" class="device-detection-header">
-        <div class="device-status">
-          <span>Device</span>
-          <span id="deviceType" class="device-badge">Detecting...</span>
+      <p>Developer toolkit</p>
+
+      <div class="header__meta">
+        <!-- Version Picker -->
+        <div class="version-picker" id="versionPicker">
+          <label class="version-picker__label" for="versionSelect">ryuu.js</label>
+          <div class="version-picker__control">
+            <select class="version-picker__select" id="versionSelect"></select>
+            <span class="version-picker__badge" id="versionSource">local</span>
+          </div>
+        </div>
+
+        <!-- Device Badge -->
+        <div id="deviceInfo" class="device-detection-header">
+          <div class="device-status">
+            <span>Device</span>
+            <span id="deviceType" class="device-badge">Detecting...</span>
+          </div>
         </div>
       </div>
     </header>
 
-    <!-- Event Warning Banner -->
-    <div class="event-banner" id="eventBanner">
-      <div class="event-banner__glow"></div>
-      <div class="event-banner__content">
-        <div class="event-banner__icon">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M10 2L1 18h18L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-            <path d="M10 8v4M10 14.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="event-banner__text">
-          <strong>Events not registered</strong>
-          <span>The app will refresh on data changes instead of updating in place</span>
-        </div>
-        <button class="event-banner__action" id="bannerRegisterBtn">Register Now</button>
-      </div>
-    </div>
+    <!-- Tab Navigation -->
+    <nav class="tab-nav" id="tabNav">
+      <!-- Tab buttons injected by app.js -->
+    </nav>
 
-    <!-- Controls -->
-    <section class="controls">
-      <button id="runTests" class="btn">
-        <span class="spinner" id="spinner" style="display: none;"></span>
-        <span id="runTestsText">Run All Tests</span>
-      </button>
-      <button id="clearResults" class="btn btn-secondary">Clear</button>
-      <button id="exportResults" class="btn btn-secondary">Export</button>
-      <div class="stats">
-        <div class="stat">
-          <span>Total</span>
-          <span class="stat-value" id="totalTests">0</span>
-        </div>
-        <div class="stat stat--passed">
-          <span>Pass</span>
-          <span class="stat-value" id="passedTests">0</span>
-        </div>
-        <div class="stat stat--failed">
-          <span>Fail</span>
-          <span class="stat-value" id="failedTests">0</span>
-        </div>
-        <div class="stat stat--pending">
-          <span>Pending</span>
-          <span class="stat-value" id="pendingTests">0</span>
-        </div>
-      </div>
-    </section>
+    <!-- Tab Content Panels -->
+    <main class="tab-panels">
 
-    <!-- Test cards rendered by JS -->
-    <main class="content" id="testContent">
-      <!-- Category groups injected here -->
+      <!-- ═══════ Request Builder ═══════ -->
+      <section class="tab-panel" id="tab-content-request" style="display:none">
+        <div class="request-builder">
+          <div class="request-builder__main">
+            <div class="request-builder__hint">Uses raw HTTP methods (domo.get, domo.post, etc.) &mdash; not service helpers like domo.appdb or domo.data. No auto-wrapping or query building is applied.</div>
+            <div class="request-builder__method-url">
+              <select class="request-builder__method" id="rbMethod">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+              </select>
+              <div class="request-builder__url-wrap">
+                <input class="request-builder__url" id="rbUrl" type="text"
+                       placeholder="/domo/..." autocomplete="off">
+                <div class="preset-dropdown" id="presetDropdown">
+                  <!-- filled by JS -->
+                </div>
+              </div>
+              <button class="btn" id="rbSend">Send</button>
+            </div>
+
+            <div class="request-builder__body-wrap" id="rbBodyWrap">
+              <textarea class="request-builder__body" id="rbBody"
+                        placeholder="Request body (JSON)..." rows="4"></textarea>
+            </div>
+
+            <details class="request-builder__options">
+              <summary>Options</summary>
+              <div class="request-builder__options-grid">
+                <label>
+                  <span>Format</span>
+                  <select id="rbFormat"><!-- filled by JS --></select>
+                </label>
+                <label>
+                  <span>Content-Type</span>
+                  <input id="rbContentType" type="text" placeholder="application/json">
+                </label>
+                <label class="request-builder__options-full">
+                  <span>Schema (parse function)</span>
+                  <textarea id="rbSchema" rows="2" placeholder="(data) => data"></textarea>
+                </label>
+              </div>
+            </details>
+
+            <div class="request-builder__response" id="rbResponse">
+              <div class="request-builder__empty">
+                <span class="request-builder__empty-icon">/</span>
+                <span>Send a request to see the response</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="request-builder__sidebar">
+            <div class="request-builder__sidebar-header">
+              <h3>History</h3>
+              <button class="btn btn-small btn-clear" id="rbClearHistory">Clear</button>
+            </div>
+            <div class="request-builder__history-list" id="rbHistoryList">
+              <div class="request-builder__empty-history">No requests yet</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════ Event Monitor ═══════ -->
+      <section class="tab-panel" id="tab-content-monitor" style="display:none">
+        <div class="event-monitor">
+          <div class="event-monitor__toolbar">
+            <div class="event-monitor__filters" id="emFilters">
+              <!-- Checkboxes injected by JS -->
+            </div>
+            <div class="event-monitor__actions">
+              <label class="event-monitor__toggle">
+                <input type="checkbox" id="emAutoScroll" checked> Auto-scroll
+              </label>
+              <button class="btn btn-small btn-clear" id="emClear">Clear</button>
+            </div>
+          </div>
+          <div class="event-monitor__listeners" id="emListeners">
+            <!-- Subscribe/unsubscribe buttons injected by JS -->
+          </div>
+          <div class="event-monitor__status" id="emStatus"></div>
+          <div class="event-monitor__feed" id="emFeed">
+            <div class="event-monitor__empty">
+              <span class="event-monitor__empty-icon">~</span>
+              <span>Waiting for events...</span>
+              <span class="event-monitor__empty-hint">Switch to the Test Suite tab and register event listeners, or interact with filters/variables on the page</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════ Test Suite ═══════ -->
+      <section class="tab-panel" id="tab-content-tests">
+        <!-- Event Warning Banner -->
+        <div class="event-banner" id="eventBanner">
+          <div class="event-banner__glow"></div>
+          <div class="event-banner__content">
+            <div class="event-banner__icon">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2L1 18h18L10 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M10 8v4M10 14.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="event-banner__text">
+              <strong>Events not registered</strong>
+              <span>The app will refresh on data changes instead of updating in place</span>
+            </div>
+            <button class="event-banner__action" id="bannerRegisterBtn">Register Now</button>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <section class="controls">
+          <button id="runTests" class="btn">
+            <span class="spinner" id="spinner" style="display: none;"></span>
+            <span id="runTestsText">Run All Tests</span>
+          </button>
+          <button id="clearResults" class="btn btn-secondary">Clear</button>
+          <button id="exportResults" class="btn btn-secondary">Export</button>
+          <div class="stats">
+            <div class="stat">
+              <span>Total</span>
+              <span class="stat-value" id="totalTests">0</span>
+            </div>
+            <div class="stat stat--passed">
+              <span>Pass</span>
+              <span class="stat-value" id="passedTests">0</span>
+            </div>
+            <div class="stat stat--failed">
+              <span>Fail</span>
+              <span class="stat-value" id="failedTests">0</span>
+            </div>
+            <div class="stat stat--pending">
+              <span>Pending</span>
+              <span class="stat-value" id="pendingTests">0</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Test cards rendered by JS -->
+        <div class="content" id="testContent">
+          <!-- Category groups injected here -->
+        </div>
+      </section>
+
     </main>
 
-    <!-- Hidden table kept for stats/export compat -->
-    <table id="reportTable">
-      <thead><tr><th>API Method</th><th>Status</th><th>Details</th><th>Actions</th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <!-- Environment Panel -->
+    <details class="env-panel" id="envPanel">
+      <summary class="env-panel__summary">Environment</summary>
+      <div class="env-panel__body" id="envPanelBody">
+        <!-- Rendered by app.js -->
+      </div>
+    </details>
   </div>
 
-  <!-- Scripts -->
-  <script src="public-assets/domo.js"></script>
-  <script src="public-assets/assets/js/tests.js"></script>
-  <script src="public-assets/assets/js/utils.js"></script>
+  <!-- App scripts -->
+  <script src="public-assets/assets/js/config.js"></script>
+  <script src="public-assets/assets/js/renderer.js"></script>
+  <script src="public-assets/assets/js/store.js"></script>
+  <script src="public-assets/assets/js/request-builder.js"></script>
+  <script src="public-assets/assets/js/event-monitor.js"></script>
+  <script src="public-assets/assets/js/test-suite.js"></script>
   <script src="public-assets/assets/js/app.js"></script>
 </body>
 </html>

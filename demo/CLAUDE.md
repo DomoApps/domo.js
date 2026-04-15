@@ -1,58 +1,67 @@
 # demo/
 
-Interactive test-and-report app that exercises every `domo.js` API inside a real Domo iframe. Deploys as a full-page Domo custom app; the UI is a table of tests (HTTP methods, event listeners, utilities) that can be run individually or all at once, with live pass/fail stats and JSON export.
+Interactive developer toolkit for `domo.js` — runs inside a real Domo iframe. Three-tab layout: Request Builder for ad-hoc API exploration, Event Monitor for real-time wire visibility, and Test Suite for automated regression testing. Dark-themed with glassmorphism, version picker to test against any published ryuu.js release.
 
-## What it tests
+## Tabs
 
-- **HTTP CRUD** — `domo.get`, `domo.post`, `domo.put`, `domo.delete` against an AppDB collection (`SanityTest`).
-- **Event listeners** — `onDataUpdated`, `onFiltersUpdated`, `onVariablesUpdated`, `onAppDataUpdated` (event-driven; triggered by dashboard interaction, not by the Run button).
-- **Event requests** — `requestFiltersUpdate`, `requestVariablesUpdate`, `requestAppDataUpdate` (outbound messages to the parent frame).
-- **iOS detection** — multi-factor `isIOS()` check with detailed indicator breakdown.
-- **Device detection** — header badge showing detected platform from user agent.
+### Request Builder (`#request`)
+- Method dropdown (GET/POST/PUT/DELETE) + URL input with autocomplete from endpoint presets
+- Body textarea (auto-hides for GET/DELETE), collapsible options panel (format, content-type, schema)
+- Response panel showing syntax-highlighted JSON, timing, structured error type badges on failure
+- Session history sidebar — click any entry to replay the request
+
+### Event Monitor (`#monitor`)
+- Real-time feed of **all** MessageChannel, postMessage, and mobile bridge traffic — every inbound and outbound message is captured
+- Hooks into `Domo.debug` by monkey-patching `domo.debug.log` + raw `window.addEventListener('message')` as fallback
+- Monitoring starts eagerly on app init (not lazily on tab switch) so early events (ACKs, initial filter/variable pushes) are captured
+- Each entry shows: timestamp, direction arrow (in/out), event type badge, **transport source badge** (MessageChannel / postMessage / mobile), requestId, expandable payload
+- Filter bar with checkboxes per event type: `dataUpdated`, `filtersUpdated`, `variablesUpdated`, `appData`, `ack`, `subscribe`, `filter`, `variable`, `navigate`, `http`
+- Auto-scroll toggle, clear button
+- Graceful degradation for older SDK versions without `domo.debug`
+
+### Test Suite (`#tests`)
+- **HTTP CRUD** — `domo.get`, `domo.post`, `domo.put`, `domo.delete` against AppDB collection (`SanityTest`)
+- **Data API** — `domo.data.query` and `domo.data.sql` against the `test` dataset alias
+- **AppDB** — `domo.appdb.list`, `domo.appdb.create`, `domo.appdb.update`, `domo.appdb.remove`
+- **Event listeners** — `onDataUpdated`, `onFiltersUpdated`, `onVariablesUpdated`, `onAppDataUpdated` (event-driven)
+- **Event requests** — `requestFiltersUpdate`, `requestVariablesUpdate`, `requestAppDataUpdate`
+- **Code Engine** — `domo.codeEngine("awesomeFunction", ...)`
+- **Workflows** — `domo.workflow.start` and `domo.workflow.getInstance`
+- **AI Services** — `domo.ai.generateText` and `domo.ai.textToSQL`
+- **Utilities** — `domo.env`, iOS detection
+- **DX Tools** — debug mode, interceptors, structured errors, schema validation
+- Run All / Run Category / Run Single, with event warning banner
+
+## Architecture
+
+```
+demo/assets/js/
+├── config.js           # Manifest aliases, endpoint presets, category meta, constants
+├── store.js            # Reactive pub/sub state store (session only)
+├── renderer.js         # DataRenderer, ResultFormatter, RequestRenderer, EventRenderer, DOMUtils, GeneralUtils, ExportUtils
+├── request-builder.js  # Request Builder tab — form, presets, response display, history
+├── event-monitor.js    # Event Monitor tab — debug hook, feed, filters, dedup, auto-scroll
+├── test-suite.js       # Test definitions + TestSuite class (merged from old tests.js + app.js)
+└── app.js              # Tab manager, version picker, env panel, initialization
+```
+
+Script load order: config → renderer → store → request-builder → event-monitor → test-suite → app
 
 ## Build system
 
 | Script | What it does |
 |---|---|
-| `node build.js` | Copies `assets/`, `domo.js`, `manifest.json`, `README.md`, `thumbnail.png` into `public-assets/` and rewrites `index.html` paths to point there. This is the layout Domo's CLI expects for upload. |
-| `node clean.js` | Reverses `build.js` — deletes `public-assets/` and restores original `index.html` paths. |
+| `node build.js` | Copies `assets/`, `domo.js`, `manifest.json`, `README.md`, `thumbnail.png` into `public-assets/` and rewrites `index.html` paths. |
+| `node clean.js` | Reverses `build.js` — deletes `public-assets/` and restores original paths. |
 
-The `public-assets/` directory is a build artifact. Source-of-truth files live at the top level of `demo/`.
-
-## Annotated File Tree
-
-```
-demo/
-├── CLAUDE.md               # This file
-├── index.html              # Single-page app shell — loads CSS + three JS files, renders the test table
-├── manifest.json           # Domo app manifest (id, dataset mapping → "test" alias, collection → "SanityTest")
-├── domo.js                 # Copy of the built library (dist/domo.js) used by the demo
-├── thumbnail.png           # App thumbnail shown in Domo's app store
-├── README.md               # User-facing documentation (setup, usage, troubleshooting)
-├── build.js                # Node script: copies assets → public-assets/, rewrites index.html paths
-├── clean.js                # Node script: reverses build.js (deletes public-assets/, restores paths)
-│
-├── assets/                 # Source assets (the canonical copies)
-│   ├── css/
-│   │   └── styles.css      # All styles — layout, buttons, table, status badges, responsive breakpoints
-│   └── js/
-│       ├── tests.js        # Test definitions array (`features`), status labels, event feature list, helpers
-│       ├── utils.js        # DOMUtils, StatisticsManager, ResultFormatter, ExportUtils, GeneralUtils (incl. isIOS)
-│       └── app.js          # DomoTestApp class — init, row building, test execution, event registration, export
-│
-└── public-assets/          # Build artifact (generated by build.js, git-tracked). Mirror of assets/ + top-level files
-    ├── domo.js
-    ├── manifest.json
-    ├── README.md
-    ├── thumbnail.png
-    └── assets/
-        ├── css/styles.css
-        └── js/{app,tests,utils}.js
-```
+No changes needed to build.js/clean.js — `ITEMS_TO_MOVE` includes `'assets'` as a directory, so all JS files are copied automatically.
 
 ## Key patterns
 
-- **No framework.** Vanilla JS with class-based organization (`DomoTestApp`, `DOMUtils`, `StatisticsManager`, etc.).
-- **Script load order matters:** `domo.js` → `tests.js` (defines `features` array) → `utils.js` (utility classes) → `app.js` (reads `features`, instantiates `DomoTestApp`).
-- **Event-driven tests** register callbacks via `domo.onXxxUpdated()` at init and update the table row when the event fires. They cannot be triggered by the "Run All" button.
-- **Sequential HTTP tests:** POST stores `lastId`, which PUT and DELETE depend on. Running them out of order will fail.
+- **No framework.** Vanilla JS with class-based organization.
+- **Script load order matters:** domo.js (synchronous) → config → renderer → store → request-builder → event-monitor → test-suite → app.
+- **Tab state in URL hash** (`#request`, `#monitor`, `#tests`) — bookmarkable, survives reload.
+- **Reactive store** — `SimpleStore` with `get/set/push/on/clear`. Components subscribe to state changes.
+- **Event monitor hooks** into `domo.debug.log` by monkey-patching — captures all SDK-level events without modifying SDK source.
+- **Version-resilient** — `resolveEventMethod()` and `resolveListenerKey()` try canonical names first, then legacy aliases.
+- **Manifest values hardcoded** — dataset `test`, collection `SanityTest`, workflow `testWorkflow`, package `awesomeFunction` must match manifest.json.

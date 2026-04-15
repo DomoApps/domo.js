@@ -1,6 +1,9 @@
-import { generateUniqueId, isIOS, isMobile } from "../../utils/general";
+import { generateUniqueId } from "../../utils/general";
+import { sendToParent } from "../../utils/messaging";
 import { guardAgainstInvalidFilters } from "../../utils/filter";
 import { Filter } from "../interfaces/filter";
+import { OnAckCallback, OnReplyCallback } from "../interfaces/ask-reply";
+import { domoDebug } from "../../utils/debug";
 
 /**
  * Sends filter data to the parent window or to the iOS webkit message handler.
@@ -14,15 +17,13 @@ import { Filter } from "../interfaces/filter";
 export function requestFiltersUpdate(
   filters: Filter[] | null,
   pageStateUpdate: boolean | null = null,
-  onAck?: Function,
-  onReply?: Function
+  onAck?: OnAckCallback,
+  onReply?: OnReplyCallback
 ): string {
   guardAgainstInvalidFilters(filters);
   const requestId = generateUniqueId();
-  const ios = isIOS();
-  const mobile = isMobile();
 
-  const request = {
+  const desktopPayload = {
     requestId,
     event: "filter",
     filter: filters?.map((filter) => ({
@@ -36,7 +37,7 @@ export function requestFiltersUpdate(
 
   this.requests[requestId] = {
     request: {
-      payload: request,
+      payload: desktopPayload,
       onAck,
       onReply,
       status: "pending",
@@ -44,31 +45,20 @@ export function requestFiltersUpdate(
     },
   };
 
-  if (!mobile) {
-    window.parent.postMessage(JSON.stringify(request), "*");
-    return request.requestId;
-  }
-
-  const sanitizedFilters = filters?.map((filter) => ({
+  const mobileFilters = filters?.map((filter) => ({
     column: filter.column,
     operand: filter.operator || (filter as any).operand,
     values: filter.values,
     dataType: filter.dataType,
   }));
 
-
-  try {
-    domofilter.postMessage(JSON.stringify(sanitizedFilters));
-  } catch (error_) {
-    console.error("Failed to post message using domofilter:", error_);
-    try {
-      if (ios) window.webkit?.messageHandlers?.domofilter?.postMessage(sanitizedFilters);
-      else window.parent.postMessage(JSON.stringify(request), "*");
-    } catch (err) {
-      console.error("Failed to post message using webkit:", err);
-      window.parent.postMessage(JSON.stringify(request), "*");
-    }
-  }
+  sendToParent(
+    'filter',
+    desktopPayload,
+    'domofilter',
+    JSON.stringify(mobileFilters),
+    mobileFilters
+  );
 
   return requestId;
 }
@@ -81,7 +71,7 @@ export function requestFiltersUpdate(
  * @param callback - The function to call when filters are updated.
  * @returns A function to unregister the callback.
  */
-export function onFiltersUpdated(callback: Function) {
+export function onFiltersUpdated(callback: (filters: Filter[]) => void) {
   const hasHandlers = this.listeners.onFiltersUpdated.length > 0;
 
   this.connect();
@@ -107,8 +97,11 @@ export function handleFiltersUpdated(message: any, responsePort?: MessagePort): 
   if (!message) return;
 
   if (this.listeners.onFiltersUpdated.length) {
-    responsePort?.postMessage({ requestId: message.requestId, event: "ack", filters: message.filters });
-    this.listeners.onFiltersUpdated.forEach((cb: Function) =>
+    domoDebug.log('filters', 'filtersUpdated', message.filters);
+    const ack = { requestId: message.requestId, event: "ack", filters: message.filters };
+    domoDebug.log('messages', 'sent:ack:channel', 'ack', ack);
+    responsePort?.postMessage(ack);
+    this.listeners.onFiltersUpdated.forEach((cb: (filters: Filter[]) => void) =>
       cb(message.filters)
     );
   }

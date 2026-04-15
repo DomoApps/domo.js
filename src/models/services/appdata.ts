@@ -1,4 +1,6 @@
 import { generateUniqueId } from "../../utils/general";
+import { domoDebug } from "../../utils/debug";
+import { OnAckCallback, OnReplyCallback } from "../interfaces/ask-reply";
 
 /**
  * Sends app data to the parent window.
@@ -8,7 +10,7 @@ import { generateUniqueId } from "../../utils/general";
  * @param onAck - Optional callback to invoke when the message is acknowledged.
  * @param onReply - Optional callback to invoke when a reply is received.
  */
-export function requestAppDataUpdate(appData: string, onAck?: Function, onReply?: Function) {
+export function requestAppDataUpdate(appData: string, onAck?: OnAckCallback, onReply?: OnReplyCallback) {
   const requestId = generateUniqueId();
 
   const payload = {
@@ -27,6 +29,7 @@ export function requestAppDataUpdate(appData: string, onAck?: Function, onReply?
     },
   };
 
+  domoDebug.log('messages', 'sent:postMessage', 'appData', payload);
   window.parent.postMessage(JSON.stringify(payload), "*");
 }
 
@@ -37,7 +40,7 @@ export function requestAppDataUpdate(appData: string, onAck?: Function, onReply?
  * @param callback - The function to call when app data is received.
  * @returns A function to unregister the callback.
  */
-export function onAppDataUpdated(callback: Function) {
+export function onAppDataUpdated(callback: (appData: string) => void) {
   this.connect(true);
   this.listeners.onAppDataUpdated.push(callback);
 
@@ -58,8 +61,10 @@ export function handleAppData(message: any, responsePort?: MessagePort) {
   if (!message) return;
 
   if (this.listeners.onAppDataUpdated.length) {
-    responsePort?.postMessage({ requestId: message.requestId, event: "ack" });
-    this.listeners.onAppDataUpdated.forEach((cb: Function) =>
+    const ack = { requestId: message.requestId, event: "ack" };
+    domoDebug.log('messages', 'sent:ack:channel', 'ack', ack);
+    responsePort?.postMessage(ack);
+    this.listeners.onAppDataUpdated.forEach((cb: (appData: string) => void) =>
       cb(message.appData)
     );
   }

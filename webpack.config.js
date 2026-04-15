@@ -8,8 +8,9 @@ const bannerComment = [
 ].join('\n');
 
 module.exports = {
+  mode: 'production',
   entry: './src/domo.ts',
-  devtool: 'inline-source-map',
+  devtool: 'source-map',
   plugins: [
     new webpack.BannerPlugin(bannerComment)
   ],
@@ -30,5 +31,9 @@ module.exports = {
     library: 'domo',
     libraryTarget: 'umd',
     libraryExport: 'Domo'
+  },
+  optimization: {
+    minimize: true,
+    usedExports: true,
   }
 };

@@ -13,12 +13,12 @@ ryuu.js (published as `ryuu.js`, developed as `domo.js`) is a comprehensive Java
 ## 📚 Documentation
 
 Choose your version:
-- **[v5+ Documentation](#v5-documentation)** ⭐ Latest (recommended)
+- **[v6+ Documentation](#v6-documentation)** ⭐ Latest (recommended)
 - **[v4 and Earlier Documentation](#v4-and-earlier-documentation)** 📦 Legacy
 
 ---
 
-## v5+ Documentation
+## v6+ Documentation
 
 ## Table of Contents
 
@@ -28,6 +28,11 @@ Choose your version:
 - [Core Concepts](#core-concepts)
 - [API Reference](#api-reference)
   - [HTTP Methods](#http-methods)
+  - [Data API](#data-api)
+  - [AppDB](#appdb)
+  - [Code Engine](#code-engine)
+  - [Workflows](#workflows)
+  - [AI Services](#ai-services)
   - [Event Listeners](#event-listeners)
   - [Emitters](#emitters)
   - [Navigation](#navigation)
@@ -37,7 +42,11 @@ Choose your version:
 - [Mobile Platform Support](#mobile-platform-support)
 - [Error Handling](#error-handling)
 - [Advanced Usage](#advanced-usage)
+  - [Schema Validation](#schema-validation)
+  - [Request Interceptors](#request-interceptors)
+  - [Debug Mode](#debug-mode)
 - [Complete Example](#complete-example)
+- [Breaking Changes (v6.0)](#breaking-changes-v60)
 - [Migration Guide](#migration-guide)
 - [Contributing](#contributing)
 - [License](#license)
@@ -72,16 +81,26 @@ Domo.onFiltersUpdated((filters) => {
 
 ## Features
 
+- **Data API** - Query datasets with typed options (fields, filters, aggregations, date graining, beast modes)
+- **AppDB** - Full CRUD, MongoDB queries, bulk operations, partial updates, collection management
+- **Code Engine** - Run Code Engine functions by manifest alias
+- **Workflows** - Start and monitor Domo Workflows
+- **AI Services** - Text generation and text-to-SQL via Domo's AI Service Layer
 - **HTTP API Access** - Authenticated requests to Domo datasets, datastores, and APIs
 - **Real-time Events** - Listen for dataset updates, filter changes, and variable updates
 - **Filter Management** - Get and set page-level filters programmatically
 - **Variable Management** - Access and update page variables
 - **Custom App Data** - Send custom data between apps on the same page
+- **Typed Environment** - `Domo.env` with userId, userName, host, platform, enriched from environment API
 - **Navigation** - Programmatically navigate within Domo
 - **Mobile Support** - Full iOS and Android compatibility
-- **TypeScript Ready** - Complete type definitions included
-- **Zero Dependencies** - Minimal bundle size with no runtime dependencies
-- **Extensible** - Override or extend functionality via `extend()` method
+- **TypeScript Ready** - Complete type definitions with typed callbacks and generics
+- **Zero Dependencies** - ~28KB UMD bundle with no runtime dependencies
+- **Extensible** - `extend()` propagates overrides to all services (data, appdb, ai, etc.)
+- **Structured Errors** - Typed error classes (`DomoHttpError`, `DomoAuthError`, `DomoConnectionError`, `DomoValidationError`) with `instanceof` support
+- **Schema Validation** - Optional runtime response validation via `{ schema: { parse } }` option (works with zod, valibot, etc.)
+- **Request Interceptors** - Middleware pattern via `Domo.intercept()` for logging, retry, caching
+- **Debug Mode** - `Domo.debug.enable()` for category-based logging of HTTP, messages, filters, variables
 
 ---
 
@@ -154,21 +173,24 @@ Domo.requestFiltersUpdate(
 
 ### Environment Context
 
-Access information about the current user and environment via `Domo.env`:
+`Domo.env` provides typed access to the current user, instance, and page context. Properties are populated immediately from iframe query parameters, then enriched in the background from `GET /domo/environment/v1` (which provides authoritative server-side values like `host`).
 
 ```javascript
-console.log(Domo.env.userId);      // Current user ID
-console.log(Domo.env.customer);    // Customer name
-console.log(Domo.env.pageId);      // Current page ID
-console.log(Domo.env.locale);      // Locale (e.g., 'en-US')
-console.log(Domo.env.platform);    // Platform (e.g., 'desktop', 'mobile')
+// Available immediately
+console.log(Domo.env.userId);      // "481303514"
+console.log(Domo.env.userName);    // "JSON"
+console.log(Domo.env.userEmail);   // "Jason.Hansen@domo.com"
+console.log(Domo.env.customer);    // "domo"
+console.log(Domo.env.locale);      // "en-US"
+console.log(Domo.env.platform);    // "desktop" | "mobile"
+console.log(Domo.env.pageId);      // "1185508957"
+
+// Available after environment API loads
+console.log(Domo.env.host);        // "domo.demo.domo.com"
+console.log(Domo.env.loaded);      // true
 ```
 
-**Security Note:** Environment properties come from URL parameters and can be spoofed. Always verify with the API for secure operations:
-
-```javascript
-const authenticatedUser = await Domo.get('/domo/environment/v1/');
-```
+The `loaded` property indicates whether the environment API has been fetched. If it fails (e.g. running locally), query params serve as the fallback.
 
 ---
 
@@ -378,6 +400,163 @@ const result = await Domo.domoHttp(
   { data: 'custom body' }
 );
 ```
+
+---
+
+### Data API
+
+High-level helpers for querying datasets. Supports all Data API query operators.
+
+#### `Domo.data.query(alias, options?)`
+
+Query a dataset by its manifest alias.
+
+```javascript
+// Simple query
+const rows = await Domo.data.query("sales");
+
+// With filtering, aggregation, and pagination
+const totals = await Domo.data.query("sales", {
+  fields: ["region", "amount"],
+  filter: "amount > 100",
+  sum: ["amount"],
+  groupBy: ["region"],
+  orderBy: "amount descending",
+  limit: 50,
+});
+
+// Date graining
+const monthly = await Domo.data.query("sales", {
+  dateGrain: "orderDate by month",
+  sum: ["amount"],
+  calendar: "fiscal",
+});
+
+// Beast modes
+const bm = await Domo.data.query("sales", {
+  useBeastMode: true,
+  fields: ["myBeastMode", "reps"],
+  sum: ["myBeastMode"],
+  groupBy: ["reps"],
+});
+
+// CSV format
+const csv = await Domo.data.query("sales", { format: "csv" });
+```
+
+**Supported options:** `fields`, `filter`, `avg`, `count`, `max`, `min`, `sum`, `unique`, `groupBy`, `dateGrain`, `calendar`, `orderBy`, `limit`, `offset`, `useBeastMode`, `format`.
+
+#### `Domo.data.sql(alias, sqlQuery, options?)`
+
+Execute a SQL query against a dataset via `POST /sql/v1/{alias}`.
+
+```javascript
+const rows = await Domo.data.sql("sales", "SELECT region, SUM(amount) as total FROM sales GROUP BY region");
+```
+
+> **Note:** The SQL API does not support page filters or JOINs.
+
+---
+
+### AppDB
+
+Full CRUD, MongoDB-style queries, bulk operations, and collection management for AppDB.
+
+#### Document CRUD
+
+```javascript
+const docs = await Domo.appdb.list("Users");
+const doc = await Domo.appdb.get("Users", docId);
+const created = await Domo.appdb.create("Users", { username: "Bill" }); // auto-wraps in { content: ... }
+await Domo.appdb.update("Users", docId, { username: "Ted" });
+await Domo.appdb.remove("Users", docId);
+```
+
+#### Query with MongoDB Syntax
+
+```javascript
+const docs = await Domo.appdb.query("Users", { "content.region": "West" });
+
+// With aggregations
+const results = await Domo.appdb.query("campaigns", {}, {
+  groupby: "content.campaignName, content.month",
+  count: "documentCount",
+  sum: "content.clicks sumClicks",
+  orderby: "sumClicks descending",
+});
+```
+
+#### Partial Update (MongoDB Operators)
+
+```javascript
+await Domo.appdb.partialUpdate("Users",
+  { "content.username": "Bill" },
+  { "$set": { "content.band": "Wyld Stallyns" } }
+);
+```
+
+#### Bulk Operations
+
+```javascript
+await Domo.appdb.bulkCreate("Users", [{ username: "Bill" }, { username: "Ted" }]);
+await Domo.appdb.bulkUpsert("Users", [
+  { id: "existing-id", username: "Bill", band: "Wyld Stallyns" },
+  { username: "Rufus" },
+]);
+await Domo.appdb.bulkDelete("Users", ["id-1", "id-2", "id-3"]);
+```
+
+#### Collection Management & Export
+
+```javascript
+await Domo.appdb.listCollections();
+await Domo.appdb.createCollection({ name: "Users", schema: { columns: [{ name: "username", type: "STRING" }] }, syncEnabled: true });
+await Domo.appdb.export();       // manually trigger sync to Domo DataSets
+```
+
+---
+
+### Code Engine
+
+Run Code Engine functions by their manifest alias.
+
+```javascript
+const result = await Domo.codeEngine("awesomeFunction", { number1AppInput: 5, number2AppInput: 10 });
+```
+
+Requires a `packageMapping` entry in your `manifest.json`.
+
+---
+
+### Workflows
+
+Start and monitor Domo Workflows.
+
+```javascript
+const instance = await Domo.workflow.start("myWorkflow", { param1: "hello" });
+const current = await Domo.workflow.getInstance("myWorkflow", instance.id);
+// current.status: "IN_PROGRESS" | "COMPLETED" | "CANCELED" | "FAILED" | null
+```
+
+Requires a `workflowMapping` entry in your `manifest.json`.
+
+---
+
+### AI Services
+
+Access Domo's AI Service Layer for text generation and text-to-SQL.
+
+```javascript
+const res = await Domo.ai.generateText("Tell me a joke about data");
+console.log(res.choices[0].output);
+
+const sql = await Domo.ai.textToSQL("Show total sales by region", {
+  dataSourceSchemas: [{ dataSourceName: "Sales", columns: [{ name: "Region", type: "string" }, { name: "Amount", type: "number" }] }],
+});
+console.log(sql.choices[0].output); // "SELECT Region, SUM(Amount) ..."
+```
+
+> **Note:** AI services consume AI credits. See your Domo instance rate card for details.
 
 ---
 
@@ -873,7 +1052,14 @@ import Domo, {
   isFilter,
   isFilterArray,
   isVariable,
-  isVariableArray
+  isVariableArray,
+
+  // Error Types
+  DomoHttpError,
+  DomoAuthError,
+  DomoConnectionError,
+  DomoValidationError,
+  DomoTimeoutError,
 } from 'ryuu.js';
 ```
 
@@ -1009,7 +1195,17 @@ if (Domo.__util.isIOS()) {
 
 ## Error Handling
 
-All HTTP methods return Promises. Use `try/catch` with async/await for error handling.
+All HTTP methods return Promises. ryuu.js throws structured, typed error classes that support `instanceof` checks.
+
+### Error Types
+
+| Error Class | Thrown When | Properties |
+|---|---|---|
+| `DomoHttpError` | Non-2xx HTTP response | `status`, `statusText`, `body`, `headers` |
+| `DomoAuthError` | 401 or 403 response (extends `DomoHttpError`) | Same as above |
+| `DomoConnectionError` | Network failure (fetch rejects) | `message` |
+| `DomoValidationError` | Invalid filters/variables, schema parse failure | `message`, `errors[]` |
+| `DomoTimeoutError` | Request or message timeout | `message`, `url` |
 
 ### Basic Error Handling
 
@@ -1022,43 +1218,47 @@ try {
 }
 ```
 
-### Error Object Structure
-
-Error objects include comprehensive information:
+### Using instanceof for Error Types
 
 ```javascript
-try {
-  const data = await Domo.get('/data/v1/nonexistent');
-} catch (error) {
-  console.error('Status:', error.status);         // 404
-  console.error('Status Text:', error.statusText); // 'Not Found'
-  console.error('Message:', error.message);        // Error description
-  console.error('Body:', error.body);             // Response body
-  console.error('Headers:', error.headers);       // Response headers
-}
-```
+import Domo, { DomoHttpError, DomoAuthError, DomoConnectionError } from 'ryuu.js';
 
-### Handling Specific Error Types
-
-```javascript
 try {
   const data = await Domo.get('/data/v1/sales');
 } catch (error) {
-  if (error.status === 404) {
-    console.error('Dataset not found');
-    showError('The requested dataset does not exist');
-  } else if (error.status === 403) {
-    console.error('Access denied');
-    showError('You do not have permission to access this dataset');
-  } else if (error.status === 401) {
-    console.error('Authentication failed');
-    showError('Your session has expired. Please refresh the page.');
-  } else if (error.status >= 500) {
-    console.error('Server error');
-    showError('A server error occurred. Please try again later.');
+  if (error instanceof DomoAuthError) {
+    // 401 or 403 — session expired or no permission
+    console.error('Auth failed:', error.status); // 401 or 403
+    showLoginPrompt();
+  } else if (error instanceof DomoHttpError) {
+    // Any other non-2xx response
+    console.error('HTTP error:', error.status, error.statusText);
+    console.error('Response body:', error.body);
+    console.error('Response headers:', error.headers);
+  } else if (error instanceof DomoConnectionError) {
+    // Network failure — no response at all
+    console.error('Network error:', error.message);
+    showOfflineMessage();
   } else {
     console.error('Unexpected error:', error);
-    showError('An unexpected error occurred');
+  }
+}
+```
+
+### Validation Errors
+
+When you pass malformed data to filters or variables, ryuu.js throws a `DomoValidationError` and logs the expected data model to `console.error`:
+
+```javascript
+import { DomoValidationError } from 'ryuu.js';
+
+try {
+  Domo.requestFiltersUpdate([{ bad: 'data' }]);
+} catch (error) {
+  if (error instanceof DomoValidationError) {
+    console.error(error.message); // "All filters must be valid Filter objects."
+    console.error(error.errors);  // Array of the invalid items
+    // console.error also shows the expected object shape automatically
   }
 }
 ```
@@ -1098,114 +1298,127 @@ try {
 
 ## Advanced Usage
 
+### Schema Validation
+
+Validate API responses at runtime using any schema library with a `.parse()` method (zod, valibot, etc.):
+
+```typescript
+import Domo from 'ryuu.js';
+import { z } from 'zod';
+
+const UserSchema = z.array(z.object({
+  id: z.number(),
+  name: z.string(),
+  email: z.string().email(),
+}));
+
+// Throws DomoValidationError if response doesn't match
+const users = await Domo.get<z.infer<typeof UserSchema>>('/data/v1/users', {
+  schema: UserSchema,
+});
+```
+
+Zero cost when `schema` is not provided — a single falsy check.
+
+---
+
+### Request Interceptors
+
+Register middleware that wraps every HTTP request. Interceptors use an onion model — the last registered runs outermost.
+
+```javascript
+// Logging interceptor
+const removeLogger = Domo.intercept(async (config, next) => {
+  console.log(`[${config.method}] ${config.url}`);
+  const start = Date.now();
+  const response = await next(config);
+  console.log(`[${config.method}] ${config.url} - ${Date.now() - start}ms`);
+  return response;
+});
+
+// Add custom headers
+Domo.intercept((config, next) => {
+  config.headers['X-Custom'] = 'value';
+  return next(config);
+});
+
+// Short-circuit with a cached response
+Domo.intercept((config, next) => {
+  if (cache.has(config.url)) return Promise.resolve(cache.get(config.url));
+  return next(config);
+});
+
+// Remove an interceptor
+removeLogger();
+```
+
+The `config` object has `{ method, url, headers, body }`. Headers and auth tokens are already set when interceptors run.
+
+---
+
+### Debug Mode
+
+Enable category-based debug logging to trace HTTP requests, MessageChannel messages, filter and variable updates:
+
+```javascript
+// Enable all categories
+Domo.debug.enable();
+
+// Enable specific categories: 'http', 'messages', 'filters', 'variables', 'all'
+Domo.debug.enable(['http', 'messages']);
+
+// Disable
+Domo.debug.disable();
+```
+
+Debug state persists to `localStorage` — it survives page reloads. You can also enable it from the browser console:
+
+```javascript
+localStorage.__domo_debug__ = '["all"]';
+// Refresh the page — debug logging is now active
+```
+
+Output looks like:
+```
+[domo:http] GET /data/v1/sales
+[domo:http] 200 OK /data/v1/sales
+[domo:messages] received filtersUpdated { event: 'filtersUpdated', filters: [...] }
+[domo:filters] filtersUpdated [{ column: 'region', ... }]
+```
+
+---
+
 ### Custom Fetch Implementation
 
 Provide your own fetch implementation for testing or custom behavior:
 
 ```javascript
-// Mock fetch for testing
-const mockFetch = async (url, options) => {
-  return {
-    ok: true,
-    status: 200,
-    headers: new Headers(),
-    json: async () => [{ id: 1, name: 'Test' }]
-  };
-};
-
 const data = await Domo.get('/data/v1/sales', {
-  fetchImpl: mockFetch
+  fetch: myCustomFetch,
 });
 ```
 
-### Caching Layer
-
-Add a caching layer using `extend()`:
-
-```javascript
-const cache = new Map();
-
-Domo.extend({
-  get: async function(url, options) {
-    // Check cache
-    const cacheKey = `${url}:${JSON.stringify(options)}`;
-    if (cache.has(cacheKey)) {
-      console.log('Cache hit:', url);
-      return cache.get(cacheKey);
-    }
-
-    // Fetch and cache
-    const result = await originalGet.call(this, url, options);
-    cache.set(cacheKey, result);
-
-    return result;
-  }
-});
-```
-
-### Request Interceptors
-
-Add interceptors for all requests:
-
-```javascript
-import Domo, { domoHttp as originalDomoHttp } from 'ryuu.js';
-
-Domo.extend({
-  domoHttp: async function(method, url, options, body) {
-    // Before request
-    console.log(`[${method}] ${url}`);
-    const startTime = Date.now();
-
-    // Add custom headers
-    options = {
-      ...options,
-      headers: {
-        ...options?.headers,
-        'X-Custom-Header': 'value'
-      }
-    };
-
-    try {
-      // Make request
-      const result = await originalDomoHttp.call(this, method, url, options, body);
-
-      // After successful request
-      console.log(`[${method}] ${url} - Success (${Date.now() - startTime}ms)`);
-      return result;
-    } catch (error) {
-      // After failed request
-      console.error(`[${method}] ${url} - Error (${Date.now() - startTime}ms)`, error);
-      throw error;
-    }
-  }
-});
-```
+---
 
 ### Type Guards
 
 Use type guards to validate runtime data:
 
 ```javascript
-import { isFilter, isFilterArray, guardAgainstInvalidFilters } from 'ryuu.js';
+import { isFilter, isFilterArray, guardAgainstInvalidFilters, DomoValidationError } from 'ryuu.js';
 
 // Validate individual filter
 if (isFilter(data)) {
-  // TypeScript knows data is a Filter
-  console.log(data.column);
+  console.log(data.column); // TypeScript knows data is a Filter
 }
 
-// Validate array of filters
-if (isFilterArray(data)) {
-  // TypeScript knows data is Filter[]
-  data.forEach(filter => console.log(filter.column));
-}
-
-// Throw error if invalid
+// Validate array — throws DomoValidationError with expected model logged to console
 try {
   guardAgainstInvalidFilters(data);
-  // Data is valid, proceed
 } catch (error) {
-  console.error('Invalid filters:', error.message);
+  if (error instanceof DomoValidationError) {
+    console.error(error.errors); // The invalid items
+  }
 }
 ```
 
@@ -1458,6 +1671,21 @@ new SalesDashboard();
 
 ---
 
+## Breaking Changes (v6.0)
+
+### `Domo.env` type changes
+
+`Domo.env` previously returned raw query parameters (`QueryParams` with `string | number | undefined` values). It now returns a typed `DomoEnv` object:
+
+- `userId`, `userName`, `userEmail`, `customer`, `locale`, `pageId` are now always `string` (previously could be `number` or `undefined`)
+- New properties: `host` (from environment API), `loaded` (boolean indicating if the API fetch completed)
+- `platform` is now typed as `"desktop" | "mobile"` (defaults to `"desktop"`)
+- A background `GET /domo/environment/v1` request is made on initialization to enrich the environment. This is new network traffic that fails silently if the endpoint is unavailable.
+
+**Migration:** If your code checks `typeof Domo.env.userId === 'number'`, update it to treat `userId` as a string. All other existing `Domo.env.*` usage is backwards compatible.
+
+---
+
 ## Migration Guide
 
 ### Deprecated Methods
@@ -1572,7 +1800,7 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and changes.
 
 ## v4 and Earlier Documentation
 
-> **Note:** This documentation is for ryuu.js v4.x and earlier. For the latest version, see [v5+ Documentation](#v5-documentation).
+> **Note:** This documentation is for ryuu.js v4.x and earlier. For the latest version, see the [v6+ Documentation](#v6-documentation).
 
 ## Table of Contents
 
@@ -1590,7 +1818,7 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and changes.
 - [Mobile Platform Support](#mobile-platform-support-1)
 - [Error Handling](#error-handling-1)
 - [Complete Example](#complete-example-1)
-- [Upgrading to v5+](#upgrading-to-v5)
+- [Upgrading to v6+](#upgrading-to-v6)
 - [Contributing](#contributing-1)
 - [License](#license-1)
 
@@ -2443,9 +2671,9 @@ new SalesDashboard();
 
 ---
 
-## Upgrading to v5+
+## Upgrading to v6+
 
-If you're using v4 and want to upgrade to the latest v5+, here's what you need to know.
+If you're using v4 and want to upgrade to the latest v6+, here's what you need to know.
 
 ### Breaking Changes
 
@@ -2517,7 +2745,7 @@ Domo.get('/data/v1/sales');
 
 4. **Test Thoroughly** - After migration, test all functionality.
 
-For complete v5 documentation, see [v5+ Documentation](#v5-documentation).
+For complete v6 documentation, see [v6+ Documentation](#v6-documentation).
 
 ---
 

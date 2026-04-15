@@ -20,8 +20,38 @@
       ]
     }
   ],
-  "workflowMapping": [],
-  "packageMapping": [],
+  "workflowMapping": [
+    {
+      "alias": "testWorkflow",
+      "parameters": []
+    }
+  ],
+  "packageMapping": [
+    {
+      "alias": "awesomeFunction",
+      "parameters": [
+        {
+          "alias": "number1AppInput",
+          "type": "number",
+          "nullable": false,
+          "isList": false,
+          "children": null
+        },
+        {
+          "alias": "number2AppInput",
+          "type": "number",
+          "nullable": false,
+          "isList": false,
+          "children": null
+        }
+      ],
+      "output": {
+        "alias": "sumAppOutput",
+        "type": "number",
+        "children": null
+      }
+    }
+  ],
   "collectionsMapping": [
     {
       "name": "SanityTest"

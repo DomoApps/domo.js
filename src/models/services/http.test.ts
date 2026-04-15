@@ -1,5 +1,6 @@
 import Domo from "../../domo";
 import { RequestMethods } from "../enums/request-methods";
+import { DomoValidationError, DomoConnectionError, DomoHttpError, DomoAuthError } from "../errors";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -255,5 +256,136 @@ describe("domo HTTP edge cases", () => {
         body: "raw-body"
       })
     );
+  });
+});
+
+describe("Schema validation", () => {
+  beforeEach(() => {
+    (window as any)["__RYUU_SID__"] = "test-token";
+  });
+
+  it("should pass parsed response through schema.parse when provided", async () => {
+    const data = [{ name: "Alice" }];
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true, status: 200, statusText: "OK",
+      text: async () => JSON.stringify(data), body: {},
+    });
+
+    const schema = { parse: jest.fn((d: unknown) => d) };
+    const result = await Domo.get("/test", { schema } as any);
+    expect(schema.parse).toHaveBeenCalledWith(data);
+    expect(result).toEqual(data);
+  });
+
+  it("should throw DomoValidationError when schema.parse throws", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true, status: 200, statusText: "OK",
+      text: async () => '{"bad":true}', body: {},
+    });
+
+    const schema = {
+      parse: () => { throw new Error("Expected array, got object"); },
+    };
+    await expect(Domo.get("/test", { schema } as any)).rejects.toThrow(DomoValidationError);
+    await expect(Domo.get("/test", { schema } as any)).rejects.toThrow("Response validation failed");
+  });
+
+  it("should not call schema.parse when schema is not provided", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true, status: 200, statusText: "OK",
+      text: async () => '{"ok":true}', body: {},
+    });
+
+    const result = await Domo.get("/test");
+    expect(result).toEqual({ ok: true });
+  });
+});
+
+describe("Structured error types", () => {
+  beforeEach(() => {
+    (window as any)["__RYUU_SID__"] = "test-token";
+  });
+
+  it("should throw DomoHttpError for non-2xx responses", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false, status: 500, statusText: "Internal Server Error",
+      text: async () => "server error", body: {},
+      headers: { forEach: (cb: any) => cb("application/json", "content-type") },
+    });
+    await expect(Domo.get("/test")).rejects.toThrow(DomoHttpError);
+  });
+
+  it("should throw DomoAuthError for 401 responses", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false, status: 401, statusText: "Unauthorized",
+      text: async () => "unauthorized", body: {},
+      headers: { forEach: (cb: any) => {} },
+    });
+    await expect(Domo.get("/test")).rejects.toThrow(DomoAuthError);
+  });
+
+  it("should throw DomoAuthError for 403 responses", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false, status: 403, statusText: "Forbidden",
+      text: async () => "forbidden", body: {},
+      headers: { forEach: (cb: any) => {} },
+    });
+    await expect(Domo.get("/test")).rejects.toThrow(DomoAuthError);
+  });
+
+  it("should throw DomoConnectionError for network failures", async () => {
+    (global.fetch as jest.Mock).mockRejectedValue(new Error("Failed to fetch"));
+    await expect(Domo.get("/test")).rejects.toThrow(DomoConnectionError);
+  });
+
+  it("DomoHttpError should have status, statusText, body, headers", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false, status: 404, statusText: "Not Found",
+      text: async () => "not found body", body: {},
+      headers: { forEach: (cb: any) => cb("text/plain", "content-type") },
+    });
+    try {
+      await Domo.get("/missing");
+      fail("should have thrown");
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(DomoHttpError);
+      expect(err.status).toBe(404);
+      expect(err.statusText).toBe("Not Found");
+      expect(err.body).toBe("not found body");
+      expect(err.headers["content-type"]).toBe("text/plain");
+    }
+  });
+
+  it("DomoAuthError should be instanceof DomoHttpError", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false, status: 401, statusText: "Unauthorized",
+      text: async () => "", body: {},
+      headers: { forEach: () => {} },
+    });
+    try {
+      await Domo.get("/secret");
+      fail("should have thrown");
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(DomoHttpError);
+      expect(err).toBeInstanceOf(DomoAuthError);
+      expect(err.name).toBe("DomoAuthError");
+    }
+  });
+
+  it("DomoValidationError from schema should preserve errors array", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true, status: 200, statusText: "OK",
+      text: async () => '{"x":1}', body: {},
+    });
+    const schemaError: any = new Error("bad");
+    schemaError.errors = [{ path: "name", message: "required" }];
+    const schema = { parse: () => { throw schemaError; } };
+    try {
+      await Domo.get("/test", { schema } as any);
+      fail("should have thrown");
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(DomoValidationError);
+      expect(err.errors).toEqual([{ path: "name", message: "required" }]);
+    }
   });
 });

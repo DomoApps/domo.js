@@ -32,6 +32,16 @@ export interface RequestOptions<F extends DomoDataFormats = DomoDataFormats> {
    * Content-Type header value.
    */
   contentType?: string;
+  /**
+   * Optional schema for runtime response validation.
+   * Must have a `parse` method that throws on invalid data (e.g., zod schema).
+   *
+   * @example
+   * import { z } from 'zod';
+   * const UserSchema = z.array(z.object({ name: z.string() }));
+   * domo.get<User[]>('/api/users', { schema: UserSchema });
+   */
+  schema?: { parse: (data: unknown) => any };
 }
 
 /**

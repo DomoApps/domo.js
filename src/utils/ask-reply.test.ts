@@ -41,19 +41,19 @@ describe('ask-reply utils', () => {
       expect(context.requests.req1.request.onAck).toHaveBeenCalledWith({ foo: 'bar' });
     });
 
-    it('logs warning if request not found', () => {
+    it('silently returns if request not found (host-initiated push)', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation();
       handleAck.call(context, { requestId: 'notfound' }, {} as MessagePort);
-      expect(warn).toHaveBeenCalledWith('No request found for ID: notfound');
+      expect(warn).not.toHaveBeenCalled();
       warn.mockRestore();
     });
 
-    it('logs warning if request not pending', () => {
+    it('silently skips if request already acknowledged', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation();
       handleAck.call(context, { requestId: 'req2' }, {} as MessagePort);
-      expect(warn).toHaveBeenCalledWith(
-        'Request req2 is not pending, current status: acknowledged'
-      );
+      expect(warn).not.toHaveBeenCalled();
+      // Status stays acknowledged, not overwritten
+      expect(context.requests.req2.request.status).toBe('acknowledged');
       warn.mockRestore();
     });
   });
@@ -81,19 +81,31 @@ describe('ask-reply utils', () => {
       expect(context.requests.req2.request.onReply).toHaveBeenCalledWith(null, error);
     });
 
-    it('logs warning if request not found', () => {
+    it('silently returns if request not found (host-initiated push)', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation();
       handleReply.call(context, 'notfound', {});
-      expect(warn).toHaveBeenCalledWith('No request found for ID: notfound');
+      expect(warn).not.toHaveBeenCalled();
       warn.mockRestore();
     });
 
-    it('logs warning if request not acknowledged', () => {
+    it('fulfills a pending request directly (reply without prior ack)', () => {
+      handleReply.call(context, 'req1', { direct: true });
+      expect(context.requests.req1.request.status).toBe('fulfilled');
+      expect(context.requests.req1.request.onReply).toHaveBeenCalledWith({ direct: true }, undefined);
+    });
+
+    it('warns and returns early if request already fulfilled', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation();
-      handleReply.call(context, 'req1', {});
+      // First reply — succeeds
+      handleReply.call(context, 'req2', { first: true });
+      expect(context.requests.req2.request.status).toBe('fulfilled');
+      // Second reply — warns and returns
+      handleReply.call(context, 'req2', { second: true });
       expect(warn).toHaveBeenCalledWith(
-        'Request req1 is not acknowledged, current status: pending'
+        'Request req2 already finalized, current status: fulfilled'
       );
+      // Response unchanged from first reply
+      expect(context.requests.req2.response.payload).toEqual({ first: true });
       warn.mockRestore();
     });
   });
@@ -162,36 +174,32 @@ describe('ask-reply utils', () => {
       expect(req.onReply).toHaveBeenCalledWith(null, error);
     });
 
-    it('logs warning if request not found (ack)', () => {
+    it('silently returns if request not found (ack)', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation();
       Domo.handleAck({ requestId: 'notfound' }, {} as MessagePort);
-      expect(warn).toHaveBeenCalledWith('No request found for ID: notfound');
+      expect(warn).not.toHaveBeenCalled();
       warn.mockRestore();
     });
 
-    it('logs warning if request not found (reply)', () => {
+    it('silently returns if request not found (reply)', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation();
       Domo.handleReply('notfound', {});
-      expect(warn).toHaveBeenCalledWith('No request found for ID: notfound');
+      expect(warn).not.toHaveBeenCalled();
       warn.mockRestore();
     });
 
-    it('logs warning if request not pending', () => {
+    it('silently skips ack if request not pending', () => {
       const warn = jest.spyOn(console, 'warn').mockImplementation();
       Domo.handleAck({ requestId: 'req2' }, {} as MessagePort);
-      expect(warn).toHaveBeenCalledWith(
-        'Request req2 is not pending, current status: acknowledged'
-      );
+      expect(warn).not.toHaveBeenCalled();
       warn.mockRestore();
     });
 
-    it('logs warning if request not acknowledged', () => {
-      const warn = jest.spyOn(console, 'warn').mockImplementation();
-      Domo.handleReply('req1', {});
-      expect(warn).toHaveBeenCalledWith(
-        'Request req1 is not acknowledged, current status: pending'
-      );
-      warn.mockRestore();
+    it('fulfills a pending request directly via handleReply (no prior ack)', () => {
+      Domo.handleReply('req1', { direct: true });
+      const req = Domo.getRequest('req1').request;
+      expect(req.status).toBe('fulfilled');
+      expect(req.onReply).toHaveBeenCalledWith({ direct: true }, undefined);
     });
   });
 });

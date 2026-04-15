@@ -1,3 +1,5 @@
+import { domoDebug } from "../../utils/debug";
+
 /**
  * Sends a navigation event message to the parent window to navigate to a specified URL.
  *
@@ -5,10 +7,11 @@
  * @param {boolean} isNewWindow - Whether to open the URL in a new window.
  */
 export function navigate(url: string, isNewWindow: boolean) {
-  const message = JSON.stringify({
+  const payload = {
     event: "navigate",
     url: url,
     isNewWindow: isNewWindow,
-  });
-  window.parent.postMessage(message, "*");
+  };
+  domoDebug.log('messages', 'sent:postMessage', 'navigate', payload);
+  window.parent.postMessage(JSON.stringify(payload), "*");
 }

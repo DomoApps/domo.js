@@ -1,409 +1,221 @@
 /**
- * Main application logic for domo.js test suite
- * Handles test execution, UI management, and event coordination
+ * Main application — tab management, version picker, environment panel, initialization.
  */
-
-const CATEGORY_META = {
-  http:   { icon: '/', label: 'HTTP', cssClass: 'http' },
-  events: { icon: '~', label: 'Events', cssClass: 'events' },
-  utils:  { icon: '#', label: 'Utilities', cssClass: 'utils' },
-};
-
-class DomoTestApp {
+class DomoApp {
   constructor() {
-    this.features = features;
-    this.statsManager = new StatisticsManager();
-    this.isInitialized = false;
-    this.eventsRegistered = false;
-
-    this.runAllTests = this.runAllTests.bind(this);
-    this.clearAllResults = this.clearAllResults.bind(this);
-    this.exportResults = this.exportResults.bind(this);
-    this.registerEventListeners = this.registerEventListeners.bind(this);
+    this.store = appStore;
+    this.requestBuilder = new RequestBuilder(this.store);
+    this.eventMonitor = new EventMonitor(this.store);
+    this.testSuite = new TestSuite(this.store);
   }
 
   init() {
-    if (this.isInitialized) return;
-
     if (!window.domo) {
-      console.error("domo.js is not loaded.");
-      document.body.innerHTML = "<h2 style='color:#ef4444;text-align:center;padding:4rem'>Error: domo.js is not loaded.</h2>";
+      document.body.innerHTML = '<h2 style="color:#ef4444;text-align:center;padding:4rem">Error: domo.js is not loaded.</h2>';
       return;
     }
 
-    this.buildCards();
-    this.buildHiddenTableRows();
-    this.setupUIEventListeners();
+    initVersionPicker();
+    this._initTabs();
+    this._initEnvPanel();
 
-    this.isInitialized = true;
-    GeneralUtils.logInfo("DomoTestApp", "Application initialized successfully");
-  }
+    // Mount tab contents
+    this.requestBuilder.mount(document.getElementById('tab-content-request'));
+    this.eventMonitor.mount(document.getElementById('tab-content-monitor'));
+    this.testSuite.mount(document.getElementById('tab-content-tests'));
 
-  /* -----------------------------------------------------------------------
-     Card-based UI
-     ----------------------------------------------------------------------- */
+    // Start event monitoring immediately so early events (ACKs, initial
+    // filter/variable pushes) are captured before the user switches tabs.
+    this.eventMonitor.startMonitoring();
 
-  buildCards() {
-    const container = DOMUtils.getElementById("testContent");
-    if (!container) return;
+    // Wire up test suite UI controls
+    this._wireTestSuiteControls();
 
-    // Group by category
-    const groups = {};
-    this.features.forEach((f) => {
-      const cat = f.category || 'other';
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(f);
+    // Read initial tab from hash
+    var hash = window.location.hash.replace('#', '') || 'tests';
+    this.switchTab(hash);
+
+    // Listen for hash changes
+    var self = this;
+    window.addEventListener('hashchange', function() {
+      var tab = window.location.hash.replace('#', '') || 'tests';
+      self.switchTab(tab);
     });
 
-    Object.entries(groups).forEach(([cat, items]) => {
-      const meta = CATEGORY_META[cat] || { icon: '?', label: cat, cssClass: cat };
+    updateDeviceInfo();
+  }
 
-      const group = DOMUtils.createElement("section", { className: "category-group" });
-      group.innerHTML = `
-        <div class="category-header">
-          <div class="category-icon category-icon--${meta.cssClass}">${meta.icon}</div>
-          <span class="category-title">${meta.label}</span>
-          <span class="category-count">${items.length}</span>
-        </div>
-        <div class="test-cards" id="cards-${cat}"></div>
-      `;
-      container.appendChild(group);
+  switchTab(tabId) {
+    var validIds = APP_CONFIG.TABS.map(function(t) { return t.id; });
+    if (validIds.indexOf(tabId) === -1) tabId = 'request';
 
-      const cardsEl = group.querySelector(".test-cards");
+    this.store.set('activeTab', tabId);
 
-      items.forEach(({ name, description, pendingMsg, customButton }) => {
-        const isEvent = isEventDrivenTest(name);
-        const card = DOMUtils.createElement("div", {
-          className: "test-card",
-          id: `card-${name}`,
-        });
+    // Toggle visibility
+    validIds.forEach(function(id) {
+      var content = document.getElementById('tab-content-' + id);
+      var btn = document.getElementById('tab-btn-' + id);
+      if (content) content.style.display = id === tabId ? '' : 'none';
+      if (btn) btn.classList.toggle('tab-btn--active', id === tabId);
+    });
 
-        // Actions
-        let actionsHTML = '';
-        if (isEvent && name !== 'requestAppDataUpdate') {
-          actionsHTML = `<span class="event-hint">event-driven</span>`;
-        } else if (customButton) {
-          actionsHTML = `<button class="btn btn-small btn-run" id="requestAppDataUpdateBtn">Send App Data</button>
-                         <span id="requestAppDataUpdateResult" style="font-size:0.72rem;color:var(--text-muted);"></span>`;
-        } else {
-          actionsHTML = `
-            <button class="btn btn-small btn-run" onclick="window.testApp.runSingleTest('${name}')">Run</button>
-            <button class="btn btn-small btn-clear" onclick="window.testApp.clearSingleTest('${name}')">Clear</button>
-          `;
-        }
+    // Update hash without scrolling
+    history.replaceState(null, '', '#' + tabId);
 
-        const detailsContent = isEvent && !customButton
-          ? (pendingMsg || "Not registered")
-          : (pendingMsg || "");
+  }
 
-        card.innerHTML = `
-          <div class="test-card__info">
-            <div class="test-card__name">${name}</div>
-            <div class="test-card__desc">${description || ''}</div>
-            <div class="test-card__details" id="details-${name}">${detailsContent}</div>
-          </div>
-          <div id="status-${name}">
-            <span class="status pending">Pending</span>
-          </div>
-          <div class="test-card__actions">${actionsHTML}</div>
-        `;
+  _wireTestSuiteControls() {
+    var self = this;
+    var bannerBtn = document.getElementById('bannerRegisterBtn');
+    if (bannerBtn) bannerBtn.addEventListener('click', function() { self.testSuite.registerEventListeners(); });
 
-        cardsEl.appendChild(card);
+    var runBtn = document.getElementById('runTests');
+    if (runBtn) runBtn.addEventListener('click', function() {
+      var spinner = document.getElementById('spinner');
+      var text = document.getElementById('runTestsText');
+      if (spinner) spinner.style.display = '';
+      if (text) text.textContent = 'Running...';
+      if (runBtn) runBtn.disabled = true;
+      self.testSuite.runAll().then(function() {
+        if (spinner) spinner.style.display = 'none';
+        if (text) text.textContent = 'Run All Tests';
+        if (runBtn) runBtn.disabled = false;
       });
     });
 
-    // Wire up the Send App Data button
-    this.setupRequestAppDataUpdate();
-    this.statsManager.updateStats();
+    var clearBtn = document.getElementById('clearResults');
+    if (clearBtn) clearBtn.addEventListener('click', function() { self.testSuite.clearAll(); });
+
+    var exportBtn = document.getElementById('exportResults');
+    if (exportBtn) exportBtn.addEventListener('click', function() { self.testSuite.exportResults(); });
   }
 
-  /* Keep hidden table rows for StatisticsManager & ExportUtils compat */
-  buildHiddenTableRows() {
-    const tbody = DOMUtils.querySelector("#reportTable tbody");
-    if (!tbody) return;
+  _initTabs() {
+    var nav = document.getElementById('tabNav');
+    if (!nav) return;
+    var self = this;
 
-    this.features.forEach(({ name }) => {
-      const tr = DOMUtils.createElement("tr", { id: `row-${name}` });
-      tr.innerHTML = `
-        <td class="feature-name">${name}</td>
-        <td><span class="status pending">Pending</span></td>
-        <td class="details"></td>
-        <td></td>
-      `;
-      tbody.appendChild(tr);
+    APP_CONFIG.TABS.forEach(function(tab) {
+      var btn = document.createElement('button');
+      btn.id = 'tab-btn-' + tab.id;
+      btn.className = 'tab-btn';
+      btn.textContent = tab.label;
+      btn.addEventListener('click', function() { self.switchTab(tab.id); });
+      nav.appendChild(btn);
     });
   }
 
-  /* -----------------------------------------------------------------------
-     Event Registration
-     ----------------------------------------------------------------------- */
+  _initEnvPanel() {
+    var body = document.getElementById('envPanelBody');
+    if (!body) return;
 
-  registerEventListeners() {
-    if (this.eventsRegistered) return;
+    var self = this;
+    var render = function() {
+      var env = window.domo.env || {};
+      var debugOn = window.domo.debug ? window.domo.debug.enabled : false;
+      var rows = [
+        ['User', env.userName || 'N/A'],
+        ['Email', env.userEmail || 'N/A'],
+        ['Customer', env.customer || 'N/A'],
+        ['Host', env.host || '(loading...)'],
+        ['Platform', env.platform || 'N/A'],
+        ['Locale', env.locale || 'N/A'],
+        ['Page ID', env.pageId || 'N/A'],
+        ['Debug', debugOn ? 'ON' : 'OFF'],
+        ['Version', typeof RYUUJS_CHOSEN !== 'undefined' ? RYUUJS_CHOSEN : 'unknown'],
+      ];
 
-    const noop = () => {};
-    window.domo.listeners.onFiltersUpdated.push(noop);
+      body.innerHTML = rows.map(function(r) {
+        return '<div class="env-panel__row"><span>' + DataRenderer.escapeHTML(r[0]) + '</span><code>' + DataRenderer.escapeHTML(String(r[1])) + '</code></div>';
+      }).join('');
+    };
 
-    EVENT_FEATURES.forEach((eventName) => {
-      try {
-        GeneralUtils.logInfo("registerEventListeners", `Registering event: ${eventName}`);
+    render();
+    this.store.on('debugEnabled', render);
 
-        window.domo[eventName]((arg) => {
-          GeneralUtils.logInfo("Event", `${eventName} triggered`, arg);
-          const timestamp = GeneralUtils.formatTimestamp();
-
-          let msg;
-          switch (eventName) {
-            case "onDataUpdated":
-              msg = `Callback ran at ${timestamp} with alias: ${arg}`;
-              break;
-            case "onAppDataUpdated":
-              msg = `Callback ran at ${timestamp}. Data: ${arg}`;
-              break;
-            default:
-              msg = `Callback ran successfully at ${timestamp}`;
-          }
-
-          this.updateRow(eventName, "success", msg);
-
-          // Flash the card
-          const card = DOMUtils.getElementById(`card-${eventName}`);
-          if (card) {
-            card.classList.remove("test-card--event-fired");
-            void card.offsetWidth; // force reflow
-            card.classList.add("test-card--event-fired");
-          }
-        });
-
-        this.updateRow(eventName, "pending", features.find(f => f.name === eventName)?.pendingMsg || "Listening...");
-      } catch (e) {
-        GeneralUtils.logError(`registerEventListeners - ${eventName}`, e);
-        this.updateRow(eventName, "fail", e.message);
-      }
-    });
-
-    const idx = window.domo.listeners.onFiltersUpdated.indexOf(noop);
-    if (idx >= 0) window.domo.listeners.onFiltersUpdated.splice(idx, 1);
-
-    this.eventsRegistered = true;
-    this.dismissEventBanner();
-    this.statsManager.updateStats();
-  }
-
-  dismissEventBanner() {
-    const banner = DOMUtils.getElementById("eventBanner");
-    if (!banner || banner.classList.contains("event-banner--dismissed")) return;
-    banner.classList.add("event-banner--dismissed");
-    banner.addEventListener("animationend", () => banner.remove(), { once: true });
-  }
-
-  /* -----------------------------------------------------------------------
-     UI Event Listeners
-     ----------------------------------------------------------------------- */
-
-  setupUIEventListeners() {
-    const runButton = DOMUtils.getElementById("runTests");
-    const clearButton = DOMUtils.getElementById("clearResults");
-    const exportButton = DOMUtils.getElementById("exportResults");
-    if (runButton) runButton.addEventListener("click", this.runAllTests);
-    if (clearButton) clearButton.addEventListener("click", this.clearAllResults);
-    if (exportButton) exportButton.addEventListener("click", this.exportResults);
-
-    const bannerBtn = DOMUtils.getElementById("bannerRegisterBtn");
-    if (bannerBtn) bannerBtn.addEventListener("click", this.registerEventListeners);
-  }
-
-  setupRequestAppDataUpdate() {
-    const btn = DOMUtils.getElementById("requestAppDataUpdateBtn");
-    if (!btn) return;
-
-    const resultSpan = DOMUtils.getElementById("requestAppDataUpdateResult");
-
-    btn.addEventListener("click", async () => {
-      try {
-        const feature = this.features.find((f) => f.name === "requestAppDataUpdate");
-        await feature.fn();
-        if (resultSpan) {
-          resultSpan.textContent = "Sent!";
-          resultSpan.style.color = "var(--accent-green)";
-        }
-      } catch (e) {
-        if (resultSpan) {
-          resultSpan.textContent = `Failed: ${e?.message || e}`;
-          resultSpan.style.color = "var(--accent-red)";
-        }
-      }
-    });
-  }
-
-  /* -----------------------------------------------------------------------
-     Test Execution
-     ----------------------------------------------------------------------- */
-
-  async runAllTests() {
-    const runButton = DOMUtils.getElementById("runTests");
-    const spinner = DOMUtils.getElementById("spinner");
-    const runTestsText = DOMUtils.getElementById("runTestsText");
-
-    if (!runButton || !spinner || !runTestsText) return;
-
-    runButton.disabled = true;
-    DOMUtils.toggleElementVisibility(spinner, true);
-    DOMUtils.setElementContent(runTestsText, "Running...");
-
-    for (const { name } of this.features) {
-      if (isEventDrivenTest(name)) continue;
-      this.updateRow(name, "pending", "");
-    }
-
-    for (const feat of this.features) {
-      const { name, fn } = feat;
-      if (isEventDrivenTest(name)) continue;
-
-      try {
-        this.updateRow(name, "running", "Running...");
-
-        const result = await fn();
-        const details = ResultFormatter.formatTestResult(result, name);
-
-        this.updateRow(name, "success", details);
-      } catch (e) {
-        GeneralUtils.logError(`Test ${name}`, e);
-        this.updateRow(name, "fail", e.message || String(e));
-      }
-    }
-
-    runButton.disabled = false;
-    DOMUtils.toggleElementVisibility(spinner, false);
-    DOMUtils.setElementContent(runTestsText, "Run All Tests");
-    this.statsManager.updateStats();
-  }
-
-  clearAllResults() {
-    this.features.forEach(({ name, pendingMsg }) => {
-      if (!isEventDrivenTest(name)) {
-        this.updateRow(name, "pending", pendingMsg || "");
-      }
-    });
-
-    resetTestData();
-
-    const appDataResult = DOMUtils.getElementById("requestAppDataUpdateResult");
-    if (appDataResult) DOMUtils.setElementContent(appDataResult, "");
-
-    this.statsManager.updateStats();
-  }
-
-  async runSingleTest(testName) {
-    const feature = this.features.find(f => f.name === testName);
-    if (!feature || isEventDrivenTest(testName)) return;
-
-    try {
-      this.updateRow(testName, "running", "Running...");
-
-      const result = await feature.fn();
-      const details = ResultFormatter.formatTestResult(result, testName);
-
-      this.updateRow(testName, "success", details);
-    } catch (e) {
-      GeneralUtils.logError(`Test ${testName}`, e);
-      this.updateRow(testName, "fail", e.message || String(e));
-    }
-
-    this.statsManager.updateStats();
-  }
-
-  clearSingleTest(testName) {
-    const feature = this.features.find(f => f.name === testName);
-    if (!feature) return;
-
-    this.updateRow(testName, "pending", feature.pendingMsg || "");
-    this.statsManager.updateStats();
-  }
-
-  exportResults() {
-    const results = ExportUtils.createResultsExport(this.features);
-    const filename = `domo-js-test-results-${new Date().toISOString().split('T')[0]}.json`;
-    ExportUtils.downloadJSON(results, filename);
-  }
-
-  /* -----------------------------------------------------------------------
-     Row/Card Update (syncs both card UI and hidden table row)
-     ----------------------------------------------------------------------- */
-
-  updateRow(name, status, details = "") {
-    // Update card
-    const statusEl = DOMUtils.getElementById(`status-${name}`);
-    if (statusEl) {
-      const icon = ResultFormatter.getStatusIcon(status);
-      const label = STATUS_LABELS[status] || STATUS_LABELS.pending;
-      statusEl.innerHTML = `<span class="status ${status}">${icon} ${label}</span>`;
-    }
-
-    if (!isEventDrivenTest(name) || status === "success") {
-      const detailsEl = DOMUtils.getElementById(`details-${name}`);
-      if (detailsEl) {
-        detailsEl.innerHTML = details;
-      }
-    }
-
-    // Sync hidden table row
-    const row = DOMUtils.getElementById(`row-${name}`);
-    if (row) {
-      const statusIcon = ResultFormatter.getStatusIcon(status);
-      const statusCell = row.children[1];
-      DOMUtils.setElementContent(statusCell,
-        `<span class="status ${status}">${statusIcon} ${STATUS_LABELS[status] || STATUS_LABELS.pending}</span>`,
-        true
-      );
-
-      if (!isEventDrivenTest(name)) {
-        const detailsCell = row.children[2];
-        DOMUtils.setElementContent(detailsCell, details, true);
-      }
-    }
+    // Re-render after env finishes loading
+    setTimeout(render, 3000);
   }
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-  window.testApp = new DomoTestApp();
-  window.testApp.init();
-  updateDeviceInfo();
-});
+/* -----------------------------------------------------------------------
+   Version Picker (unchanged from original)
+   ----------------------------------------------------------------------- */
+function initVersionPicker() {
+  var select = document.getElementById('versionSelect');
+  var badge = document.getElementById('versionSource');
+  if (!select || !badge) return;
 
+  var chosen = (typeof RYUUJS_CHOSEN !== 'undefined') ? RYUUJS_CHOSEN : 'local';
+  var versions = (typeof RYUUJS_VERSIONS !== 'undefined') ? RYUUJS_VERSIONS : [];
+
+  var localOpt = document.createElement('option');
+  localOpt.value = 'local';
+  localOpt.textContent = 'Local (dev build)';
+  select.appendChild(localOpt);
+
+  versions.forEach(function(v) {
+    var opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v;
+    select.appendChild(opt);
+  });
+
+  select.value = chosen;
+  badge.textContent = chosen === 'local' ? 'local' : 'cdn';
+  badge.className = 'version-picker__badge ' +
+    (chosen === 'local' ? 'version-picker__badge--local' : 'version-picker__badge--cdn');
+
+  select.addEventListener('change', function() {
+    var next = select.value;
+    var url = new URL(window.location.href);
+    if (next === 'local') {
+      url.searchParams.delete('v');
+    } else {
+      url.searchParams.set('v', next);
+    }
+    window.location.href = url.toString();
+  });
+}
+
+/* -----------------------------------------------------------------------
+   Device Detection (unchanged from original)
+   ----------------------------------------------------------------------- */
 function updateDeviceInfo() {
-  const deviceTypeElement = DOMUtils.getElementById('deviceType');
-  if (!deviceTypeElement) return;
+  var el = document.getElementById('deviceType');
+  if (!el) return;
 
   try {
-    const isIOSResult = GeneralUtils.isIOS();
-    const userAgent = navigator.userAgent;
-
-    let deviceType = 'Unknown';
-    let deviceClass = 'non-ios-device';
+    var isIOSResult = GeneralUtils.isIOS();
+    var ua = navigator.userAgent;
+    var deviceType = 'Desktop';
+    var deviceClass = 'non-ios-device';
 
     if (isIOSResult) {
-      if (/iphone/i.test(userAgent)) deviceType = 'iPhone';
-      else if (/ipad/i.test(userAgent)) deviceType = 'iPad';
-      else if (/ipod/i.test(userAgent)) deviceType = 'iPod';
+      if (/iphone/i.test(ua)) deviceType = 'iPhone';
+      else if (/ipad/i.test(ua)) deviceType = 'iPad';
+      else if (/ipod/i.test(ua)) deviceType = 'iPod';
       else deviceType = 'iOS Device';
       deviceClass = 'ios-device';
     } else {
-      if (/android/i.test(userAgent)) deviceType = 'Android';
-      else if (/windows/i.test(userAgent)) deviceType = 'Windows';
-      else if (/mac/i.test(userAgent)) deviceType = 'Mac';
-      else if (/linux/i.test(userAgent)) deviceType = 'Linux';
-      else deviceType = 'Desktop';
+      if (/android/i.test(ua)) deviceType = 'Android';
+      else if (/windows/i.test(ua)) deviceType = 'Windows';
+      else if (/mac/i.test(ua)) deviceType = 'Mac';
+      else if (/linux/i.test(ua)) deviceType = 'Linux';
     }
 
-    deviceTypeElement.textContent = deviceType;
-    deviceTypeElement.className = `device-badge ${deviceClass}`;
+    el.textContent = deviceType;
+    el.className = 'device-badge ' + deviceClass;
   } catch (error) {
-    deviceTypeElement.textContent = 'Error';
-    deviceTypeElement.className = 'device-badge';
-    console.error('Device detection error:', error);
+    el.textContent = 'Error';
+    el.className = 'device-badge';
   }
 }
 
-console.log("iOS detection result:", GeneralUtils.isIOS());
+/* -----------------------------------------------------------------------
+   Initialize
+   ----------------------------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', function() {
+  window.app = new DomoApp();
+  window.app.init();
+});
