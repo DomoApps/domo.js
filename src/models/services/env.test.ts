@@ -14,6 +14,7 @@ describe("env", () => {
     expect(typeof Domo.env.locale).toBe("string");
     expect(typeof Domo.env.platform).toBe("string");
     expect(typeof Domo.env.pageId).toBe("string");
+    expect(typeof Domo.env.dataAppId).toBe("string");
     expect(typeof Domo.env.host).toBe("string");
   });
 
