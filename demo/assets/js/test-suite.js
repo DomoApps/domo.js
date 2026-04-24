@@ -498,6 +498,7 @@ const testDefinitions = [
           locale: domo.env.locale,
           platform: domo.env.platform,
           pageId: domo.env.pageId,
+          analyzer: domo.env.analyzer,
           loaded: domo.env.loaded,
         },
       };

@@ -21,6 +21,8 @@ interface DomoEnv {
   pageId: string;
   /** The data app ID (from query params). */
   dataAppId: string;
+  /** The analyzer ID (from query params). */
+  analyzer: string;
   /** Whether the environment API has been loaded. */
   loaded: boolean;
   /** Raw query parameters for any additional values. */
@@ -57,6 +59,7 @@ function buildEnv(): DomoEnv {
     platform: params.platform === "mobile" ? "mobile" : "desktop",
     pageId: String(params.pageId ?? ""),
     dataAppId: String(params.dataAppId ?? ""),
+    analyzer: String(params.analyzer ?? ""),
     loaded: false,
   };
 
