@@ -1,0 +1,24 @@
+name: Promote Latest
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Stable version to mark as latest (e.g. 6.0.3)"
+        required: true
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          registry-url: "https://registry.npmjs.org/"
+      - run: npm ci
+      - name: Move latest dist-tag
+        run: npm run ci:promote-latest
+        env:
+          VERSION: ${{ inputs.version }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
