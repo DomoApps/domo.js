@@ -26,6 +26,7 @@
 - **`npm publish` failed with "version exists"** — package.json is out of sync with npm. Manually fast-forward `package.json.version` to one above the highest published, then re-trigger the workflow.
 - **Bot push rejected** — branch protection bypass is misconfigured. Add the bot to the bypass list.
 - **Stable was published but tag push failed** — manually `git tag vX.Y.Z` and `git push origin vX.Y.Z`.
+- **`cut-beta` succeeded creating the release branch but failed to roll master forward** — the system is now blocked because the new `release/v*` branch with `-beta` prevents future cut-betas. Recovery options: (a) manually push the master version-bump commit (you can find what it should be from the `cut-beta.yml` run logs and amending `package.json` directly), or (b) delete the new release branch (`git push origin --delete release/vX.Y.Z`) and re-run `Cut Beta` — note this discards any `-beta.0` already published to npm.
 
 ## Conventions
 
