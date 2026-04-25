@@ -21,6 +21,11 @@ jobs:
       contents: read
       actions: write   # to trigger other workflows via gh CLI
     steps:
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -42,7 +47,7 @@ jobs:
       - name: Trigger downstream workflows
         if: ${{ inputs.dry_run != 'true' }}
         env:
-          GH_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           DECISIONS: ${{ steps.eval.outputs.decisions }}
         run: |
           set -euo pipefail

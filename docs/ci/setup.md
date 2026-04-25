@@ -4,7 +4,7 @@
 
 1. **Bot identity** — provision `ryuu-ci-bot` (machine user or GitHub App). See `docs/superpowers/specs/2026-04-24-cicd-github-actions-design.md` §12.
 2. **npm access** — bot must be a maintainer of `ryuu.js` (or have a write-scoped token).
-3. **Repo secrets** — set `NPM_TOKEN`, `BOT_GITHUB_TOKEN`, `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`.
+3. **Repo secrets** — set `NPM_TOKEN`, `BOT_APP_ID`, `BOT_APP_PRIVATE_KEY`, `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`.
 4. **Branch protection** — `master` and `release/v*` require `pr-validate` checks. Bot is in the bypass list.
 
 ## Day-to-day operations
