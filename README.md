@@ -2765,6 +2765,14 @@ Contributions are welcome! Please follow these guidelines:
 
 ---
 
+## Release process
+
+`ryuu.js` uses an automated CI/CD pipeline. PRs merge to `master`, which auto-publishes a new alpha. After a soak period without Critical/Major Jira bugs, the pipeline cuts a beta release branch, soaks again, and publishes a stable version. Customers default to whatever the `latest` npm dist-tag points to; the maintainer moves `latest` manually when a stable is ready for general consumption.
+
+See [`docs/ci/setup.md`](./docs/ci/setup.md) for the operator runbook and [`docs/superpowers/specs/2026-04-24-cicd-github-actions-design.md`](./docs/superpowers/specs/2026-04-24-cicd-github-actions-design.md) for the full design.
+
+---
+
 ## License
 
 SEE LICENSE IN [LICENSE](./LICENSE)
