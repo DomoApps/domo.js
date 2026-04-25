@@ -1,6 +1,5 @@
 export interface JiraConfig {
   baseUrl: string;
-  email: string;
   apiToken: string;
   projectKey: string;
 }
@@ -13,11 +12,10 @@ export async function countOpenBlockers(
     `project = "${cfg.projectKey}" AND labels = "${versionLabel}" ` +
     `AND priority in (Critical, Major) AND status != Done`;
 
-  const auth = Buffer.from(`${cfg.email}:${cfg.apiToken}`).toString("base64");
-  const res = await fetch(`${cfg.baseUrl}/rest/api/3/search`, {
+  const res = await fetch(`${cfg.baseUrl}/rest/api/2/search`, {
     method: "POST",
     headers: {
-      Authorization: `Basic ${auth}`,
+      Authorization: `Bearer ${cfg.apiToken}`,
       "Content-Type": "application/json",
       Accept: "application/json",
     },

@@ -235,7 +235,7 @@ Convention is enforced by Subsystem 2's ticket-creation code, but Subsystem 1 de
 These are prerequisites that must be completed before the workflows can run. They are part of the implementation plan but are listed here so they aren't forgotten.
 
 - Provision the `ryuu-ci-bot[bot]` account (or GitHub App) with branch-protection bypass on `master` and `release/v*`.
-- Add repo secrets: `NPM_TOKEN`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_BASE_URL`, `JIRA_PROJECT_KEY`.
+- Add repo secrets: `NPM_TOKEN`, `JIRA_API_TOKEN`, `JIRA_BASE_URL`, `JIRA_PROJECT_KEY`. `JIRA_API_TOKEN` is a Personal Access Token from Jira DC (Profile → Personal Access Tokens); Bearer auth is used — no email required.
 - Update branch-protection rules to require `pr-validate.yml` checks.
 - Confirm Jira project `RYUU` (or whatever the actual key is) has the `priority` field and standard issue workflow.
 - Decide what to do with the existing `release/v*` branches. Most are historical; one (`release/v6.0.2`, the current branch) is the in-flight version — needs to be aligned with the new model on cutover.

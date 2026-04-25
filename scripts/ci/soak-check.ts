@@ -75,7 +75,6 @@ function readPackageJsonVersion(ref: string): string {
 function readJiraConfig(): JiraConfig {
   const required = [
     "JIRA_BASE_URL",
-    "JIRA_EMAIL",
     "JIRA_API_TOKEN",
     "JIRA_PROJECT_KEY",
   ] as const;
@@ -86,7 +85,6 @@ function readJiraConfig(): JiraConfig {
   }
   return {
     baseUrl: process.env.JIRA_BASE_URL!,
-    email: process.env.JIRA_EMAIL!,
     apiToken: process.env.JIRA_API_TOKEN!,
     projectKey: process.env.JIRA_PROJECT_KEY!,
   };

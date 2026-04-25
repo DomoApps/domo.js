@@ -2,7 +2,6 @@ import { countOpenBlockers } from "../jira-client";
 
 const config = {
   baseUrl: "https://example.atlassian.net",
-  email: "ci@example.com",
   apiToken: "tok-123",
   projectKey: "RYUU",
 };
@@ -24,9 +23,9 @@ describe("countOpenBlockers", () => {
 
     // Verify the request was correct
     const [url, options] = mockFetch.mock.calls[0] as any;
-    expect(url).toBe(`${config.baseUrl}/rest/api/3/search`);
+    expect(url).toBe(`${config.baseUrl}/rest/api/2/search`);
     expect(options.method).toBe("POST");
-    expect(options.headers.Authorization).toMatch(/^Basic /);
+    expect(options.headers.Authorization).toMatch(/^Bearer /);
     expect(options.headers.Accept).toBe("application/json");
 
     const body = JSON.parse(options.body);
