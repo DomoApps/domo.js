@@ -22,6 +22,8 @@ async function main(): Promise<void> {
   const stable = stripPrerelease(pkg.version);
 
   rewriteVersion(stable);
+  run("npx", ["tsc", "--noEmit", "--skipLibCheck"]);
+  run("npm", ["test"]);
   run("npm", ["run", "build"]);
   run("npm", ["publish", "--tag", "stable"]);
 
