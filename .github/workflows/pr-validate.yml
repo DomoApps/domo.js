@@ -1,0 +1,21 @@
+name: PR Validate
+
+on:
+  pull_request:
+    branches:
+      - master
+      - "release/v*"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          registry-url: "https://registry.npmjs.org/"
+      - run: npm ci
+      - run: npx tsc --noEmit --skipLibCheck
+      - run: npm test
+      - run: npm run build
