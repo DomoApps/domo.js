@@ -1,0 +1,33 @@
+name: Publish Stable
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Release branch to promote (e.g. release/v6.0.3)"
+        required: true
+
+concurrency:
+  group: publish-stable-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          token: ${{ secrets.BOT_GITHUB_TOKEN }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          registry-url: "https://registry.npmjs.org/"
+      - run: npm ci
+      - name: Strip suffix, build, publish, tag, push
+        run: npm run ci:publish-stable
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
