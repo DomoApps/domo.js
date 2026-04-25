@@ -19,6 +19,8 @@
 | Force-publish stable | Run `Publish Stable` with the release branch name. |
 | Move customers to new stable | Run `Promote Latest` with the stable version (e.g. `6.0.3`). |
 
+**Note on dist-tags:** newly published stable versions are tagged `stable` (not `latest`). Customers who don't pin a version receive whatever `latest` points to. The maintainer moves `latest` via the `Promote Latest` workflow when ready for general consumption.
+
 ## Recovery
 
 - **`npm publish` failed with "version exists"** — package.json is out of sync with npm. Manually fast-forward `package.json.version` to one above the highest published, then re-trigger the workflow.

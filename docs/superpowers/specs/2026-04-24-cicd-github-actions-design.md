@@ -80,7 +80,7 @@ State sources for the soak-check cron:
 | `publish-beta.yml` | `push` to `release/v*` (excluding bot commits) | Same sequence as `publish-alpha.yml` but bumps `-beta.X` and publishes with `--tag beta`. After the push step, also creates and pushes git tag `vX.Y.Z-beta.N`. |
 | `soak-check.yml` | `schedule` (daily 14:00 UTC) + `workflow_dispatch` | Evaluate the soak gate for master (alpha) and each `release/v*` (beta). Trigger downstream workflows when gates pass. Supports `dry_run` input. |
 | `cut-beta.yml` | `workflow_dispatch` (called by `soak-check`, also manually triggerable) | Create `release/vX.Y.Z` from master HEAD, set version to `X.Y.Z-beta.0`, push. Also rolls master to next `X.Y.(Z+1)-alpha.0`. |
-| `publish-stable.yml` | `workflow_dispatch` (called by `soak-check`) | On the given release branch, strip `-beta.X`, `npm publish` (no tag), tag `vX.Y.Z`. |
+| `publish-stable.yml` | `workflow_dispatch` (called by `soak-check`) | On the given release branch, strip `-beta.X`, `npm publish --tag stable`, tag `vX.Y.Z`. |
 | `promote-latest.yml` | `workflow_dispatch` only | Run `npm dist-tag add ryuu.js@<version> latest`. Manual operator action. |
 
 ### 6.1 Concurrency keys
@@ -116,7 +116,7 @@ Both pushes are by the bot. From this point on, master and the release branch ev
 On `release/v6.0.3` at e.g. `6.0.3-beta.4`:
 
 1. Rewrite `package.json` to `6.0.3` (strip the suffix). Bot commit + push.
-2. `npm publish` with no `--tag` → publishes the version, does not change `latest`.
+2. `npm publish --tag stable` → publishes the version under the `stable` dist-tag. **Important:** publishing without `--tag` would automatically set `latest` (npm's default behavior for non-prerelease versions); we use the `stable` tag explicitly to keep `latest` controlled by the manual `promote-latest` workflow.
 3. Create and push git tag `v6.0.3`.
 
 The branch is then frozen. Subsequent customer adoption requires an operator to run `promote-latest.yml`.

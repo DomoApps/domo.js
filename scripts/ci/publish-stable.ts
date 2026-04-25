@@ -23,7 +23,7 @@ async function main(): Promise<void> {
 
   rewriteVersion(stable);
   run("npm", ["run", "build"]);
-  run("npm", ["publish"]);
+  run("npm", ["publish", "--tag", "stable"]);
 
   run("git", ["add", "package.json"]);
   run("git", [
@@ -39,7 +39,7 @@ async function main(): Promise<void> {
   run("git", ["push", "origin", "HEAD"]);
   run("git", ["push", "origin", `v${stable}`]);
 
-  console.log(`published ${stable} (no dist-tag changes; run promote-latest.yml to move latest)`);
+  console.log(`published ${stable} with --tag stable; run promote-latest.yml to move latest`);
 }
 
 if (require.main === module) {
