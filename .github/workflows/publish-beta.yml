@@ -1,0 +1,59 @@
+name: Publish Beta
+
+on:
+  push:
+    branches:
+      - "release/v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Skip npm publish and bot push"
+        required: false
+        default: "false"
+
+concurrency:
+  group: publish-beta-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.actor != 'ryuu-ci-bot[bot]' && !contains(github.event.head_commit.message, '[skip ci]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.BOT_GITHUB_TOKEN }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          registry-url: "https://registry.npmjs.org/"
+      - run: npm ci
+
+      - name: Bump beta counter
+        id: bump
+        run: npm run ci:bump-prerelease
+
+      - run: npx tsc --noEmit --skipLibCheck
+      - run: npm test
+      - run: npm run build
+
+      - name: Publish to npm with --tag beta
+        if: ${{ inputs.dry_run != 'true' }}
+        run: npm publish --tag beta
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Bot commit + tag
+        if: ${{ inputs.dry_run != 'true' }}
+        run: |
+          set -euo pipefail
+          git config user.name "ryuu-ci-bot"
+          git config user.email "ryuu-ci-bot@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore(release): ${{ steps.bump.outputs.next }} [skip ci]"
+          git tag "v${{ steps.bump.outputs.next }}"
+          git push origin HEAD:${{ github.ref_name }}
+          git push origin "v${{ steps.bump.outputs.next }}"
