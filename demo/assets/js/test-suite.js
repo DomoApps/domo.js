@@ -91,14 +91,10 @@ function readQueryParams() {
 // listeners or after env loads gives the up-to-date answer.
 function getParamSnapshot() {
   const params = readQueryParams();
-  const filtersKey = (window.domo && window.domo.listeners) ? resolveListenerKey("onFiltersUpdated") : null;
-  const filtersList = filtersKey && window.domo.listeners[filtersKey];
-  const hasFiltersListener = Array.isArray(filtersList) && filtersList.length > 0;
   const isEmbedded =
     typeof window.ENV !== "undefined" || /\/embed\//.test(location.pathname);
   return {
     params: params,
-    hasFiltersListener: hasFiltersListener,
     isEmbedded: isEmbedded,
     hasPageId: Boolean(params.pageId),
     hasDataAppId: Boolean(params.dataAppId),
@@ -817,16 +813,35 @@ const testDefinitions = [
     isExpected: function () { return true; },
     expectedReason: function () { return "Always"; },
   }),
-  makeParamCard("analyzer", {
-    description: "Initial filter blob — emitted when the app accepts filters",
-    validate: function (v) { return isJsonArray(v) || "must parse as a JSON array"; },
-    isExpected: function (snap) { return snap.hasFiltersListener; },
-    expectedReason: function (snap, expected) {
-      return expected
-        ? "Yes — app registered onFiltersUpdated"
-        : "No — no onFiltersUpdated listener (re-run after clicking 'Register Event Listeners')";
+  {
+    name: "param.analyzer",
+    category: "params",
+    description: "Initial filter blob — emitted when manifest acceptFilters !== false (informational; can't be verified from the iframe)",
+    fn: function () {
+      const snap = getParamSnapshot();
+      const value = snap.params.analyzer;
+      const found = isNonEmpty(value);
+      if (found && !isJsonArray(value)) {
+        throw new Error("analyzer: present but does not parse as a JSON array (value=" + JSON.stringify(value) + ")");
+      }
+      let parsed = null;
+      if (found) {
+        try { parsed = JSON.parse(value); } catch (_) { /* unreachable — isJsonArray verified */ }
+      }
+      return {
+        _render: "payload",
+        direction: "received",
+        method: "url-param",
+        payload: {
+          param: "analyzer",
+          status: found ? "Found" : "Missing",
+          filterCount: found ? parsed.length : "n/a",
+          expected: "Informational — depends on manifest acceptFilters (not detectable at runtime)",
+          valid: found ? "yes (parses as JSON array)" : "n/a",
+        },
+      };
     },
-  }),
+  },
   makeParamCard("pageId", {
     description: "Page ID — emitted when launched on a page (mutually exclusive with dataAppId)",
     validate: function (v) { return isDigits(v) || "must be all digits"; },

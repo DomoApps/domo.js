@@ -55,6 +55,7 @@ const CATEGORY_META = {
   workflow:   { icon: '%', label: 'Workflows',    cssClass: 'workflow' },
   ai:         { icon: '*', label: 'AI Services',  cssClass: 'ai' },
   utils:      { icon: '#', label: 'Utilities',    cssClass: 'utils' },
+  params:     { icon: '?', label: 'URL Params',   cssClass: 'params' },
   dx:         { icon: '+', label: 'DX Tools',     cssClass: 'dx' },
 };
 

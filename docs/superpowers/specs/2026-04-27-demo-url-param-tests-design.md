@@ -24,7 +24,7 @@ The demo app already runs inside a real Domo iframe via `manifest.json`, so it s
 | `locale` | Always | Matches `xx` or `xx-XX` | Form field |
 | `environment` | Always | Non-empty | Form field |
 | `platform` | Always | One of `desktop` / `mobile` | Query string |
-| `analyzer` | App registered `onFiltersUpdated` (proxy for `acceptFilters: true`) | Parses as JSON array | Form field + QS |
+| `analyzer` | Informational (presence depends on manifest `acceptFilters`, which can't be detected at runtime) | Parses as JSON array (when present) | Form field + QS |
 | `pageId` | App is launched on a page (not a data app) | Non-empty, all digits | Query string |
 | `dataAppId` | App is launched as a data app (not a page) | Non-empty | Query string |
 | `embedCode` | App is loaded via embed | Non-empty | Form field *(restored by ticket — currently emitted as `embedToken`)* |
@@ -71,13 +71,11 @@ Single helper inside `test-suite.js` reads `location.search` once per test run a
 
 ```
 getParamSnapshot() → { params: { [name]: string }, isEmbedded: boolean,
-                       hasFiltersListener: boolean, hasPageId: boolean,
-                       hasDataAppId: boolean }
+                       hasPageId: boolean, hasDataAppId: boolean }
 ```
 
 - `params` — `getQueryParams()`-equivalent inline parser. Tests do not use `domo.env` because the env object normalizes some values and we want to assert on the wire format.
 - `isEmbedded` — true if `window.ENV` exists OR `location.pathname.includes('/embed/')`.
-- `hasFiltersListener` — `Array.isArray(domo.listeners?.onFiltersUpdated) && domo.listeners.onFiltersUpdated.length > 0`. Read at run time, not test-suite-load time, so re-running after the user clicks "Register Event Listeners" gives the right answer.
 - `hasPageId` / `hasDataAppId` — convenience booleans used by the launch-context conditional cards.
 
 Each test card's `fn` calls `getParamSnapshot()`, reads the one param it owns, runs its validity check, and resolves expectation against the snapshot.
@@ -93,7 +91,9 @@ No new files. No SDK changes. No HTML changes — the test-suite renderer alread
 
 ## Run Order
 
-The Run All flow runs cards in `testDefinitions` order. The `params` category will be inserted at the end of the array so users see HTTP / AppDB / event results first. The `analyzer` card depends on `hasFiltersListener`, which is only accurate after the user registers event listeners via the banner — its `pendingMsg` will note this, and re-running the card or category gives the up-to-date answer.
+The Run All flow runs cards in `testDefinitions` order. The `params` category will be inserted at the end of the array so users see HTTP / AppDB / event results first.
+
+**Correction (post-ship):** The original spec used `hasFiltersListener` (whether the app has registered `onFiltersUpdated` at runtime) as a proxy for whether `analyzer` should be expected. Empirical testing showed this proxy is wrong: `analyzer` is emitted whenever the manifest's `acceptFilters !== false`, which is a build-time setting independent of runtime listener registration. The iframe can't read its own manifest, so we can't predict expectation reliably. The `analyzer` card was reclassified as informational — it validates JSON array shape when present and reports `filterCount`, but never claims "expected" or "not expected".
 
 ## Out of Scope
 
@@ -108,4 +108,4 @@ The Run All flow runs cards in `testDefinitions` order. The `params` category wi
 2. Each card reports Status, Value (or N/A), Expected (with a human-readable reason).
 3. Running the suite on a current V2 launch produces failures on the `customer` and `embedCode` cards (until DOMO-483881 lands).
 4. Running the suite after the ticket fix produces all-green for always-expected params and contextually-correct results for conditional params.
-5. The `analyzer` card resolves correctly after the user clicks "Register Event Listeners" — present + parses-as-JSON-array + expected = pass.
+5. The `analyzer` card always passes when the value (if present) is a parseable JSON array; reports filter count.

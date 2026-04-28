@@ -68,6 +68,107 @@ const EVENT_FEATURES = [
   "onAppDataUpdated",
 ];
 
+// ── URL param helpers ──────────────────────────────────────────────
+
+// Read all query params off the iframe URL into a plain object.
+// Mirrors src/utils/general.ts:getQueryParams() so we assert on the
+// raw wire surface, not the normalized domo.env shape.
+function readQueryParams() {
+  const result = {};
+  const query = (location.search || "").replace(/^\?/, "");
+  if (!query) return result;
+  query.split("&").forEach(function (part) {
+    const eq = part.indexOf("=");
+    const key = eq === -1 ? part : part.slice(0, eq);
+    const val = eq === -1 ? "" : decodeURIComponent(part.slice(eq + 1));
+    if (key) result[key] = val;
+  });
+  return result;
+}
+
+// Snapshot of everything a param card needs to decide pass/fail.
+// Read fresh on each test run so re-running after registering event
+// listeners or after env loads gives the up-to-date answer.
+function getParamSnapshot() {
+  const params = readQueryParams();
+  const isEmbedded =
+    typeof window.ENV !== "undefined" || /\/embed\//.test(location.pathname);
+  return {
+    params: params,
+    isEmbedded: isEmbedded,
+    hasPageId: Boolean(params.pageId),
+    hasDataAppId: Boolean(params.dataAppId),
+  };
+}
+
+// ── Param validity checkers ────────────────────────────────────────
+
+function isNonEmpty(s) { return typeof s === "string" && s.length > 0; }
+function isDigits(s)   { return isNonEmpty(s) && /^\d+$/.test(s); }
+function isEmail(s)    { return isNonEmpty(s) && /.+@.+\..+/.test(s); }
+function isLocale(s)   { return isNonEmpty(s) && /^[a-z]{2}(-[A-Z]{2})?$/.test(s); }
+function isPlatform(s) { return s === "desktop" || s === "mobile"; }
+function isJsonArray(s) {
+  if (!isNonEmpty(s)) return false;
+  try {
+    const parsed = JSON.parse(s);
+    return Array.isArray(parsed);
+  } catch (_) {
+    return false;
+  }
+}
+
+// ── Param test card factory ────────────────────────────────────────
+
+// Build a test definition that asserts presence, validity, and contextual
+// expectation of a single URL param.
+//
+//   name           — param name (used as test name and card id)
+//   description    — short blurb shown in the card header
+//   validate       — (value) => true | string. true = valid, string = error msg
+//   isExpected     — (snapshot) => true | false
+//   expectedReason — (snapshot, expected) => human-readable string
+function makeParamCard(name, opts) {
+  return {
+    name: "param." + name,
+    category: "params",
+    description: opts.description,
+    fn: function (_params) {
+      const snap = getParamSnapshot();
+      const value = snap.params[name];
+      const found = isNonEmpty(value);
+      const expected = opts.isExpected(snap);
+      const reason = opts.expectedReason(snap, expected);
+
+      if (found) {
+        const valid = opts.validate(value);
+        if (valid !== true) {
+          throw new Error("Invalid value: " + valid + " (got " + JSON.stringify(value) + ")");
+        }
+      }
+      if (expected && !found) {
+        throw new Error(name + ": expected but missing");
+      }
+      if (!expected && found) {
+        throw new Error(name + ": present but not expected here (value=" + JSON.stringify(value) + ")");
+      }
+
+      return {
+        _render: "payload",
+        direction: "received",
+        method: "url-param",
+        payload: {
+          param: name,
+          status: found ? "Found" : "Missing",
+          value: found ? value : "N/A",
+          expected: reason,
+          valid: found ? "yes" : "n/a",
+        },
+      };
+    },
+  };
+}
+
 // ── Test definitions ────────────────────────────────────────────────
 
 const testDefinitions = [
@@ -665,6 +766,156 @@ const testDefinitions = [
           }
         },
         timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+  },
+
+  // ── URL Params ─────────────────────────────────────────────────
+  makeParamCard("userId", {
+    description: "Numeric user ID — always emitted",
+    validate: function (v) { return isDigits(v) || "must be all digits"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("userName", {
+    description: "Display name — always emitted",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("userEmail", {
+    description: "User email — always emitted",
+    validate: function (v) { return isEmail(v) || "must look like an email"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("customer", {
+    description: "Domo instance/customer — always emitted (regression: dropped post-pivot, restored by DOMO-483881)",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("locale", {
+    description: "User locale — always emitted",
+    validate: function (v) { return isLocale(v) || "must be xx or xx-XX"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("environment", {
+    description: "Domo environment name — always emitted",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("platform", {
+    description: "Platform — always emitted as desktop or mobile",
+    validate: function (v) { return isPlatform(v) || "must be desktop or mobile"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  {
+    name: "param.analyzer",
+    category: "params",
+    description: "Initial filter blob — emitted when manifest acceptFilters !== false (informational; can't be verified from the iframe)",
+    fn: function () {
+      const snap = getParamSnapshot();
+      const value = snap.params.analyzer;
+      const found = isNonEmpty(value);
+      if (found && !isJsonArray(value)) {
+        throw new Error("analyzer: present but does not parse as a JSON array (value=" + JSON.stringify(value) + ")");
+      }
+      let parsed = null;
+      if (found) {
+        try { parsed = JSON.parse(value); } catch (_) { /* unreachable — isJsonArray verified */ }
+      }
+      return {
+        _render: "payload",
+        direction: "received",
+        method: "url-param",
+        payload: {
+          param: "analyzer",
+          status: found ? "Found" : "Missing",
+          filterCount: found ? parsed.length : "n/a",
+          expected: "Informational — depends on manifest acceptFilters (not detectable at runtime)",
+          valid: found ? "yes (parses as JSON array)" : "n/a",
+        },
+      };
+    },
+  },
+  makeParamCard("pageId", {
+    description: "Page ID — emitted when launched on a page (mutually exclusive with dataAppId)",
+    validate: function (v) { return isDigits(v) || "must be all digits"; },
+    isExpected: function (snap) { return !snap.hasDataAppId; },
+    expectedReason: function (snap, expected) {
+      return expected
+        ? "Yes — not launched as a data app"
+        : "No — dataAppId is present, so pageId is absent";
+    },
+  }),
+  makeParamCard("dataAppId", {
+    description: "Data App ID — emitted when launched as a data app (mutually exclusive with pageId)",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function (snap) { return !snap.hasPageId; },
+    expectedReason: function (snap, expected) {
+      return expected
+        ? "Yes — not launched on a page"
+        : "No — pageId is present, so dataAppId is absent";
+    },
+  }),
+  makeParamCard("embedCode", {
+    description: "Embed token — emitted only in embed mode (regression: renamed to embedToken post-pivot, restored by DOMO-483881)",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function (snap) { return snap.isEmbedded; },
+    expectedReason: function (snap, expected) {
+      return expected
+        ? "Yes — app is loaded via embed"
+        : "No — not embedded";
+    },
+  }),
+  {
+    name: "param.appData",
+    category: "params",
+    description: "Pass-through app data from the parent page (informational — present and absent are both fine)",
+    fn: function () {
+      const snap = getParamSnapshot();
+      const value = snap.params.appData;
+      const found = isNonEmpty(value);
+      return {
+        _render: "payload",
+        direction: "received",
+        method: "url-param",
+        payload: {
+          param: "appData",
+          status: found ? "Found" : "Missing",
+          value: found ? value : "N/A",
+          expected: "Pass-through — present or absent are both fine",
+          valid: found ? "yes" : "n/a",
+        },
+      };
+    },
+  },
+  {
+    name: "param.arg-*",
+    category: "params",
+    description: "appargs forwarded by the parent — lists every arg-* query param found",
+    fn: function () {
+      const snap = getParamSnapshot();
+      const args = {};
+      Object.keys(snap.params).forEach(function (key) {
+        if (key.indexOf("arg-") === 0) {
+          args[key] = snap.params[key];
+        }
+      });
+      const count = Object.keys(args).length;
+      return {
+        _render: "payload",
+        direction: "received",
+        method: "url-param-rollup",
+        payload: {
+          status: count > 0 ? "Found " + count + " arg-* param(s)" : "No arg-* params present",
+          values: args,
+          expected: "Pass-through — manifest may or may not declare appargs",
+        },
       };
     },
   },
