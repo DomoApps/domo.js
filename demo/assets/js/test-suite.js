@@ -68,6 +68,60 @@ const EVENT_FEATURES = [
   "onAppDataUpdated",
 ];
 
+// ── URL param helpers ──────────────────────────────────────────────
+
+// Read all query params off the iframe URL into a plain object.
+// Mirrors src/utils/general.ts:getQueryParams() so we assert on the
+// raw wire surface, not the normalized domo.env shape.
+function readQueryParams() {
+  const result = {};
+  const query = (location.search || "").replace(/^\?/, "");
+  if (!query) return result;
+  query.split("&").forEach(function (part) {
+    const eq = part.indexOf("=");
+    const key = eq === -1 ? part : part.slice(0, eq);
+    const val = eq === -1 ? "" : decodeURIComponent(part.slice(eq + 1));
+    if (key) result[key] = val;
+  });
+  return result;
+}
+
+// Snapshot of everything a param card needs to decide pass/fail.
+// Read fresh on each test run so re-running after registering event
+// listeners or after env loads gives the up-to-date answer.
+function getParamSnapshot() {
+  const params = readQueryParams();
+  const filtersList =
+    window.domo && window.domo.listeners && window.domo.listeners.onFiltersUpdated;
+  const hasFiltersListener = Array.isArray(filtersList) && filtersList.length > 0;
+  const isEmbedded =
+    typeof window.ENV !== "undefined" || /\/embed\//.test(location.pathname);
+  return {
+    params: params,
+    hasFiltersListener: hasFiltersListener,
+    isEmbedded: isEmbedded,
+    hasPageId: Boolean(params.pageId),
+    hasDataAppId: Boolean(params.dataAppId),
+  };
+}
+
+// ── Param validity checkers ────────────────────────────────────────
+
+function isNonEmpty(s) { return typeof s === "string" && s.length > 0; }
+function isDigits(s)   { return isNonEmpty(s) && /^\d+$/.test(s); }
+function isEmail(s)    { return isNonEmpty(s) && /.+@.+\..+/.test(s); }
+function isLocale(s)   { return isNonEmpty(s) && /^[a-z]{2}(-[A-Z]{2})?$/.test(s); }
+function isPlatform(s) { return s === "desktop" || s === "mobile"; }
+function isJsonArray(s) {
+  if (!isNonEmpty(s)) return false;
+  try {
+    const parsed = JSON.parse(s);
+    return Array.isArray(parsed);
+  } catch (_) {
+    return false;
+  }
+}
+
 // ── Test definitions ────────────────────────────────────────────────
 
 const testDefinitions = [
