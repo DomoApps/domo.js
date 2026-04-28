@@ -160,6 +160,33 @@ describe('Filters Service', () => {
       expect(port.postMessage).toHaveBeenCalled();
       expect(cb).toHaveBeenCalledWith(filters);
     });
+
+    it('should not send a null-filter request on first registration (DOMO-483920)', () => {
+      // Force a fresh connect so we observe the full handshake.
+      (Domo as any).connected = false;
+      (Domo as any).listeners.onFiltersUpdated = [];
+      (window.parent.postMessage as jest.Mock).mockClear();
+
+      Domo.onFiltersUpdated(jest.fn());
+
+      const payloads = (window.parent.postMessage as jest.Mock).mock.calls.map(
+        (call) => {
+          try { return JSON.parse(call[0]); } catch { return null; }
+        }
+      ).filter(Boolean);
+
+      // Subscribe must request initial filters via the SUBSCRIBE replay.
+      const subscribe = payloads.find((p) => p.event === 'subscribe');
+      expect(subscribe).toBeDefined();
+      expect(subscribe.skipFilters).toBe(false);
+
+      // The SDK must NOT follow up with a null-filter request — DomoWeb
+      // interprets `{ filter: undefined, pageStateUpdate: false }` as a page-level clear.
+      const clearLikeFilter = payloads.find(
+        (p) => p.event === 'filter' && p.filter === undefined
+      );
+      expect(clearLikeFilter).toBeUndefined();
+    });
   });
 
   describe('Filter type validation', () => {

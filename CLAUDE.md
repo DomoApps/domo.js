@@ -128,7 +128,7 @@ All messaging is logged through `domoDebug.log('messages', prefix, eventType, pa
 - Auth header is `X-DOMO-Ryuu-Session`.
 - Filter wire event name is `"filter"` (not `"filtersUpdated"`), and the wire format uses `columnName` + `operator` (desktop) or `column` + `operand` (mobile).
 - `requestFiltersUpdate(null)` **clears all filters** on the parent page.
-- `onFiltersUpdated` calls `connect()` without skipFilters, then sends `requestFiltersUpdate(null, false)` on first registration — this clears parent filters. All other listeners call `connect(true)`.
+- `onFiltersUpdated` calls `connect()` without skipFilters; the SUBSCRIBE replay delivers initial filters. All other listeners call `connect(true)`. The SDK intentionally does NOT follow up with `requestFiltersUpdate(null, false)` — DomoWeb treats a null-filter request as a page-level clear (DOMO-483920).
 - `handleNode(node, token)` takes two args and recurses into children.
 - `setAuthTokenHeader(headers, token)` takes two args.
 - `appdb.create` and `appdb.update` auto-wrap documents in `{ content: ... }` if not already wrapped.
