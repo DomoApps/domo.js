@@ -37,7 +37,7 @@ The "Source" column reflects how DomoWeb emits each param. From the demo's persp
 
 ## UI Shape
 
-One test card per param in a new `params` category, plus a single `arg-*` rollup card. Total 12 cards (11 named params + 1 rollup). This matches the user-selected layout (option B from brainstorming) and the existing card pattern in `test-suite.js`.
+One test card per param in a new `params` category, plus a single `arg-*` rollup card. Total 13 cards (12 named params + 1 rollup). This matches the user-selected layout (option B from brainstorming) and the existing card pattern in `test-suite.js`.
 
 The `arg-*` rollup card lists every `arg-*` query param found, with each value rendered as a row. It passes when at least one `arg-*` is present (manifest wired up correctly) and when none are present (also valid — manifest declared no appargs). It only fails if a present `arg-*` value is somehow malformed, which is unlikely given the "any value" rule.
 
