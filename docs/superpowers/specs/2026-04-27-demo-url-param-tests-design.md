@@ -45,12 +45,14 @@ Each card shows in its `details` block:
 
 ```
 Status:    Found / Missing
-Value:     "abc-123"          (truncated to ~80 chars; "N/A" when missing)
+Value:     "abc-123"          (raw value; "N/A" when missing)
 Expected:  Yes — always
            Yes — app registered onFiltersUpdated
            No — not embedded
            Unknown — context could not be determined
 ```
+
+The renderer (`DataRenderer.renderPayload` → `renderValue` → `highlightJSON`) already handles long values gracefully — string values that parse as JSON are rendered as a syntax-highlighted, expandable tree, and other strings flow into a scrollable block. We rely on the renderer rather than pre-truncating, because crude truncation would break the JSON tree rendering for `analyzer` (a serialized filter array).
 
 Card status mapping:
 
