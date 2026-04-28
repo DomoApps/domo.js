@@ -857,6 +857,53 @@ const testDefinitions = [
         : "No — not embedded";
     },
   }),
+  {
+    name: "param.appData",
+    category: "params",
+    description: "Pass-through app data from the parent page (informational — present and absent are both fine)",
+    fn: function () {
+      const snap = getParamSnapshot();
+      const value = snap.params.appData;
+      const found = isNonEmpty(value);
+      return {
+        _render: "payload",
+        direction: "received",
+        method: "url-param",
+        payload: {
+          param: "appData",
+          status: found ? "Found" : "Missing",
+          value: found ? value : "N/A",
+          expected: "Pass-through — present or absent are both fine",
+          valid: found ? "yes" : "n/a",
+        },
+      };
+    },
+  },
+  {
+    name: "param.arg-*",
+    category: "params",
+    description: "appargs forwarded by the parent — lists every arg-* query param found",
+    fn: function () {
+      const snap = getParamSnapshot();
+      const args = {};
+      Object.keys(snap.params).forEach(function (key) {
+        if (key.indexOf("arg-") === 0) {
+          args[key] = snap.params[key];
+        }
+      });
+      const count = Object.keys(args).length;
+      return {
+        _render: "payload",
+        direction: "received",
+        method: "url-param-rollup",
+        payload: {
+          status: count > 0 ? "Found " + count + " arg-* param(s)" : "No arg-* params present",
+          values: args,
+          expected: "Pass-through — manifest may or may not declare appargs",
+        },
+      };
+    },
+  },
 ];
 
 // ── Helper functions ────────────────────────────────────────────────
