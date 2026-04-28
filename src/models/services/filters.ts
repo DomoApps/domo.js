@@ -67,17 +67,19 @@ export function requestFiltersUpdate(
  * Registers a callback to be invoked when filters are updated.
  * NOTE: this references the Domo object, so it should be called in the context of Domo.
  *
+ * Initial filter state is delivered via the SUBSCRIBE replay (sent by `connect()`
+ * with `skipFilters: false`). The SDK intentionally does not emit a follow-up
+ * `requestFiltersUpdate(null, false)` — DomoWeb interprets a null-filter request
+ * as a page-level clear, which wipes active Pfilters / FilterView selections
+ * (see DOMO-483920).
+ *
  * @this {Domo} - The Domo instance context.
  * @param callback - The function to call when filters are updated.
  * @returns A function to unregister the callback.
  */
 export function onFiltersUpdated(callback: (filters: Filter[]) => void) {
-  const hasHandlers = this.listeners.onFiltersUpdated.length > 0;
-
   this.connect();
   this.listeners.onFiltersUpdated.push(callback);
-  if (!hasHandlers)
-    this.requestFiltersUpdate(null, false);
 
   return () => {
     const index = this.listeners.onFiltersUpdated.indexOf(callback);
