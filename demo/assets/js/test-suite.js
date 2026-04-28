@@ -137,7 +137,7 @@ function makeParamCard(name, opts) {
     name: "param." + name,
     category: "params",
     description: opts.description,
-    fn: function () {
+    fn: function (_params) {
       const snap = getParamSnapshot();
       const value = snap.params[name];
       const found = isNonEmpty(value);
@@ -151,10 +151,10 @@ function makeParamCard(name, opts) {
         }
       }
       if (expected && !found) {
-        throw new Error("Expected but missing");
+        throw new Error(name + ": expected but missing");
       }
       if (!expected && found) {
-        throw new Error("Present but not expected here (value=" + JSON.stringify(value) + ")");
+        throw new Error(name + ": present but not expected here (value=" + JSON.stringify(value) + ")");
       }
 
       return {
