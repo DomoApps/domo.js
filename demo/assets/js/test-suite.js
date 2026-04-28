@@ -91,8 +91,8 @@ function readQueryParams() {
 // listeners or after env loads gives the up-to-date answer.
 function getParamSnapshot() {
   const params = readQueryParams();
-  const filtersList =
-    window.domo && window.domo.listeners && window.domo.listeners.onFiltersUpdated;
+  const filtersKey = (window.domo && window.domo.listeners) ? resolveListenerKey("onFiltersUpdated") : null;
+  const filtersList = filtersKey && window.domo.listeners[filtersKey];
   const hasFiltersListener = Array.isArray(filtersList) && filtersList.length > 0;
   const isEmbedded =
     typeof window.ENV !== "undefined" || /\/embed\//.test(location.pathname);
