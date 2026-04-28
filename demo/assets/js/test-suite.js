@@ -817,6 +817,46 @@ const testDefinitions = [
     isExpected: function () { return true; },
     expectedReason: function () { return "Always"; },
   }),
+  makeParamCard("analyzer", {
+    description: "Initial filter blob — emitted when the app accepts filters",
+    validate: function (v) { return isJsonArray(v) || "must parse as a JSON array"; },
+    isExpected: function (snap) { return snap.hasFiltersListener; },
+    expectedReason: function (snap, expected) {
+      return expected
+        ? "Yes — app registered onFiltersUpdated"
+        : "No — no onFiltersUpdated listener (re-run after clicking 'Register Event Listeners')";
+    },
+  }),
+  makeParamCard("pageId", {
+    description: "Page ID — emitted when launched on a page (mutually exclusive with dataAppId)",
+    validate: function (v) { return isDigits(v) || "must be all digits"; },
+    isExpected: function (snap) { return !snap.hasDataAppId; },
+    expectedReason: function (snap, expected) {
+      return expected
+        ? "Yes — not launched as a data app"
+        : "No — dataAppId is present, so pageId is absent";
+    },
+  }),
+  makeParamCard("dataAppId", {
+    description: "Data App ID — emitted when launched as a data app (mutually exclusive with pageId)",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function (snap) { return !snap.hasPageId; },
+    expectedReason: function (snap, expected) {
+      return expected
+        ? "Yes — not launched on a page"
+        : "No — pageId is present, so dataAppId is absent";
+    },
+  }),
+  makeParamCard("embedCode", {
+    description: "Embed token — emitted only in embed mode (regression: renamed to embedToken post-pivot, restored by DOMO-483881)",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function (snap) { return snap.isEmbedded; },
+    expectedReason: function (snap, expected) {
+      return expected
+        ? "Yes — app is loaded via embed"
+        : "No — not embedded";
+    },
+  }),
 ];
 
 // ── Helper functions ────────────────────────────────────────────────
