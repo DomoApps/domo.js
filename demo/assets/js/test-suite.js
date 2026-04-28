@@ -122,6 +122,57 @@ function isJsonArray(s) {
   }
 }
 
+// ── Param test card factory ────────────────────────────────────────
+
+// Build a test definition that asserts presence, validity, and contextual
+// expectation of a single URL param.
+//
+//   name           — param name (used as test name and card id)
+//   description    — short blurb shown in the card header
+//   validate       — (value) => true | string. true = valid, string = error msg
+//   isExpected     — (snapshot) => true | false
+//   expectedReason — (snapshot, expected) => human-readable string
+function makeParamCard(name, opts) {
+  return {
+    name: "param." + name,
+    category: "params",
+    description: opts.description,
+    fn: function () {
+      const snap = getParamSnapshot();
+      const value = snap.params[name];
+      const found = isNonEmpty(value);
+      const expected = opts.isExpected(snap);
+      const reason = opts.expectedReason(snap, expected);
+
+      if (found) {
+        const valid = opts.validate(value);
+        if (valid !== true) {
+          throw new Error("Invalid value: " + valid + " (got " + JSON.stringify(value) + ")");
+        }
+      }
+      if (expected && !found) {
+        throw new Error("Expected but missing");
+      }
+      if (!expected && found) {
+        throw new Error("Present but not expected here (value=" + JSON.stringify(value) + ")");
+      }
+
+      return {
+        _render: "payload",
+        direction: "received",
+        method: "url-param",
+        payload: {
+          param: name,
+          status: found ? "Found" : "Missing",
+          value: found ? value : "N/A",
+          expected: reason,
+          valid: found ? "yes" : "n/a",
+        },
+      };
+    },
+  };
+}
+
 // ── Test definitions ────────────────────────────────────────────────
 
 const testDefinitions = [
@@ -722,6 +773,50 @@ const testDefinitions = [
       };
     },
   },
+
+  // ── URL Params ─────────────────────────────────────────────────
+  makeParamCard("userId", {
+    description: "Numeric user ID — always emitted",
+    validate: function (v) { return isDigits(v) || "must be all digits"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("userName", {
+    description: "Display name — always emitted",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("userEmail", {
+    description: "User email — always emitted",
+    validate: function (v) { return isEmail(v) || "must look like an email"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("customer", {
+    description: "Domo instance/customer — always emitted (regression: dropped post-pivot, restored by DOMO-483881)",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("locale", {
+    description: "User locale — always emitted",
+    validate: function (v) { return isLocale(v) || "must be xx or xx-XX"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("environment", {
+    description: "Domo environment name — always emitted",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("platform", {
+    description: "Platform — always emitted as desktop or mobile",
+    validate: function (v) { return isPlatform(v) || "must be desktop or mobile"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
 ];
 
 // ── Helper functions ────────────────────────────────────────────────
