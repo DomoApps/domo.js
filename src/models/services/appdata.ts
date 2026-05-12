@@ -13,6 +13,13 @@ export interface AppDataUpdateOptions {
   echoRequestId?: string;
 }
 
+type AppDataPayload = {
+  requestId: string;
+  event: "appData";
+  appData: string;
+  echoRequestId?: string;
+};
+
 /**
  * Sends app data to the parent window.
  *
@@ -29,6 +36,10 @@ export function requestAppDataUpdate(
   opts?: AppDataUpdateOptions,
 ) {
   if (opts?.echoRequestId !== undefined && !isValidEchoRequestId(opts.echoRequestId)) {
+    console.error(
+      "Domo: Invalid echoRequestId — must be a string of 1-128 chars matching [A-Za-z0-9_\\-:.]. Received:",
+      opts.echoRequestId,
+    );
     throw new DomoValidationError(
       'Invalid echoRequestId — must be a string of 1-128 chars matching [A-Za-z0-9_\\-:.]',
       [opts.echoRequestId],
@@ -37,12 +48,7 @@ export function requestAppDataUpdate(
 
   const requestId = generateUniqueId();
 
-  const payload: {
-    requestId: string;
-    event: string;
-    appData: string;
-    echoRequestId?: string;
-  } = {
+  const payload: AppDataPayload = {
     requestId,
     event: "appData",
     appData,

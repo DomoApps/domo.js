@@ -110,20 +110,26 @@ describe('sendAppData', () => {
 
   it('throws DomoValidationError for invalid echoRequestId', () => {
     const { DomoValidationError } = require('../errors');
-    expect(() =>
-      (Domo as any).requestAppDataUpdate('payload', undefined, undefined, {
-        echoRequestId: '<script>',
-      }),
-    ).toThrow(DomoValidationError);
-    expect(() =>
-      (Domo as any).requestAppDataUpdate('payload', undefined, undefined, {
-        echoRequestId: '',
-      }),
-    ).toThrow(DomoValidationError);
-    expect(() =>
-      (Domo as any).requestAppDataUpdate('payload', undefined, undefined, {
-        echoRequestId: 'a'.repeat(129),
-      }),
-    ).toThrow(DomoValidationError);
+    const errSpy = jest.spyOn(console, 'error').mockImplementation();
+    try {
+      expect(() =>
+        (Domo as any).requestAppDataUpdate('payload', undefined, undefined, {
+          echoRequestId: '<script>',
+        }),
+      ).toThrow(DomoValidationError);
+      expect(() =>
+        (Domo as any).requestAppDataUpdate('payload', undefined, undefined, {
+          echoRequestId: '',
+        }),
+      ).toThrow(DomoValidationError);
+      expect(() =>
+        (Domo as any).requestAppDataUpdate('payload', undefined, undefined, {
+          echoRequestId: 'a'.repeat(129),
+        }),
+      ).toThrow(DomoValidationError);
+      expect(errSpy).toHaveBeenCalled();
+    } finally {
+      errSpy.mockRestore();
+    }
   });
 });
