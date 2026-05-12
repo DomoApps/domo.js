@@ -1,6 +1,17 @@
-import { generateUniqueId } from "../../utils/general";
+import { generateUniqueId, isValidEchoRequestId } from "../../utils/general";
 import { domoDebug } from "../../utils/debug";
 import { OnAckCallback, OnReplyCallback } from "../interfaces/ask-reply";
+import { DomoValidationError } from "../errors";
+
+export interface AppDataUpdateOptions {
+  /**
+   * Opaque correlation id supplied by the embed host on a recent inbound
+   * appData apply. When set, the SDK emits it as a separate `echoRequestId`
+   * field on the outbound payload so the host can match the echo to its
+   * original apply. Must match `^[A-Za-z0-9_\-:.]{1,128}$`.
+   */
+  echoRequestId?: string;
+}
 
 /**
  * Sends app data to the parent window.
@@ -9,15 +20,37 @@ import { OnAckCallback, OnReplyCallback } from "../interfaces/ask-reply";
  * @param appData - The app data to send, as a string.
  * @param onAck - Optional callback to invoke when the message is acknowledged.
  * @param onReply - Optional callback to invoke when a reply is received.
+ * @param opts - Optional bag; `opts.echoRequestId` echoes a host correlation id back on the wire.
  */
-export function requestAppDataUpdate(appData: string, onAck?: OnAckCallback, onReply?: OnReplyCallback) {
+export function requestAppDataUpdate(
+  appData: string,
+  onAck?: OnAckCallback,
+  onReply?: OnReplyCallback,
+  opts?: AppDataUpdateOptions,
+) {
+  if (opts?.echoRequestId !== undefined && !isValidEchoRequestId(opts.echoRequestId)) {
+    throw new DomoValidationError(
+      'Invalid echoRequestId — must be a string of 1-128 chars matching [A-Za-z0-9_\\-:.]',
+      [opts.echoRequestId],
+    );
+  }
+
   const requestId = generateUniqueId();
 
-  const payload = {
+  const payload: {
+    requestId: string;
+    event: string;
+    appData: string;
+    echoRequestId?: string;
+  } = {
     requestId,
     event: "appData",
     appData,
   };
+
+  if (opts?.echoRequestId !== undefined) {
+    payload.echoRequestId = opts.echoRequestId;
+  }
 
   this.requests[requestId] = {
     request: {

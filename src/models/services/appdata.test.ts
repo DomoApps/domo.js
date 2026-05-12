@@ -83,4 +83,47 @@ describe('sendAppData', () => {
     Domo.sendAppData('value');
     expect(window.parent.postMessage).toHaveBeenCalled();
   });
+
+  it('emits echoRequestId on wire when provided (DOMO-483472 outbound)', () => {
+    window.parent.postMessage = jest.fn();
+    (Domo as any).requestAppDataUpdate('payload', undefined, undefined, {
+      echoRequestId: 'req_xyz_test',
+    });
+    expect(window.parent.postMessage).toHaveBeenCalled();
+    const wire = JSON.parse(
+      (window.parent.postMessage as jest.Mock).mock.calls[0][0],
+    );
+    expect(wire.echoRequestId).toBe('req_xyz_test');
+    // SDK's own ACK-tracking requestId remains distinct.
+    expect(wire.requestId).toBeDefined();
+    expect(wire.requestId).not.toBe('req_xyz_test');
+  });
+
+  it('does not add echoRequestId field when opts omits it', () => {
+    window.parent.postMessage = jest.fn();
+    (Domo as any).requestAppDataUpdate('payload');
+    const wire = JSON.parse(
+      (window.parent.postMessage as jest.Mock).mock.calls[0][0],
+    );
+    expect(wire).not.toHaveProperty('echoRequestId');
+  });
+
+  it('throws DomoValidationError for invalid echoRequestId', () => {
+    const { DomoValidationError } = require('../errors');
+    expect(() =>
+      (Domo as any).requestAppDataUpdate('payload', undefined, undefined, {
+        echoRequestId: '<script>',
+      }),
+    ).toThrow(DomoValidationError);
+    expect(() =>
+      (Domo as any).requestAppDataUpdate('payload', undefined, undefined, {
+        echoRequestId: '',
+      }),
+    ).toThrow(DomoValidationError);
+    expect(() =>
+      (Domo as any).requestAppDataUpdate('payload', undefined, undefined, {
+        echoRequestId: 'a'.repeat(129),
+      }),
+    ).toThrow(DomoValidationError);
+  });
 });
