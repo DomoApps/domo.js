@@ -114,7 +114,7 @@ export function requestFiltersUpdate(
  * @param callback - The function to call when filters are updated.
  * @returns A function to unregister the callback.
  */
-export function onFiltersUpdated(callback: (filters: Filter[]) => void) {
+export function onFiltersUpdated(callback: (filters: Filter[], requestId?: string) => void) {
   this.connect();
   this.listeners.onFiltersUpdated.push(callback);
 
