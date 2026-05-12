@@ -158,7 +158,32 @@ describe('Filters Service', () => {
       const filters = [{ foo: 'bar' }];
       Domo.channel?.port1.onmessage?.(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
       expect(port.postMessage).toHaveBeenCalled();
-      expect(cb).toHaveBeenCalledWith(filters);
+      expect(cb).toHaveBeenCalledWith(filters, undefined);
+    });
+
+    it('passes message.requestId as callback 2nd arg (DOMO-483472 inbound)', () => {
+      const cb = jest.fn();
+      Domo.onFiltersUpdated(cb);
+      const port = makeMockPort();
+      const filters = [{ foo: 'bar' }];
+      const requestId = 'req_host_filter_1';
+      Domo.channel?.port1.onmessage?.(makeMessageEvent(
+        { event: 'filtersUpdated', filters, requestId },
+        [port],
+      ));
+      expect(cb).toHaveBeenCalledWith(filters, requestId);
+    });
+
+    it('passes undefined as 2nd arg when filters message has no requestId', () => {
+      const cb = jest.fn();
+      Domo.onFiltersUpdated(cb);
+      const port = makeMockPort();
+      const filters = [{ foo: 'bar' }];
+      Domo.channel?.port1.onmessage?.(makeMessageEvent(
+        { event: 'filtersUpdated', filters },
+        [port],
+      ));
+      expect(cb).toHaveBeenCalledWith(filters, undefined);
     });
 
     it('should not send a null-filter request on first registration (DOMO-483920)', () => {

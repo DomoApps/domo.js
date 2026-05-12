@@ -103,8 +103,9 @@ export function handleFiltersUpdated(message: any, responsePort?: MessagePort): 
     const ack = { requestId: message.requestId, event: "ack", filters: message.filters };
     domoDebug.log('messages', 'sent:ack:channel', 'ack', ack);
     responsePort?.postMessage(ack);
-    this.listeners.onFiltersUpdated.forEach((cb: (filters: Filter[]) => void) =>
-      cb(message.filters)
+    this.listeners.onFiltersUpdated.forEach(
+      (cb: (filters: Filter[], requestId?: string) => void) =>
+        cb(message.filters, message.requestId)
     );
   }
 
