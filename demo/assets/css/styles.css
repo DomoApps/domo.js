@@ -2015,6 +2015,12 @@ body::before {
   white-space: nowrap;
 }
 
+.event-entry__id--host-echo {
+  background: rgba(20, 184, 166, 0.15);   /* teal-500 @ 15% */
+  color: #5eead4;                          /* teal-300 */
+  border: 1px solid rgba(20, 184, 166, 0.35);
+}
+
 .event-entry__expand-hint {
   font-size: 0.65rem;
   color: var(--text-muted);
