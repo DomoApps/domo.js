@@ -197,17 +197,13 @@ export function isMobile(): boolean {
   return multipleIndicators >= 2;
 }
 
-/**
- * Whitelist regex for echo-request correlation ids — mirrors DomoWeb's
- * `sanitizeRequestId` (see DomoWeb PR #57290, DOMO-483472).
- * Allowed: alphanumerics plus `_ - : .` ; length 1–128.
- */
+// Private: do not export. See isValidEchoRequestId.
 const ECHO_REQUEST_ID_PATTERN = /^[A-Za-z0-9_\-:.]{1,128}$/;
 
 /**
- * Validates a host-correlation `echoRequestId` value before placing it on
- * the wire. Returns `true` when the value is a non-empty string of at most
- * 128 chars limited to `[A-Za-z0-9_\-:.]`.
+ * Type guard for host-correlation `echoRequestId` values before placing them
+ * on the wire. Mirrors DomoWeb's `sanitizeRequestId` whitelist
+ * (DomoWeb PR #57290, DOMO-483472): alphanumerics plus `_ - : .`, 1–128 chars.
  */
 export function isValidEchoRequestId(value: unknown): value is string {
   return typeof value === 'string' && ECHO_REQUEST_ID_PATTERN.test(value);
