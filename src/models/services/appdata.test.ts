@@ -50,7 +50,33 @@ describe('sendAppData', () => {
     const appData = { foo: 'bar' };
     Domo.channel?.port1.onmessage?.(makeMessageEvent({ event: 'appData', appData }, [port]));
     expect(port.postMessage).toHaveBeenCalled();
-    expect(cb).toHaveBeenCalledWith(appData);
+    expect(cb).toHaveBeenCalledWith(appData, undefined);
+  });
+
+  it('passes message.requestId as callback 2nd arg (DOMO-483472 inbound)', () => {
+    const cb = jest.fn();
+    Domo.onAppDataUpdated(cb);
+    (Domo as any).connect();
+    const port = makeMockPort();
+    const appData = 'host-pushed';
+    const requestId = 'req_host_echo_1';
+    Domo.channel?.port1.onmessage?.(makeMessageEvent(
+      { event: 'appData', appData, requestId },
+      [port],
+    ));
+    expect(cb).toHaveBeenCalledWith(appData, requestId);
+  });
+
+  it('passes undefined as 2nd arg when message has no requestId', () => {
+    const cb = jest.fn();
+    Domo.onAppDataUpdated(cb);
+    (Domo as any).connect();
+    const port = makeMockPort();
+    Domo.channel?.port1.onmessage?.(makeMessageEvent(
+      { event: 'appData', appData: 'x' },
+      [port],
+    ));
+    expect(cb).toHaveBeenCalledWith('x', undefined);
   });
 
   it('should send app data successfully', () => {

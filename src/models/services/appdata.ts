@@ -64,8 +64,9 @@ export function handleAppData(message: any, responsePort?: MessagePort) {
     const ack = { requestId: message.requestId, event: "ack" };
     domoDebug.log('messages', 'sent:ack:channel', 'ack', ack);
     responsePort?.postMessage(ack);
-    this.listeners.onAppDataUpdated.forEach((cb: (appData: string) => void) =>
-      cb(message.appData)
+    this.listeners.onAppDataUpdated.forEach(
+      (cb: (appData: string, requestId?: string) => void) =>
+        cb(message.appData, message.requestId)
     );
   }
 
