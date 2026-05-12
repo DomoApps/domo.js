@@ -30,6 +30,7 @@ Interactive developer toolkit for `domo.js` — runs inside a real Domo iframe. 
 - **AI Services** — `domo.ai.generateText` and `domo.ai.textToSQL`
 - **Utilities** — `domo.env`, iOS detection
 - **DX Tools** — debug mode, interceptors, structured errors, schema validation
+- **Host Echo Correlation (DOMO-483472)** — synthetic-dispatch tests for `onAppDataUpdated`/`onFiltersUpdated` requestId surfacing, plus wire-emission and validation checks for `echoRequestId` on `requestAppDataUpdate`/`requestFiltersUpdate`
 - Run All / Run Category / Run Single, with event warning banner
 
 ## Architecture
