@@ -47,8 +47,8 @@ All methods have TypeScript overloads for format-specific return types.
 
 ### filters.ts — Filter Service
 
-- **`requestFiltersUpdate(filters, pageStateUpdate?, onAck?, onReply?)`** — Validates via `guardAgainstInvalidFilters`, generates requestId, stores in `this.requests`. Desktop wire format: `{ event: "filter", filter: [{ columnName, operator, values, dataType }], pageStateUpdate }`. Mobile wire format: `[{ column, operand, values, dataType }]`. Passing `null` for filters **clears all filters** on the parent page.
-- **`onFiltersUpdated(callback)`** — First listener triggers `connect()` (no skipFilters). The `subscribe` event (sent with `skipFilters: false`) returns the current filters to the app via SUBSCRIBE replay. The SDK intentionally does NOT follow up with `requestFiltersUpdate(null, false)` — DomoWeb interprets a null-filter request as a page-level clear, which wipes active Pfilters / FilterView selections (DOMO-483920). Returns unsubscribe function.
+- **`requestFiltersUpdate(filters, pageStateUpdate?, onAck?, onReply?, opts?)`** — Validates via `guardAgainstInvalidFilters`, generates requestId, stores in `this.requests`. Desktop wire format: `{ event: "filter", filter: [{ columnName, operator, values, dataType }], pageStateUpdate, requestId, echoRequestId? }`. Mobile wire format: `[{ column, operand, values, dataType }]`. `opts.echoRequestId` is validated and emitted as a separate wire field (DOMO-483472). Passing `null` for filters **clears all filters** on the parent page.
+- **`onFiltersUpdated(callback)`** — First listener triggers `connect()` (no skipFilters). Callback signature `(filters: Filter[], requestId?: string) => void`; 2nd arg is the host's echo correlation id when present (DOMO-483472). See `DOMO-483920` note above re: SUBSCRIBE replay. Returns unsubscribe function.
 - **`handleFiltersUpdated(message, responsePort?)`** — Sends ACK via responsePort, invokes callbacks with `message.filters`, calls `handleReply`.
 
 ### variables.ts — Variable Service
@@ -59,9 +59,9 @@ All methods have TypeScript overloads for format-specific return types.
 
 ### appdata.ts — AppData Service
 
-- **`requestAppDataUpdate(appData, onAck?, onReply?)`** — Wire: `{ event: "appData", appData }`. Desktop only (no mobile bridge).
-- **`onAppDataUpdated(callback)`** — Calls `connect(true)`. Returns unsubscribe function.
-- **`handleAppData(message, responsePort?)`** — ACK + callbacks + handleReply.
+- **`requestAppDataUpdate(appData, onAck?, onReply?, opts?)`** — Wire: `{ event: "appData", appData, requestId, echoRequestId? }`. Desktop only (no mobile bridge). When `opts.echoRequestId` is set it is validated against the `[A-Za-z0-9_\-:.]{1,128}` whitelist and emitted as a separate wire field (DOMO-483472).
+- **`onAppDataUpdated(callback)`** — Calls `connect(true)`. Callback signature `(appData: string, requestId?: string) => void`; 2nd arg is the host's echo correlation id when present (DOMO-483472). Returns unsubscribe function.
+- **`handleAppData(message, responsePort?)`** — ACK + callbacks + handleReply. Forwards `message.requestId` to each listener as the 2nd arg.
 
 ### dataset.ts — Dataset Service
 

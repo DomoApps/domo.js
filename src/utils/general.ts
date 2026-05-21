@@ -196,3 +196,15 @@ export function isMobile(): boolean {
   const multipleIndicators = [hasMobileAPIs, hasTouchSupport, hasMobileScreenRatio].filter(Boolean).length;
   return multipleIndicators >= 2;
 }
+
+// Private: do not export. See isValidEchoRequestId.
+const ECHO_REQUEST_ID_PATTERN = /^[A-Za-z0-9_\-:.]{1,128}$/;
+
+/**
+ * Type guard for host-correlation `echoRequestId` values before placing them
+ * on the wire. Mirrors DomoWeb's `sanitizeRequestId` whitelist
+ * (DomoWeb PR #57290, DOMO-483472): alphanumerics plus `_ - : .`, 1–128 chars.
+ */
+export function isValidEchoRequestId(value: unknown): value is string {
+  return typeof value === 'string' && ECHO_REQUEST_ID_PATTERN.test(value);
+}

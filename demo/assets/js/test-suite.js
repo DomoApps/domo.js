@@ -463,6 +463,138 @@ const testDefinitions = [
     },
     customButton: true,
   },
+  // ── Host Echo Correlation (DOMO-483472) ──────────────────────────
+  {
+    name: "onAppDataUpdated receives host requestId",
+    category: "echo",
+    description: "Synthesize an inbound appData message and assert the listener gets (appData, requestId)",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.onAppDataUpdated !== "function") return reject(new Error("Not available in this version"));
+      if (!domo.channel || !domo.channel.port1) return reject(new Error("MessageChannel not connected — open this app inside Domo"));
+      var received = null;
+      var unregister = domo.onAppDataUpdated(function(appData, requestId) {
+        received = { appData: appData, requestId: requestId };
+      });
+      var port = new MessageChannel().port2;
+      // Synthesize an inbound host push by dispatching directly on port1.onmessage.
+      domo.channel.port1.onmessage({
+        data: { event: "appData", appData: "synthetic-x", requestId: "req_synth_in_1" },
+        ports: [port],
+      });
+      try { unregister(); } catch (e) {}
+      if (!received) return reject(new Error("Callback did not fire"));
+      if (received.appData !== "synthetic-x") return reject(new Error("appData mismatch: " + received.appData));
+      if (received.requestId !== "req_synth_in_1") return reject(new Error("requestId 2nd arg missing or wrong: " + received.requestId));
+      resolve({ _render: "payload", direction: "received", method: "onAppDataUpdated (synthetic)", payload: received });
+    }),
+  },
+  {
+    name: "onAppDataUpdated tolerates missing requestId",
+    category: "echo",
+    description: "Synthesize an inbound appData without requestId; 2nd arg should be undefined",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.onAppDataUpdated !== "function") return reject(new Error("Not available in this version"));
+      if (!domo.channel || !domo.channel.port1) return reject(new Error("MessageChannel not connected — open this app inside Domo"));
+      var received = null;
+      var unregister = domo.onAppDataUpdated(function(appData, requestId) {
+        received = { appData: appData, requestId: requestId };
+      });
+      var port = new MessageChannel().port2;
+      domo.channel.port1.onmessage({
+        data: { event: "appData", appData: "no-id" },
+        ports: [port],
+      });
+      try { unregister(); } catch (e) {}
+      if (!received) return reject(new Error("Callback did not fire"));
+      if (received.appData !== "no-id") return reject(new Error("appData mismatch"));
+      if (received.requestId !== undefined) return reject(new Error("requestId should be undefined, got: " + String(received.requestId)));
+      resolve({ _render: "payload", direction: "received", method: "onAppDataUpdated (synthetic, no id)", payload: received });
+    }),
+  },
+  {
+    name: "requestAppDataUpdate emits echoRequestId on wire",
+    category: "echo",
+    description: "Inspect SDK request store to assert echoRequestId is set distinct from requestId",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.requestAppDataUpdate !== "function") return reject(new Error("Not available in this version"));
+      if (typeof domo.getRequests !== "function") return reject(new Error("domo.getRequests not available — SDK too old"));
+      var requestsBefore = Object.keys(domo.getRequests());
+      domo.requestAppDataUpdate("echo-test-payload", undefined, undefined, { echoRequestId: "req_echo_out_1" });
+      var requestsAfter = Object.keys(domo.getRequests());
+      var newIds = requestsAfter.filter(function(id) { return requestsBefore.indexOf(id) === -1; });
+      if (newIds.length === 0) return reject(new Error("No new request recorded in SDK"));
+      var captured = domo.getRequests()[newIds[0]].request.payload;
+      if (!captured) return reject(new Error("No payload found in stored request"));
+      if (captured.echoRequestId !== "req_echo_out_1") return reject(new Error("echoRequestId missing or wrong: " + captured.echoRequestId));
+      if (!captured.requestId) return reject(new Error("SDK ACK requestId missing"));
+      if (captured.requestId === captured.echoRequestId) return reject(new Error("requestId and echoRequestId must be distinct"));
+      resolve({ _render: "payload", direction: "sent", method: "requestAppDataUpdate", payload: captured });
+    }),
+  },
+  {
+    name: "requestAppDataUpdate rejects invalid echoRequestId",
+    category: "echo",
+    description: "Pass '<script>' as echoRequestId; expect DomoValidationError",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.requestAppDataUpdate !== "function") return reject(new Error("Not available in this version"));
+      var threw = false;
+      var errName = null;
+      try {
+        domo.requestAppDataUpdate("payload", undefined, undefined, { echoRequestId: "<script>" });
+      } catch (e) {
+        threw = true;
+        errName = e && e.name;
+      }
+      if (!threw) return reject(new Error("Expected a throw, but call returned normally"));
+      if (errName !== "DomoValidationError") return reject(new Error("Expected DomoValidationError, got: " + errName));
+      resolve({ _render: "payload", direction: "sent", method: "requestAppDataUpdate", payload: { errorName: errName, input: "<script>" } });
+    }),
+  },
+  {
+    name: "onFiltersUpdated receives host requestId",
+    category: "echo",
+    description: "Synthesize an inbound filtersUpdated message; listener should get (filters, requestId)",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.onFiltersUpdated !== "function") return reject(new Error("Not available in this version"));
+      if (!domo.channel || !domo.channel.port1) return reject(new Error("MessageChannel not connected — open this app inside Domo"));
+      var received = null;
+      var unregister = domo.onFiltersUpdated(function(filters, requestId) {
+        received = { filters: filters, requestId: requestId };
+      });
+      var port = new MessageChannel().port2;
+      var filters = [{ column: "x", operator: "IN", values: ["y"], dataType: "STRING" }];
+      domo.channel.port1.onmessage({
+        data: { event: "filtersUpdated", filters: filters, requestId: "req_synth_filter_1" },
+        ports: [port],
+      });
+      try { unregister(); } catch (e) {}
+      if (!received) return reject(new Error("Callback did not fire"));
+      if (!Array.isArray(received.filters) || received.filters.length !== 1) return reject(new Error("filters not forwarded"));
+      if (received.requestId !== "req_synth_filter_1") return reject(new Error("requestId 2nd arg missing or wrong: " + received.requestId));
+      resolve({ _render: "payload", direction: "received", method: "onFiltersUpdated (synthetic)", payload: received });
+    }),
+  },
+  {
+    name: "requestFiltersUpdate emits echoRequestId on wire",
+    category: "echo",
+    description: "Inspect SDK request store to assert echoRequestId is set distinct from requestId",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.requestFiltersUpdate !== "function") return reject(new Error("Not available in this version"));
+      if (typeof domo.getRequests !== "function") return reject(new Error("domo.getRequests not available — SDK too old"));
+      var requestsBefore = Object.keys(domo.getRequests());
+      var filters = [{ column: "x", operator: "IN", values: ["y"], dataType: "STRING" }];
+      domo.requestFiltersUpdate(filters, null, undefined, undefined, { echoRequestId: "req_filter_out_1" });
+      var requestsAfter = Object.keys(domo.getRequests());
+      var newIds = requestsAfter.filter(function(id) { return requestsBefore.indexOf(id) === -1; });
+      if (newIds.length === 0) return reject(new Error("No new request recorded in SDK"));
+      var captured = domo.getRequests()[newIds[0]].request.payload;
+      if (!captured) return reject(new Error("No payload found in stored request"));
+      if (captured.echoRequestId !== "req_filter_out_1") return reject(new Error("echoRequestId missing or wrong: " + captured.echoRequestId));
+      if (!captured.requestId) return reject(new Error("SDK ACK requestId missing"));
+      if (captured.requestId === captured.echoRequestId) return reject(new Error("requestId and echoRequestId must be distinct"));
+      resolve({ _render: "payload", direction: "sent", method: "requestFiltersUpdate", payload: captured });
+    }),
+  },
   // ── Code Engine ─────────────────────────────────────────────────
   {
     name: "codeEngine",

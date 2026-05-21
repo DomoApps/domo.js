@@ -1,9 +1,28 @@
-import { generateUniqueId } from "../../utils/general";
+import { generateUniqueId, isValidEchoRequestId } from "../../utils/general";
 import { sendToParent } from "../../utils/messaging";
 import { guardAgainstInvalidFilters } from "../../utils/filter";
 import { Filter } from "../interfaces/filter";
 import { OnAckCallback, OnReplyCallback } from "../interfaces/ask-reply";
+import { DomoValidationError } from "../errors";
 import { domoDebug } from "../../utils/debug";
+
+export interface FiltersUpdateOptions {
+  /**
+   * Opaque correlation id supplied by the embed host on a recent inbound
+   * filter apply. When set, the SDK emits it as a separate `echoRequestId`
+   * field on the outbound payload so the host can match the echo to its
+   * original apply. Must match `^[A-Za-z0-9_\-:.]{1,128}$`.
+   */
+  echoRequestId?: string;
+}
+
+type FiltersPayload = {
+  requestId: string;
+  event: "filter";
+  filter: any;
+  pageStateUpdate: boolean | null;
+  echoRequestId?: string;
+};
 
 /**
  * Sends filter data to the parent window or to the iOS webkit message handler.
@@ -13,17 +32,31 @@ import { domoDebug } from "../../utils/debug";
  * @param pageStateUpdate - Optional boolean indicating if the page state should be updated.
  * @param onAck - Callback function to be called when the filters are acknowledged.
  * @param onReply - Callback function to be called when the filters are replied.
+ * @param opts - Optional bag; `opts.echoRequestId` echoes a host correlation id back on the wire.
  */
 export function requestFiltersUpdate(
   filters: Filter[] | null,
   pageStateUpdate: boolean | null = null,
   onAck?: OnAckCallback,
-  onReply?: OnReplyCallback
+  onReply?: OnReplyCallback,
+  opts?: FiltersUpdateOptions,
 ): string {
   guardAgainstInvalidFilters(filters);
+
+  if (opts?.echoRequestId !== undefined && !isValidEchoRequestId(opts.echoRequestId)) {
+    console.error(
+      "Domo: Invalid echoRequestId — must be a string of 1-128 chars matching [A-Za-z0-9_\\-:.]. Received:",
+      opts.echoRequestId,
+    );
+    throw new DomoValidationError(
+      'Invalid echoRequestId — must be a string of 1-128 chars matching [A-Za-z0-9_\\-:.]',
+      [opts.echoRequestId],
+    );
+  }
+
   const requestId = generateUniqueId();
 
-  const desktopPayload = {
+  const desktopPayload: FiltersPayload = {
     requestId,
     event: "filter",
     filter: filters?.map((filter) => ({
@@ -34,6 +67,10 @@ export function requestFiltersUpdate(
     })),
     pageStateUpdate,
   };
+
+  if (opts?.echoRequestId !== undefined) {
+    desktopPayload.echoRequestId = opts.echoRequestId;
+  }
 
   this.requests[requestId] = {
     request: {
@@ -77,7 +114,7 @@ export function requestFiltersUpdate(
  * @param callback - The function to call when filters are updated.
  * @returns A function to unregister the callback.
  */
-export function onFiltersUpdated(callback: (filters: Filter[]) => void) {
+export function onFiltersUpdated(callback: (filters: Filter[], requestId?: string) => void) {
   this.connect();
   this.listeners.onFiltersUpdated.push(callback);
 
@@ -103,8 +140,9 @@ export function handleFiltersUpdated(message: any, responsePort?: MessagePort): 
     const ack = { requestId: message.requestId, event: "ack", filters: message.filters };
     domoDebug.log('messages', 'sent:ack:channel', 'ack', ack);
     responsePort?.postMessage(ack);
-    this.listeners.onFiltersUpdated.forEach((cb: (filters: Filter[]) => void) =>
-      cb(message.filters)
+    this.listeners.onFiltersUpdated.forEach(
+      (cb: (filters: Filter[], requestId?: string) => void) =>
+        cb(message.filters, message.requestId)
     );
   }
 
