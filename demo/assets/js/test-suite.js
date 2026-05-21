@@ -514,25 +514,17 @@ const testDefinitions = [
   {
     name: "requestAppDataUpdate emits echoRequestId on wire",
     category: "echo",
-    description: "Capture window.parent.postMessage and assert echoRequestId is set distinct from requestId",
+    description: "Inspect SDK request store to assert echoRequestId is set distinct from requestId",
     fn: () => new Promise(function(resolve, reject) {
       if (typeof domo.requestAppDataUpdate !== "function") return reject(new Error("Not available in this version"));
-      var originalPost = window.parent.postMessage;
-      var captured = null;
-      window.parent.postMessage = function(msg, origin) {
-        try {
-          var parsed = typeof msg === "string" ? JSON.parse(msg) : msg;
-          if (parsed && parsed.event === "appData" && !captured) captured = parsed;
-        } catch (e) {}
-        // Still deliver so we don't break the app.
-        return originalPost.call(window.parent, msg, origin);
-      };
-      try {
-        domo.requestAppDataUpdate("echo-test-payload", undefined, undefined, { echoRequestId: "req_echo_out_1" });
-      } finally {
-        window.parent.postMessage = originalPost;
-      }
-      if (!captured) return reject(new Error("No appData postMessage captured"));
+      if (typeof domo.getRequests !== "function") return reject(new Error("domo.getRequests not available — SDK too old"));
+      var requestsBefore = Object.keys(domo.getRequests());
+      domo.requestAppDataUpdate("echo-test-payload", undefined, undefined, { echoRequestId: "req_echo_out_1" });
+      var requestsAfter = Object.keys(domo.getRequests());
+      var newIds = requestsAfter.filter(function(id) { return requestsBefore.indexOf(id) === -1; });
+      if (newIds.length === 0) return reject(new Error("No new request recorded in SDK"));
+      var captured = domo.getRequests()[newIds[0]].request.payload;
+      if (!captured) return reject(new Error("No payload found in stored request"));
       if (captured.echoRequestId !== "req_echo_out_1") return reject(new Error("echoRequestId missing or wrong: " + captured.echoRequestId));
       if (!captured.requestId) return reject(new Error("SDK ACK requestId missing"));
       if (captured.requestId === captured.echoRequestId) return reject(new Error("requestId and echoRequestId must be distinct"));
@@ -585,25 +577,18 @@ const testDefinitions = [
   {
     name: "requestFiltersUpdate emits echoRequestId on wire",
     category: "echo",
-    description: "Capture postMessage and assert echoRequestId is set distinct from requestId",
+    description: "Inspect SDK request store to assert echoRequestId is set distinct from requestId",
     fn: () => new Promise(function(resolve, reject) {
       if (typeof domo.requestFiltersUpdate !== "function") return reject(new Error("Not available in this version"));
-      var originalPost = window.parent.postMessage;
-      var captured = null;
-      window.parent.postMessage = function(msg, origin) {
-        try {
-          var parsed = typeof msg === "string" ? JSON.parse(msg) : msg;
-          if (parsed && parsed.event === "filter" && !captured) captured = parsed;
-        } catch (e) {}
-        return originalPost.call(window.parent, msg, origin);
-      };
+      if (typeof domo.getRequests !== "function") return reject(new Error("domo.getRequests not available — SDK too old"));
+      var requestsBefore = Object.keys(domo.getRequests());
       var filters = [{ column: "x", operator: "IN", values: ["y"], dataType: "STRING" }];
-      try {
-        domo.requestFiltersUpdate(filters, null, undefined, undefined, { echoRequestId: "req_filter_out_1" });
-      } finally {
-        window.parent.postMessage = originalPost;
-      }
-      if (!captured) return reject(new Error("No filter postMessage captured"));
+      domo.requestFiltersUpdate(filters, null, undefined, undefined, { echoRequestId: "req_filter_out_1" });
+      var requestsAfter = Object.keys(domo.getRequests());
+      var newIds = requestsAfter.filter(function(id) { return requestsBefore.indexOf(id) === -1; });
+      if (newIds.length === 0) return reject(new Error("No new request recorded in SDK"));
+      var captured = domo.getRequests()[newIds[0]].request.payload;
+      if (!captured) return reject(new Error("No payload found in stored request"));
       if (captured.echoRequestId !== "req_filter_out_1") return reject(new Error("echoRequestId missing or wrong: " + captured.echoRequestId));
       if (!captured.requestId) return reject(new Error("SDK ACK requestId missing"));
       if (captured.requestId === captured.echoRequestId) return reject(new Error("requestId and echoRequestId must be distinct"));
