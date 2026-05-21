@@ -355,7 +355,7 @@ describe('Legacy postMessage handler', () => {
       filters: [{ column: 'x' }],
       requestId: 'r1',
     })));
-    expect(spy).toHaveBeenCalledWith([{ column: 'x' }]);
+    expect(spy).toHaveBeenCalledWith([{ column: 'x' }], 'r1');
   });
 
   it('should send ack with relevant data for filtersUpdated', () => {
@@ -413,7 +413,7 @@ describe('Legacy postMessage handler', () => {
     const spy = jest.fn();
     Domo.listeners.onFiltersUpdated.push(spy);
     messageHandler(makeLegacyEvent({ event: 'filtersUpdated', filters: [] }));
-    expect(spy).toHaveBeenCalledWith([]);
+    expect(spy).toHaveBeenCalledWith([], undefined);
   });
 
   it('should ignore empty strings and non-object/non-string data', () => {

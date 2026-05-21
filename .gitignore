@@ -4,5 +4,5 @@ domo.js-alpha.iml
 dist
 coverage/
 demo/domo.js
-docs/
 jira.apikey
+docs/

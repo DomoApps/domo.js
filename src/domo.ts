@@ -36,8 +36,8 @@ import { Variable } from "./models/interfaces/variable";
 
 export interface DomoListeners {
   onDataUpdated: ((alias: string) => void)[];
-  onFiltersUpdated: ((filters: Filter[]) => void)[];
-  onAppDataUpdated: ((appData: string) => void)[];
+  onFiltersUpdated: ((filters: Filter[], requestId?: string) => void)[];
+  onAppDataUpdated: ((appData: string, requestId?: string) => void)[];
   onVariablesUpdated: ((variables: Variable[]) => void)[];
   [key: string]: Function[];
 }

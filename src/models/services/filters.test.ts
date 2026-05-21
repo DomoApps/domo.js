@@ -158,7 +158,32 @@ describe('Filters Service', () => {
       const filters = [{ foo: 'bar' }];
       Domo.channel?.port1.onmessage?.(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
       expect(port.postMessage).toHaveBeenCalled();
-      expect(cb).toHaveBeenCalledWith(filters);
+      expect(cb).toHaveBeenCalledWith(filters, undefined);
+    });
+
+    it('passes message.requestId as callback 2nd arg (DOMO-483472 inbound)', () => {
+      const cb = jest.fn();
+      Domo.onFiltersUpdated(cb);
+      const port = makeMockPort();
+      const filters = [{ foo: 'bar' }];
+      const requestId = 'req_host_filter_1';
+      Domo.channel?.port1.onmessage?.(makeMessageEvent(
+        { event: 'filtersUpdated', filters, requestId },
+        [port],
+      ));
+      expect(cb).toHaveBeenCalledWith(filters, requestId);
+    });
+
+    it('passes undefined as 2nd arg when filters message has no requestId', () => {
+      const cb = jest.fn();
+      Domo.onFiltersUpdated(cb);
+      const port = makeMockPort();
+      const filters = [{ foo: 'bar' }];
+      Domo.channel?.port1.onmessage?.(makeMessageEvent(
+        { event: 'filtersUpdated', filters },
+        [port],
+      ));
+      expect(cb).toHaveBeenCalledWith(filters, undefined);
     });
 
     it('should not send a null-filter request on first registration (DOMO-483920)', () => {
@@ -290,6 +315,57 @@ describe('Filters Service', () => {
         expect.objectContaining({ column: 'columnName', operator: expect.any(String) })
       );
       spy.mockRestore();
+    });
+  });
+
+  describe('echoRequestId (DOMO-483472 outbound)', () => {
+    it('emits echoRequestId on wire when provided', () => {
+      const filters = [
+        { column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: FilterDataTypes.STRING as FilterDataTypes.STRING },
+      ];
+      (Domo as any).requestFiltersUpdate(filters, null, undefined, undefined, {
+        echoRequestId: 'req_filter_echo_1',
+      });
+      const wire = JSON.parse((window.parent.postMessage as jest.Mock).mock.calls[0][0]);
+      expect(wire.echoRequestId).toBe('req_filter_echo_1');
+      expect(wire.requestId).toBeDefined();
+      expect(wire.requestId).not.toBe('req_filter_echo_1');
+    });
+
+    it('does not add echoRequestId field when opts omits it', () => {
+      const filters = [
+        { column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: FilterDataTypes.STRING as FilterDataTypes.STRING },
+      ];
+      Domo.requestFiltersUpdate(filters);
+      const wire = JSON.parse((window.parent.postMessage as jest.Mock).mock.calls[0][0]);
+      expect(wire).not.toHaveProperty('echoRequestId');
+    });
+
+    it('throws DomoValidationError for invalid echoRequestId', () => {
+      const filters = [
+        { column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: FilterDataTypes.STRING as FilterDataTypes.STRING },
+      ];
+      const errSpy = jest.spyOn(console, 'error').mockImplementation();
+      try {
+        expect(() =>
+          (Domo as any).requestFiltersUpdate(filters, null, undefined, undefined, {
+            echoRequestId: '<script>',
+          }),
+        ).toThrow(DomoValidationError);
+        expect(() =>
+          (Domo as any).requestFiltersUpdate(filters, null, undefined, undefined, {
+            echoRequestId: '',
+          }),
+        ).toThrow(DomoValidationError);
+        expect(() =>
+          (Domo as any).requestFiltersUpdate(filters, null, undefined, undefined, {
+            echoRequestId: 'a'.repeat(129),
+          }),
+        ).toThrow(DomoValidationError);
+        expect(errSpy).toHaveBeenCalled();
+      } finally {
+        errSpy.mockRestore();
+      }
     });
   });
 });

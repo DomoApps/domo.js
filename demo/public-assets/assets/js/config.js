@@ -48,15 +48,16 @@ const APP_CONFIG = {
 
 // Category metadata for test suite cards
 const CATEGORY_META = {
-  data:       { icon: 'Q', label: 'Data API',     cssClass: 'data' },
-  appdb:      { icon: 'D', label: 'AppDB',        cssClass: 'appdb' },
-  events:     { icon: '~', label: 'Events',       cssClass: 'events' },
-  codeengine: { icon: '>', label: 'Code Engine',  cssClass: 'codeengine' },
-  workflow:   { icon: '%', label: 'Workflows',    cssClass: 'workflow' },
-  ai:         { icon: '*', label: 'AI Services',  cssClass: 'ai' },
-  utils:      { icon: '#', label: 'Utilities',    cssClass: 'utils' },
-  params:     { icon: '?', label: 'URL Params',   cssClass: 'params' },
-  dx:         { icon: '+', label: 'DX Tools',     cssClass: 'dx' },
+  data:       { icon: 'Q', label: 'Data API',         cssClass: 'data' },
+  appdb:      { icon: 'D', label: 'AppDB',            cssClass: 'appdb' },
+  events:     { icon: '~', label: 'Events',           cssClass: 'events' },
+  codeengine: { icon: '>', label: 'Code Engine',      cssClass: 'codeengine' },
+  workflow:   { icon: '%', label: 'Workflows',        cssClass: 'workflow' },
+  ai:         { icon: '*', label: 'AI Services',      cssClass: 'ai' },
+  utils:      { icon: '#', label: 'Utilities',        cssClass: 'utils' },
+  params:     { icon: '?', label: 'URL Params',       cssClass: 'params' },
+  dx:         { icon: '+', label: 'DX Tools',         cssClass: 'dx' },
+  echo:       { icon: '@', label: 'Host Echo',        cssClass: 'events' },
 };
 
 // Test status labels

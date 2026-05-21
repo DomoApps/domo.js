@@ -1,5 +1,5 @@
 import { DataFormats } from '../models/enums/data-formats';
-import { isSuccess, isVerifiedOrigin, getQueryParams, setFormatHeaders, isIOS } from './general';
+import { isSuccess, isVerifiedOrigin, getQueryParams, setFormatHeaders, isIOS, isValidEchoRequestId } from './general';
 
 describe('general utilities', () => {
   describe('isSuccess', () => {
@@ -367,6 +367,64 @@ describe('general utilities', () => {
         devicePixelRatio: 2
       });
       expect(isIOS()).toBe(true);
+    });
+  });
+
+  describe('isValidEchoRequestId', () => {
+    it('accepts uuid-shaped req_-prefixed ids', () => {
+      expect(isValidEchoRequestId('req_a1b2c3d4-e5f6-7890-abcd-1234567890ab')).toBe(true);
+    });
+
+    it('accepts short alphanumeric ids', () => {
+      expect(isValidEchoRequestId('abc123')).toBe(true);
+    });
+
+    it('accepts ids containing allowed punctuation (_ - : .)', () => {
+      expect(isValidEchoRequestId('req-id_1.2:3')).toBe(true);
+    });
+
+    it('returns false for non-string inputs', () => {
+      expect(isValidEchoRequestId(undefined)).toBe(false);
+      expect(isValidEchoRequestId(null)).toBe(false);
+      expect(isValidEchoRequestId(42)).toBe(false);
+      expect(isValidEchoRequestId({ toString: () => 'req_1' })).toBe(false);
+      expect(isValidEchoRequestId(['req_1'])).toBe(false);
+      expect(isValidEchoRequestId(true)).toBe(false);
+    });
+
+    it('returns false for empty string', () => {
+      expect(isValidEchoRequestId('')).toBe(false);
+    });
+
+    it('accepts a single allowed character (lower bound)', () => {
+      expect(isValidEchoRequestId('a')).toBe(true);
+    });
+
+    it('accepts ids exactly 128 chars and rejects longer', () => {
+      const max = 'a'.repeat(128);
+      expect(isValidEchoRequestId(max)).toBe(true);
+      expect(isValidEchoRequestId('a'.repeat(129))).toBe(false);
+    });
+
+    it('rejects whitespace and control characters', () => {
+      expect(isValidEchoRequestId('req 1')).toBe(false);
+      expect(isValidEchoRequestId('req\t1')).toBe(false);
+      expect(isValidEchoRequestId('req\n1')).toBe(false);
+      expect(isValidEchoRequestId('req\x001')).toBe(false);
+    });
+
+    it('rejects HTML/JS-sensitive characters', () => {
+      expect(isValidEchoRequestId('<script>')).toBe(false);
+      expect(isValidEchoRequestId('"><img')).toBe(false);
+      expect(isValidEchoRequestId("req';drop")).toBe(false);
+      expect(isValidEchoRequestId('req&id=1')).toBe(false);
+      expect(isValidEchoRequestId('req/1')).toBe(false);
+      expect(isValidEchoRequestId('req\\1')).toBe(false);
+    });
+
+    it('rejects non-ASCII characters', () => {
+      expect(isValidEchoRequestId('req_café')).toBe(false);
+      expect(isValidEchoRequestId('req_测试')).toBe(false);
     });
   });
 });

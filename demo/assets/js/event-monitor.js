@@ -241,7 +241,8 @@ class EventMonitor {
       var eventType = args[1] || 'unknown';
       var payload = args.length > 2 ? args[2] : args[1];
       var requestId = (payload && typeof payload === 'object') ? payload.requestId : null;
-      this._captureEvent({ direction: 'in', eventType: eventType, requestId: requestId, payload: payload, source: source });
+      var echoId = (payload && typeof payload === 'object') ? payload.echoRequestId : null;
+      this._captureEvent({ direction: 'in', eventType: eventType, requestId: requestId, echoRequestId: echoId, payload: payload, source: source });
       return;
     }
 
@@ -262,7 +263,8 @@ class EventMonitor {
       var eventType = args[1] || 'unknown';
       var payload = args.length > 2 ? args[2] : args[1];
       var requestId = (payload && typeof payload === 'object') ? payload.requestId : null;
-      this._captureEvent({ direction: 'out', eventType: eventType, requestId: requestId, payload: payload, source: source });
+      var echoId = (payload && typeof payload === 'object') ? payload.echoRequestId : null;
+      this._captureEvent({ direction: 'out', eventType: eventType, requestId: requestId, echoRequestId: echoId, payload: payload, source: source });
       return;
     }
 
@@ -288,6 +290,7 @@ class EventMonitor {
       direction: eventData.direction || 'in',
       eventType: eventData.eventType || 'unknown',
       requestId: eventData.requestId || null,
+      echoRequestId: eventData.echoRequestId || null,
       payload: eventData.payload,
       source: eventData.source || null,
       expanded: false,
@@ -330,6 +333,16 @@ class EventMonitor {
       var arrow = entry.direction === 'in' ? '\u2193' : '\u2191';
       var time = this._formatTime(entry.timestamp);
       var idStr = entry.requestId ? entry.requestId.substring(0, 20) + (entry.requestId.length > 20 ? '...' : '') : '';
+      var echoIdStr = entry.echoRequestId ? entry.echoRequestId.substring(0, 24) + (entry.echoRequestId.length > 24 ? '...' : '') : '';
+      // Host echo correlation chip \u2014 distinct from the SDK's ACK requestId.
+      // - inbound message with requestId: chip shows the host's correlation id ("host echo: ...")
+      // - outbound message with echoRequestId: chip shows the value being echoed back ("echo->host: ...")
+      var hostChipText = '';
+      if (entry.direction === 'in' && entry.requestId) {
+        hostChipText = 'host echo: ' + entry.requestId.substring(0, 20) + (entry.requestId.length > 20 ? '...' : '');
+      } else if (entry.direction === 'out' && entry.echoRequestId) {
+        hostChipText = 'echo' + '\u2192' + 'host: ' + echoIdStr;
+      }
 
       // Only animate genuinely new entries, not re-renders
       var animClass = isNew ? '' : ' event-entry--no-anim';
@@ -339,7 +352,10 @@ class EventMonitor {
       html += '<span class="event-entry__arrow ' + arrowClass + '">' + arrow + '</span>';
       html += '<span class="event-entry__type">' + DataRenderer.escapeHTML(entry.eventType) + '</span>';
       if (entry.source) html += '<span class="event-entry__source event-entry__source--' + (entry.source === 'MessageChannel' ? 'channel' : 'post') + '">' + DataRenderer.escapeHTML(entry.source) + '</span>';
-      if (idStr) html += '<span class="event-entry__id">' + DataRenderer.escapeHTML(idStr) + '</span>';
+      // SDK's own ACK requestId chip \u2014 only show on OUTBOUND entries (where it's the SDK-generated id we track replies on).
+      // On inbound entries, "requestId" is the host's echo correlation id and is shown by the host chip instead.
+      if (entry.direction === 'out' && idStr) html += '<span class="event-entry__id">' + DataRenderer.escapeHTML(idStr) + '</span>';
+      if (hostChipText) html += '<span class="event-entry__id event-entry__id--host-echo">' + DataRenderer.escapeHTML(hostChipText) + '</span>';
       html += '<span class="event-entry__expand-hint">' + (entry.expanded ? '\u25B2' : '\u25BC') + '</span>';
       html += '</div>';
 
