@@ -1168,7 +1168,7 @@ const testDefinitions = [
       var originalLog = window.domo.debug.log;
       var originalPath = window.location.pathname + window.location.search + window.location.hash;
       window.domo.debug.log = function(category, prefix, eventType, payload) {
-        if (category === 'messages' && prefix === 'sent:postMessage' && eventType === 'ROUTE_CHANGE') {
+        if (category === 'messages' && prefix === 'sent:postMessage' && eventType === 'routeChange') {
           captured.push(payload);
         }
         if (originalLog) originalLog.apply(window.domo.debug, arguments);
@@ -1177,9 +1177,9 @@ const testDefinitions = [
       setTimeout(function() {
         window.domo.debug.log = originalLog;
         history.replaceState({}, '', originalPath);
-        if (captured.length === 0) return reject(new Error("No ROUTE_CHANGE debug log emitted within 150ms"));
+        if (captured.length === 0) return reject(new Error("No routeChange debug log emitted within 150ms"));
         var payload = captured[0];
-        if (!payload || payload.type !== 'ROUTE_CHANGE') return reject(new Error("Payload missing type: " + JSON.stringify(payload)));
+        if (!payload || payload.event !== 'routeChange') return reject(new Error("Payload missing event: " + JSON.stringify(payload)));
         if (payload.route !== '/test-route-capture') return reject(new Error("Route mismatch: " + payload.route));
         resolve({ _render: "payload", direction: "sent", method: "ROUTE_CHANGE (pushState)", payload: payload });
       }, 150);
@@ -1195,7 +1195,7 @@ const testDefinitions = [
       var originalLog = window.domo.debug.log;
       var originalPath = window.location.pathname + window.location.search + window.location.hash;
       window.domo.debug.log = function(category, prefix, eventType, payload) {
-        if (category === 'messages' && prefix === 'sent:postMessage' && eventType === 'ROUTE_CHANGE') {
+        if (category === 'messages' && prefix === 'sent:postMessage' && eventType === 'routeChange') {
           captured.push(payload);
         }
         if (originalLog) originalLog.apply(window.domo.debug, arguments);
@@ -1204,9 +1204,9 @@ const testDefinitions = [
       setTimeout(function() {
         window.domo.debug.log = originalLog;
         history.replaceState({}, '', originalPath);
-        if (captured.length === 0) return reject(new Error("No ROUTE_CHANGE debug log emitted within 150ms"));
+        if (captured.length === 0) return reject(new Error("No routeChange debug log emitted within 150ms"));
         var payload = captured[0];
-        if (!payload || payload.type !== 'ROUTE_CHANGE') return reject(new Error("Payload missing type: " + JSON.stringify(payload)));
+        if (!payload || payload.event !== 'routeChange') return reject(new Error("Payload missing event: " + JSON.stringify(payload)));
         if (payload.route !== '/test-replace-route') return reject(new Error("Route mismatch: " + payload.route));
         resolve({ _render: "payload", direction: "sent", method: "ROUTE_CHANGE (replaceState)", payload: payload });
       }, 150);
@@ -1222,7 +1222,7 @@ const testDefinitions = [
       var originalLog = window.domo.debug.log;
       var originalPath = window.location.pathname + window.location.search + window.location.hash;
       window.domo.debug.log = function(category, prefix, eventType, payload) {
-        if (category === 'messages' && prefix === 'sent:postMessage' && eventType === 'ROUTE_CHANGE') {
+        if (category === 'messages' && prefix === 'sent:postMessage' && eventType === 'routeChange') {
           captured.push(payload);
         }
         if (originalLog) originalLog.apply(window.domo.debug, arguments);

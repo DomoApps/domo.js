@@ -17,38 +17,38 @@ describe('initRouteCapture', () => {
     jest.clearAllMocks();
   });
 
-  it('sends ROUTE_CHANGE after pushState', () => {
+  it('sends routeChange after pushState', () => {
     history.pushState({}, '', '/new-path');
     jest.advanceTimersByTime(100);
     expect(window.parent.postMessage).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'ROUTE_CHANGE', route: '/new-path' }),
+      JSON.stringify({ event: 'routeChange', route: '/new-path' }),
       '*'
     );
   });
 
-  it('sends ROUTE_CHANGE after replaceState', () => {
+  it('sends routeChange after replaceState', () => {
     history.replaceState({}, '', '/replaced');
     jest.advanceTimersByTime(100);
     expect(window.parent.postMessage).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'ROUTE_CHANGE', route: '/replaced' }),
+      JSON.stringify({ event: 'routeChange', route: '/replaced' }),
       '*'
     );
   });
 
-  it('sends ROUTE_CHANGE on popstate', () => {
+  it('sends routeChange on popstate', () => {
     window.dispatchEvent(new PopStateEvent('popstate'));
     jest.advanceTimersByTime(100);
     expect(window.parent.postMessage).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'ROUTE_CHANGE', route: '/' }),
+      JSON.stringify({ event: 'routeChange', route: '/' }),
       '*'
     );
   });
 
-  it('sends ROUTE_CHANGE on hashchange', () => {
+  it('sends routeChange on hashchange', () => {
     window.dispatchEvent(new Event('hashchange'));
     jest.advanceTimersByTime(100);
     expect(window.parent.postMessage).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'ROUTE_CHANGE', route: '/' }),
+      JSON.stringify({ event: 'routeChange', route: '/' }),
       '*'
     );
   });
@@ -61,7 +61,7 @@ describe('initRouteCapture', () => {
     jest.advanceTimersByTime(100);
     expect(window.parent.postMessage).toHaveBeenCalledTimes(1);
     expect(window.parent.postMessage).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'ROUTE_CHANGE', route: '/path3' }),
+      JSON.stringify({ event: 'routeChange', route: '/path3' }),
       '*'
     );
   });
@@ -78,12 +78,12 @@ describe('initRouteCapture', () => {
     history.pushState({}, '', '/page?q=test#section');
     jest.advanceTimersByTime(100);
     expect(window.parent.postMessage).toHaveBeenCalledWith(
-      JSON.stringify({ type: 'ROUTE_CHANGE', route: '/page?q=test#section' }),
+      JSON.stringify({ event: 'routeChange', route: '/page?q=test#section' }),
       '*'
     );
   });
 
-  it('stop() prevents further ROUTE_CHANGE messages', () => {
+  it('stop() prevents further routeChange messages', () => {
     stop();
     (window.parent.postMessage as jest.Mock).mockClear();
     history.pushState({}, '', '/after-stop');

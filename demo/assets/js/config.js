@@ -36,7 +36,7 @@ const APP_CONFIG = {
   ],
 
   // Event types for monitor filtering
-  EVENT_TYPES: ['dataUpdated', 'filtersUpdated', 'variablesUpdated', 'appData', 'ack', 'subscribe', 'filter', 'variable', 'navigate', 'ROUTE_CHANGE', 'http'],
+  EVENT_TYPES: ['dataUpdated', 'filtersUpdated', 'variablesUpdated', 'appData', 'ack', 'subscribe', 'filter', 'variable', 'navigate', 'routeChange', 'http'],
 
   // Tab definitions
   TABS: [
