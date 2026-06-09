@@ -36,7 +36,7 @@ const APP_CONFIG = {
   ],
 
   // Event types for monitor filtering
-  EVENT_TYPES: ['dataUpdated', 'filtersUpdated', 'variablesUpdated', 'appData', 'ack', 'subscribe', 'filter', 'variable', 'navigate', 'http'],
+  EVENT_TYPES: ['dataUpdated', 'filtersUpdated', 'variablesUpdated', 'appData', 'ack', 'subscribe', 'filter', 'variable', 'navigate', 'ROUTE_CHANGE', 'http'],
 
   // Tab definitions
   TABS: [
@@ -58,6 +58,7 @@ const CATEGORY_META = {
   params:     { icon: '?', label: 'URL Params',       cssClass: 'params' },
   dx:         { icon: '+', label: 'DX Tools',         cssClass: 'dx' },
   echo:       { icon: '@', label: 'Host Echo',        cssClass: 'events' },
+  routing:    { icon: '^', label: 'Route Capture',   cssClass: 'events' },
 };
 
 // Test status labels

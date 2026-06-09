@@ -1157,6 +1157,90 @@ const testDefinitions = [
       };
     },
   },
+  // ── Route Capture (DOMO-488031) ──────────────────────────────────────
+  {
+    name: "ROUTE_CHANGE: pushState triggers broadcast",
+    category: "routing",
+    description: "Calls history.pushState and asserts the SDK emits a ROUTE_CHANGE debug log within 150ms",
+    fn: () => new Promise(function(resolve, reject) {
+      if (!window.domo || !window.domo.debug) return reject(new Error("domo.debug not available — SDK too old"));
+      var captured = [];
+      var originalLog = window.domo.debug.log;
+      var originalPath = window.location.pathname + window.location.search + window.location.hash;
+      window.domo.debug.log = function(category, prefix, eventType, payload) {
+        if (category === 'messages' && prefix === 'sent:postMessage' && eventType === 'ROUTE_CHANGE') {
+          captured.push(payload);
+        }
+        if (originalLog) originalLog.apply(window.domo.debug, arguments);
+      };
+      history.pushState({}, '', '/test-route-capture');
+      setTimeout(function() {
+        window.domo.debug.log = originalLog;
+        history.replaceState({}, '', originalPath);
+        if (captured.length === 0) return reject(new Error("No ROUTE_CHANGE debug log emitted within 150ms"));
+        var payload = captured[0];
+        if (!payload || payload.type !== 'ROUTE_CHANGE') return reject(new Error("Payload missing type: " + JSON.stringify(payload)));
+        if (payload.route !== '/test-route-capture') return reject(new Error("Route mismatch: " + payload.route));
+        resolve({ _render: "payload", direction: "sent", method: "ROUTE_CHANGE (pushState)", payload: payload });
+      }, 150);
+    }),
+  },
+  {
+    name: "ROUTE_CHANGE: replaceState triggers broadcast",
+    category: "routing",
+    description: "Calls history.replaceState and asserts the SDK emits a ROUTE_CHANGE debug log within 150ms",
+    fn: () => new Promise(function(resolve, reject) {
+      if (!window.domo || !window.domo.debug) return reject(new Error("domo.debug not available — SDK too old"));
+      var captured = [];
+      var originalLog = window.domo.debug.log;
+      var originalPath = window.location.pathname + window.location.search + window.location.hash;
+      window.domo.debug.log = function(category, prefix, eventType, payload) {
+        if (category === 'messages' && prefix === 'sent:postMessage' && eventType === 'ROUTE_CHANGE') {
+          captured.push(payload);
+        }
+        if (originalLog) originalLog.apply(window.domo.debug, arguments);
+      };
+      history.replaceState({}, '', '/test-replace-route');
+      setTimeout(function() {
+        window.domo.debug.log = originalLog;
+        history.replaceState({}, '', originalPath);
+        if (captured.length === 0) return reject(new Error("No ROUTE_CHANGE debug log emitted within 150ms"));
+        var payload = captured[0];
+        if (!payload || payload.type !== 'ROUTE_CHANGE') return reject(new Error("Payload missing type: " + JSON.stringify(payload)));
+        if (payload.route !== '/test-replace-route') return reject(new Error("Route mismatch: " + payload.route));
+        resolve({ _render: "payload", direction: "sent", method: "ROUTE_CHANGE (replaceState)", payload: payload });
+      }, 150);
+    }),
+  },
+  {
+    name: "ROUTE_CHANGE: debounce collapses rapid pushState calls",
+    category: "routing",
+    description: "Three pushState calls within 100ms should emit exactly one ROUTE_CHANGE with the final route",
+    fn: () => new Promise(function(resolve, reject) {
+      if (!window.domo || !window.domo.debug) return reject(new Error("domo.debug not available — SDK too old"));
+      var captured = [];
+      var originalLog = window.domo.debug.log;
+      var originalPath = window.location.pathname + window.location.search + window.location.hash;
+      window.domo.debug.log = function(category, prefix, eventType, payload) {
+        if (category === 'messages' && prefix === 'sent:postMessage' && eventType === 'ROUTE_CHANGE') {
+          captured.push(payload);
+        }
+        if (originalLog) originalLog.apply(window.domo.debug, arguments);
+      };
+      history.pushState({}, '', '/debounce-1');
+      history.pushState({}, '', '/debounce-2');
+      history.pushState({}, '', '/debounce-final');
+      setTimeout(function() {
+        window.domo.debug.log = originalLog;
+        history.replaceState({}, '', originalPath);
+        if (captured.length === 0) return reject(new Error("No ROUTE_CHANGE emitted within 150ms"));
+        if (captured.length > 1) return reject(new Error("Expected 1 ROUTE_CHANGE (debounced), got " + captured.length));
+        var payload = captured[0];
+        if (payload.route !== '/debounce-final') return reject(new Error("Expected /debounce-final, got: " + payload.route));
+        resolve({ _render: "payload", direction: "sent", method: "ROUTE_CHANGE (debounced)", payload: { emitted: captured.length, finalRoute: payload.route } });
+      }, 150);
+    }),
+  },
 ];
 
 // ── Helper functions ────────────────────────────────────────────────
