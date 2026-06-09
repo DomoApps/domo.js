@@ -2213,3 +2213,56 @@ body::before {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Page Two ────────────────────────────────────────────────── */
+.page-two {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.page-two__title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.page-two__route-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.5rem;
+  min-width: 16rem;
+}
+
+.page-two__label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.page-two__hint {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  max-width: 30rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.tab-btn--page {
+  margin-left: auto;
+  opacity: 0.7;
+}
+
+.tab-btn--page:hover {
+  opacity: 1;
+}

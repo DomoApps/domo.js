@@ -35,14 +35,51 @@ class DomoApp {
     var hash = window.location.hash.replace('#', '') || 'tests';
     this.switchTab(hash);
 
-    // Listen for hash changes
+    // Listen for hash changes (tab switching)
     var self = this;
     window.addEventListener('hashchange', function() {
       var tab = window.location.hash.replace('#', '') || 'tests';
       self.switchTab(tab);
     });
 
+    // Handle path-based navigation (page2) and back/forward
+    this._handleCurrentRoute();
+    window.addEventListener('popstate', function() {
+      self._handleCurrentRoute();
+    });
+
+    var backBtn = document.getElementById('pageTwoBack');
+    if (backBtn) backBtn.addEventListener('click', function() { history.back(); });
+
     updateDeviceInfo();
+  }
+
+  navigateToPage2() {
+    history.pushState({}, '', '/page2');
+    this._showPage('page2');
+  }
+
+  _showPage(name) {
+    var mainLayout = document.getElementById('mainLayout');
+    var pageTwo = document.getElementById('page-two');
+    var route = window.location.pathname + window.location.search + window.location.hash;
+    if (name === 'page2') {
+      if (mainLayout) mainLayout.style.display = 'none';
+      if (pageTwo) pageTwo.style.display = '';
+      var routeEl = document.getElementById('pageTwoRoute');
+      if (routeEl) routeEl.textContent = route;
+    } else {
+      if (mainLayout) mainLayout.style.display = '';
+      if (pageTwo) pageTwo.style.display = 'none';
+    }
+  }
+
+  _handleCurrentRoute() {
+    if (window.location.pathname === '/page2') {
+      this._showPage('page2');
+    } else {
+      this._showPage('main');
+    }
   }
 
   switchTab(tabId) {
@@ -103,6 +140,13 @@ class DomoApp {
       btn.addEventListener('click', function() { self.switchTab(tab.id); });
       nav.appendChild(btn);
     });
+
+    var navBtn = document.createElement('button');
+    navBtn.id = 'tab-btn-page2';
+    navBtn.className = 'tab-btn tab-btn--page';
+    navBtn.textContent = 'Page 2 →';
+    navBtn.addEventListener('click', function() { self.navigateToPage2(); });
+    nav.appendChild(navBtn);
   }
 
   _initEnvPanel() {

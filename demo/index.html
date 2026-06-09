@@ -30,6 +30,7 @@
 </head>
 <body>
   <div class="container">
+    <div id="mainLayout">
     <!-- Header -->
     <header class="header">
       <h1>domo.js</h1>
@@ -219,6 +220,24 @@
         <!-- Rendered by app.js -->
       </div>
     </details>
+    </div><!-- #mainLayout -->
+
+    <!-- ═══════ Page Two ═══════ -->
+    <div id="page-two" style="display:none">
+      <div class="page-two">
+        <h2 class="page-two__title">Page Two</h2>
+        <div class="page-two__route-block">
+          <span class="page-two__label">Current route</span>
+          <code id="pageTwoRoute">/page2</code>
+        </div>
+        <p class="page-two__hint">
+          Navigating here emitted a <code>routeChange</code> postMessage from the SDK.
+          Check the Event Monitor to confirm. Use your browser's back button or click below to return.
+        </p>
+        <button class="btn btn-secondary" id="pageTwoBack">&#8592; Go back</button>
+      </div>
+    </div>
+
   </div>
 
   <!-- App scripts -->
