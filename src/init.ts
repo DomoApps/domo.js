@@ -1,5 +1,6 @@
 import { handleNode } from "./utils/domoutils";
 import { getToken } from "./models/constants/general";
+import { initRouteCapture } from "./models/services/routing";
 
 /**
  * MutationObserver callback that injects the authentication token into any newly added HTML elements.
@@ -23,3 +24,5 @@ export const __mutationObserverCallback = (mutations: any[]) => {
 
 const ob = new MutationObserver(__mutationObserverCallback);
 ob.observe(document.documentElement, { childList: true, subtree: true });
+
+initRouteCapture();
