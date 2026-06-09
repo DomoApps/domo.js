@@ -5,6 +5,8 @@ describe('initRouteCapture', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
+    // Reset location to ensure clean test state
+    window.history.replaceState({}, '', '/');
     window.parent.postMessage = jest.fn();
     stop = initRouteCapture();
   });
