@@ -17,15 +17,15 @@ export function initRouteCapture(): () => void {
     debounceTimer = setTimeout(sendRouteChange, DEBOUNCE_MS);
   }
 
-  const originalPushState = history.pushState;
-  history.pushState = function (...args: Parameters<typeof history.pushState>) {
-    originalPushState.apply(history, args);
+  const originalPushState = window.history.pushState;
+  window.history.pushState = function (...args: Parameters<typeof window.history.pushState>) {
+    originalPushState.apply(window.history, args);
     scheduleRouteChange();
   };
 
-  const originalReplaceState = history.replaceState;
-  history.replaceState = function (...args: Parameters<typeof history.replaceState>) {
-    originalReplaceState.apply(history, args);
+  const originalReplaceState = window.history.replaceState;
+  window.history.replaceState = function (...args: Parameters<typeof window.history.replaceState>) {
+    originalReplaceState.apply(window.history, args);
     scheduleRouteChange();
   };
 
@@ -37,8 +37,8 @@ export function initRouteCapture(): () => void {
       clearTimeout(debounceTimer);
       debounceTimer = null;
     }
-    history.pushState = originalPushState;
-    history.replaceState = originalReplaceState;
+    window.history.pushState = originalPushState;
+    window.history.replaceState = originalReplaceState;
     window.removeEventListener('popstate', scheduleRouteChange);
     window.removeEventListener('hashchange', scheduleRouteChange);
   };

@@ -60,6 +60,10 @@ describe('initRouteCapture', () => {
     expect(window.parent.postMessage).not.toHaveBeenCalled();
     jest.advanceTimersByTime(100);
     expect(window.parent.postMessage).toHaveBeenCalledTimes(1);
+    expect(window.parent.postMessage).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'ROUTE_CHANGE', route: '/path3' }),
+      '*'
+    );
   });
 
   it('sends separate messages for calls more than 100ms apart', () => {
