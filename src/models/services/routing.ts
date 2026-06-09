@@ -6,10 +6,10 @@ export function initRouteCapture(): () => void {
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   function sendRouteChange(): void {
-    const route = window.location.pathname + window.location.search + window.location.hash;
-    const payload = { type: 'ROUTE_CHANGE', route };
-    domoDebug.log('messages', 'sent:postMessage', 'ROUTE_CHANGE', payload);
-    window.parent.postMessage(JSON.stringify(payload), '*');
+    const route = globalThis.location.pathname + globalThis.location.search + globalThis.location.hash;
+    const payload = { event: 'routeChange', route };
+    domoDebug.log('messages', 'sent:postMessage', 'routeChange', payload);
+    globalThis.parent.postMessage(JSON.stringify(payload), '*');
   }
 
   function scheduleRouteChange(): void {
@@ -17,29 +17,29 @@ export function initRouteCapture(): () => void {
     debounceTimer = setTimeout(sendRouteChange, DEBOUNCE_MS);
   }
 
-  const originalPushState = window.history.pushState;
-  window.history.pushState = function (...args: Parameters<typeof window.history.pushState>) {
-    originalPushState.apply(window.history, args);
+  const originalPushState = globalThis.history.pushState;
+  globalThis.history.pushState = function (...args: Parameters<typeof globalThis.history.pushState>) {
+    originalPushState.apply(globalThis.history, args);
     scheduleRouteChange();
   };
 
-  const originalReplaceState = window.history.replaceState;
-  window.history.replaceState = function (...args: Parameters<typeof window.history.replaceState>) {
-    originalReplaceState.apply(window.history, args);
+  const originalReplaceState = globalThis.history.replaceState;
+  globalThis.history.replaceState = function (...args: Parameters<typeof globalThis.history.replaceState>) {
+    originalReplaceState.apply(globalThis.history, args);
     scheduleRouteChange();
   };
 
-  window.addEventListener('popstate', scheduleRouteChange);
-  window.addEventListener('hashchange', scheduleRouteChange);
+  globalThis.addEventListener('popstate', scheduleRouteChange);
+  globalThis.addEventListener('hashchange', scheduleRouteChange);
 
   return function stop(): void {
     if (debounceTimer !== null) {
       clearTimeout(debounceTimer);
       debounceTimer = null;
     }
-    window.history.pushState = originalPushState;
-    window.history.replaceState = originalReplaceState;
-    window.removeEventListener('popstate', scheduleRouteChange);
-    window.removeEventListener('hashchange', scheduleRouteChange);
+    globalThis.history.pushState = originalPushState;
+    globalThis.history.replaceState = originalReplaceState;
+    globalThis.removeEventListener('popstate', scheduleRouteChange);
+    globalThis.removeEventListener('hashchange', scheduleRouteChange);
   };
 }
