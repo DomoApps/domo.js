@@ -36,13 +36,19 @@ describe('initRouteCapture', () => {
   it('sends ROUTE_CHANGE on popstate', () => {
     window.dispatchEvent(new PopStateEvent('popstate'));
     jest.advanceTimersByTime(100);
-    expect(window.parent.postMessage).toHaveBeenCalled();
+    expect(window.parent.postMessage).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'ROUTE_CHANGE', route: '/' }),
+      '*'
+    );
   });
 
   it('sends ROUTE_CHANGE on hashchange', () => {
     window.dispatchEvent(new Event('hashchange'));
     jest.advanceTimersByTime(100);
-    expect(window.parent.postMessage).toHaveBeenCalled();
+    expect(window.parent.postMessage).toHaveBeenCalledWith(
+      JSON.stringify({ type: 'ROUTE_CHANGE', route: '/' }),
+      '*'
+    );
   });
 
   it('debounces rapid pushState calls into a single message', () => {
@@ -75,7 +81,9 @@ describe('initRouteCapture', () => {
     stop();
     (window.parent.postMessage as jest.Mock).mockClear();
     history.pushState({}, '', '/after-stop');
+    history.replaceState({}, '', '/after-stop-replace');
     window.dispatchEvent(new PopStateEvent('popstate'));
+    window.dispatchEvent(new Event('hashchange'));
     jest.advanceTimersByTime(100);
     expect(window.parent.postMessage).not.toHaveBeenCalled();
   });
