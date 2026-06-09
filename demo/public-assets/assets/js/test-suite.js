@@ -470,18 +470,22 @@ const testDefinitions = [
     description: "Synthesize an inbound appData message and assert the listener gets (appData, requestId)",
     fn: () => new Promise(function(resolve, reject) {
       if (typeof domo.onAppDataUpdated !== "function") return reject(new Error("Not available in this version"));
-      if (!domo.channel || !domo.channel.port1) return reject(new Error("MessageChannel not connected — open this app inside Domo"));
       var received = null;
-      var unregister = domo.onAppDataUpdated(function(appData, requestId) {
-        received = { appData: appData, requestId: requestId };
-      });
+      var unregister;
+      try {
+        unregister = domo.onAppDataUpdated(function(appData, requestId) {
+          received = { appData: appData, requestId: requestId };
+        });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+      if (!domo.channel || !domo.channel.port1) { try { unregister && unregister(); } catch (e) {} return reject(new Error("MessageChannel not connected — open this app inside Domo")); }
       var port = new MessageChannel().port2;
-      // Synthesize an inbound host push by dispatching directly on port1.onmessage.
       domo.channel.port1.onmessage({
         data: { event: "appData", appData: "synthetic-x", requestId: "req_synth_in_1" },
         ports: [port],
       });
-      try { unregister(); } catch (e) {}
+      try { unregister && unregister(); } catch (e) {}
       if (!received) return reject(new Error("Callback did not fire"));
       if (received.appData !== "synthetic-x") return reject(new Error("appData mismatch: " + received.appData));
       if (received.requestId !== "req_synth_in_1") return reject(new Error("requestId 2nd arg missing or wrong: " + received.requestId));
@@ -494,17 +498,22 @@ const testDefinitions = [
     description: "Synthesize an inbound appData without requestId; 2nd arg should be undefined",
     fn: () => new Promise(function(resolve, reject) {
       if (typeof domo.onAppDataUpdated !== "function") return reject(new Error("Not available in this version"));
-      if (!domo.channel || !domo.channel.port1) return reject(new Error("MessageChannel not connected — open this app inside Domo"));
       var received = null;
-      var unregister = domo.onAppDataUpdated(function(appData, requestId) {
-        received = { appData: appData, requestId: requestId };
-      });
+      var unregister;
+      try {
+        unregister = domo.onAppDataUpdated(function(appData, requestId) {
+          received = { appData: appData, requestId: requestId };
+        });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+      if (!domo.channel || !domo.channel.port1) { try { unregister && unregister(); } catch (e) {} return reject(new Error("MessageChannel not connected — open this app inside Domo")); }
       var port = new MessageChannel().port2;
       domo.channel.port1.onmessage({
         data: { event: "appData", appData: "no-id" },
         ports: [port],
       });
-      try { unregister(); } catch (e) {}
+      try { unregister && unregister(); } catch (e) {}
       if (!received) return reject(new Error("Callback did not fire"));
       if (received.appData !== "no-id") return reject(new Error("appData mismatch"));
       if (received.requestId !== undefined) return reject(new Error("requestId should be undefined, got: " + String(received.requestId)));
@@ -519,7 +528,9 @@ const testDefinitions = [
       if (typeof domo.requestAppDataUpdate !== "function") return reject(new Error("Not available in this version"));
       if (typeof domo.getRequests !== "function") return reject(new Error("domo.getRequests not available — SDK too old"));
       var requestsBefore = Object.keys(domo.getRequests());
-      domo.requestAppDataUpdate("echo-test-payload", undefined, undefined, { echoRequestId: "req_echo_out_1" });
+      try { domo.requestAppDataUpdate("echo-test-payload", undefined, undefined, { echoRequestId: "req_echo_out_1" }); } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
       var requestsAfter = Object.keys(domo.getRequests());
       var newIds = requestsAfter.filter(function(id) { return requestsBefore.indexOf(id) === -1; });
       if (newIds.length === 0) return reject(new Error("No new request recorded in SDK"));
@@ -556,18 +567,23 @@ const testDefinitions = [
     description: "Synthesize an inbound filtersUpdated message; listener should get (filters, requestId)",
     fn: () => new Promise(function(resolve, reject) {
       if (typeof domo.onFiltersUpdated !== "function") return reject(new Error("Not available in this version"));
-      if (!domo.channel || !domo.channel.port1) return reject(new Error("MessageChannel not connected — open this app inside Domo"));
       var received = null;
-      var unregister = domo.onFiltersUpdated(function(filters, requestId) {
-        received = { filters: filters, requestId: requestId };
-      });
+      var unregister;
+      try {
+        unregister = domo.onFiltersUpdated(function(filters, requestId) {
+          received = { filters: filters, requestId: requestId };
+        });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+      if (!domo.channel || !domo.channel.port1) { try { unregister && unregister(); } catch (e) {} return reject(new Error("MessageChannel not connected — open this app inside Domo")); }
       var port = new MessageChannel().port2;
       var filters = [{ column: "x", operator: "IN", values: ["y"], dataType: "STRING" }];
       domo.channel.port1.onmessage({
         data: { event: "filtersUpdated", filters: filters, requestId: "req_synth_filter_1" },
         ports: [port],
       });
-      try { unregister(); } catch (e) {}
+      try { unregister && unregister(); } catch (e) {}
       if (!received) return reject(new Error("Callback did not fire"));
       if (!Array.isArray(received.filters) || received.filters.length !== 1) return reject(new Error("filters not forwarded"));
       if (received.requestId !== "req_synth_filter_1") return reject(new Error("requestId 2nd arg missing or wrong: " + received.requestId));
@@ -583,7 +599,9 @@ const testDefinitions = [
       if (typeof domo.getRequests !== "function") return reject(new Error("domo.getRequests not available — SDK too old"));
       var requestsBefore = Object.keys(domo.getRequests());
       var filters = [{ column: "x", operator: "IN", values: ["y"], dataType: "STRING" }];
-      domo.requestFiltersUpdate(filters, null, undefined, undefined, { echoRequestId: "req_filter_out_1" });
+      try { domo.requestFiltersUpdate(filters, null, undefined, undefined, { echoRequestId: "req_filter_out_1" }); } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
       var requestsAfter = Object.keys(domo.getRequests());
       var newIds = requestsAfter.filter(function(id) { return requestsBefore.indexOf(id) === -1; });
       if (newIds.length === 0) return reject(new Error("No new request recorded in SDK"));
@@ -593,6 +611,94 @@ const testDefinitions = [
       if (!captured.requestId) return reject(new Error("SDK ACK requestId missing"));
       if (captured.requestId === captured.echoRequestId) return reject(new Error("requestId and echoRequestId must be distinct"));
       resolve({ _render: "payload", direction: "sent", method: "requestFiltersUpdate", payload: captured });
+    }),
+  },
+  {
+    name: "Round-trip echo: requestFiltersUpdate → host echoes requestId → onFiltersUpdated receives it",
+    category: "echo",
+    description: "Simulates the full host echo cycle: SDK emits echoRequestId, host echoes it back on the next filtersUpdated, SDK delivers it to listener",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.requestFiltersUpdate !== "function") return reject(new Error("Not available in this version"));
+      if (typeof domo.onFiltersUpdated !== "function") return reject(new Error("Not available in this version"));
+      if (!domo.channel || !domo.channel.port1) return reject(new Error("MessageChannel not connected — open this app inside Domo"));
+
+      var echoId = "roundtrip_filter_" + Date.now();
+      var received = null;
+      var unregister;
+
+      try {
+        unregister = domo.onFiltersUpdated(function(filters, requestId) {
+          received = { filters: filters, requestId: requestId };
+        });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+
+      // Step 1: SDK sends requestFiltersUpdate with echoRequestId
+      var filters = [{ column: "status", operator: "IN", values: ["active"], dataType: "STRING" }];
+      try {
+        domo.requestFiltersUpdate(filters, null, undefined, undefined, { echoRequestId: echoId });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+
+      // Step 2: Simulate host echoing the echoRequestId back as requestId on inbound filtersUpdated
+      var responseFilters = [{ column: "status", operator: "IN", values: ["active"], dataType: "STRING" }];
+      var port = new MessageChannel().port2;
+      domo.channel.port1.onmessage({
+        data: { event: "filtersUpdated", filters: responseFilters, requestId: echoId },
+        ports: [port],
+      });
+
+      // Step 3: Assert the listener received the echoed requestId
+      try { unregister && unregister(); } catch (e) {}
+      if (!received) return reject(new Error("Listener did not fire"));
+      if (received.requestId !== echoId) return reject(new Error("Round-trip requestId mismatch: expected " + echoId + ", got " + received.requestId));
+      if (!Array.isArray(received.filters) || received.filters.length !== 1) return reject(new Error("Filters not forwarded correctly"));
+      resolve({ _render: "payload", direction: "both", method: "requestFiltersUpdate → onFiltersUpdated (round-trip)", payload: { echoRequestId: echoId, received: received } });
+    }),
+  },
+  {
+    name: "Round-trip echo: requestAppDataUpdate → host echoes requestId → onAppDataUpdated receives it",
+    category: "echo",
+    description: "Simulates the full host echo cycle for appData: SDK emits echoRequestId, host echoes it back, SDK delivers it to listener",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.requestAppDataUpdate !== "function") return reject(new Error("Not available in this version"));
+      if (typeof domo.onAppDataUpdated !== "function") return reject(new Error("Not available in this version"));
+      if (!domo.channel || !domo.channel.port1) return reject(new Error("MessageChannel not connected — open this app inside Domo"));
+
+      var echoId = "roundtrip_appdata_" + Date.now();
+      var received = null;
+      var unregister;
+
+      try {
+        unregister = domo.onAppDataUpdated(function(appData, requestId) {
+          received = { appData: appData, requestId: requestId };
+        });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+
+      // Step 1: SDK sends requestAppDataUpdate with echoRequestId
+      try {
+        domo.requestAppDataUpdate("roundtrip-payload", undefined, undefined, { echoRequestId: echoId });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+
+      // Step 2: Simulate host echoing the echoRequestId back as requestId on inbound appData
+      var port = new MessageChannel().port2;
+      domo.channel.port1.onmessage({
+        data: { event: "appData", appData: "host-response-payload", requestId: echoId },
+        ports: [port],
+      });
+
+      // Step 3: Assert the listener received the echoed requestId
+      try { unregister && unregister(); } catch (e) {}
+      if (!received) return reject(new Error("Listener did not fire"));
+      if (received.requestId !== echoId) return reject(new Error("Round-trip requestId mismatch: expected " + echoId + ", got " + received.requestId));
+      if (received.appData !== "host-response-payload") return reject(new Error("appData mismatch: " + received.appData));
+      resolve({ _render: "payload", direction: "both", method: "requestAppDataUpdate → onAppDataUpdated (round-trip)", payload: { echoRequestId: echoId, received: received } });
     }),
   },
   // ── Code Engine ─────────────────────────────────────────────────
