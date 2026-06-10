@@ -49,7 +49,10 @@ class DomoApp {
     });
 
     var backBtn = document.getElementById('pageTwoBack');
-    if (backBtn) backBtn.addEventListener('click', function() { history.back(); });
+    if (backBtn) backBtn.addEventListener('click', function() {
+      history.pushState({}, '', '/');
+      self._handleCurrentRoute();
+    });
 
     updateDeviceInfo();
   }
