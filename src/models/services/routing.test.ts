@@ -94,3 +94,50 @@ describe('initRouteCapture', () => {
     expect(window.parent.postMessage).not.toHaveBeenCalled();
   });
 });
+
+describe('directLinkRoute restore', () => {
+  afterEach(() => {
+    window.history.replaceState({}, '', '/');
+    jest.clearAllMocks();
+  });
+
+  it('restores URL from directLinkRoute param without emitting routeChange', () => {
+    window.history.replaceState({}, '', '/?directLinkRoute=%2Fpage2');
+    window.parent.postMessage = jest.fn();
+    jest.useFakeTimers();
+    const stop = initRouteCapture();
+    jest.advanceTimersByTime(100);
+    expect(window.parent.postMessage).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe('/page2');
+    expect(window.location.search).toBe('');
+    stop();
+    jest.useRealTimers();
+  });
+
+  it('after restore, further pushState still emits routeChange', () => {
+    window.history.replaceState({}, '', '/?directLinkRoute=%2Fpage2');
+    window.parent.postMessage = jest.fn();
+    jest.useFakeTimers();
+    const stop = initRouteCapture();
+    history.pushState({}, '', '/page3');
+    jest.advanceTimersByTime(100);
+    expect(window.parent.postMessage).toHaveBeenCalledWith(
+      JSON.stringify({ event: 'routeChange', route: '/page3' }),
+      '*'
+    );
+    stop();
+    jest.useRealTimers();
+  });
+
+  it('no directLinkRoute param leaves URL unchanged', () => {
+    window.history.replaceState({}, '', '/');
+    window.parent.postMessage = jest.fn();
+    jest.useFakeTimers();
+    const stop = initRouteCapture();
+    jest.advanceTimersByTime(100);
+    expect(window.location.pathname).toBe('/');
+    expect(window.parent.postMessage).not.toHaveBeenCalled();
+    stop();
+    jest.useRealTimers();
+  });
+});

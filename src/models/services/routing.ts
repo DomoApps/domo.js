@@ -3,6 +3,12 @@ import { domoDebug } from "../../utils/debug";
 const DEBOUNCE_MS = 100;
 
 export function initRouteCapture(): () => void {
+  // Restore the deep-link route injected by DomoWeb as ?directLinkRoute=<path>
+  const directLinkRoute = new URLSearchParams(globalThis.location.search).get('directLinkRoute');
+  if (directLinkRoute) {
+    globalThis.history.replaceState(null, '', directLinkRoute);
+  }
+
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   function sendRouteChange(): void {
