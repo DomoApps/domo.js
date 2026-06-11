@@ -31,6 +31,16 @@ import { AskReplyMap } from "./models/interfaces/ask-reply";
 import { handleAck, handleReply } from "./utils/ask-reply";
 import { domoDebug } from "./utils/debug";
 import { addInterceptor } from "./models/services/interceptors";
+import {
+  broadcast,
+  broadcastState,
+  onBroadcast,
+  onBroadcastOnce,
+  onBroadcastFrom,
+  handleCapabilities,
+  handleBusMessage,
+  handleBusError,
+} from './broadcast';
 import { Filter } from "./models/interfaces/filter";
 import { Variable } from "./models/interfaces/variable";
 
@@ -102,6 +112,11 @@ class Domo {
   static requestVariablesUpdate = requestVariablesUpdate;
   static requestAppDataUpdate = requestAppDataUpdate;
   static navigate = navigate;
+  static broadcast = broadcast;
+  static broadcastState = broadcastState;
+  static onBroadcast = onBroadcast;
+  static onBroadcastOnce = onBroadcastOnce;
+  static onBroadcastFrom = onBroadcastFrom;
   static codeEngine = codeEngine;
   static workflow = workflow;
   static ai = ai;
@@ -153,21 +168,22 @@ class Domo {
       [this.channel.port2]
     );
 
-    const eventHandlers: {
-      [event in keyof typeof DomoEvent]: (data: any, responsePort?: MessagePort) => void;
-    } = {
+    const eventHandlers: Record<string, (data: any, responsePort?: MessagePort) => void> = {
       [DomoEvent.dataUpdated]: handleDataUpdated.bind(this),
       [DomoEvent.filtersUpdated]: handleFiltersUpdated.bind(this),
       [DomoEvent.appData]: handleAppData.bind(this),
       [DomoEvent.variablesUpdated]: handleVariablesUpdated.bind(this),
       [DomoEvent.ack]: handleAck.bind(this),
+      [DomoEvent.busMessage]: handleBusMessage.bind(this),
+      [DomoEvent.busError]: handleBusError.bind(this),
+      [DomoEvent.capabilities]: handleCapabilities.bind(this),
     };
 
     // MessageChannel listener (current/new implementation)
     this.channel.port1.onmessage = (e: MessageEvent) => {
       domoDebug.log('messages', 'received:channel', e.data.event, e.data);
       const [responsePort] = e.ports;
-      const handler = eventHandlers[e.data.event as keyof typeof DomoEvent];
+      const handler = eventHandlers[e.data.event];
       handler?.(e.data, responsePort);
     };
 
