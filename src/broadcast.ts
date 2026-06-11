@@ -1,4 +1,11 @@
-export type BroadcastCallback = (payload: unknown, sourceAppId: string) => void;
+export interface BroadcastMessage {
+  topic: string;
+  payload: unknown;
+  sourceAppId: string;
+  timestamp: number;
+}
+
+export type BroadcastCallback = (msg: BroadcastMessage) => void;
 
 // Module state
 let _appBroadcastingEnabled: boolean | null = null;
@@ -15,11 +22,18 @@ export function handleBusMessage(data: {
   topic: string;
   payload: unknown;
   sourceAppId: string;
+  timestamp?: number;
 }): void {
   const callbacks = _subscriptions.get(data.topic);
   if (!callbacks) return;
+  const msg: BroadcastMessage = {
+    topic: data.topic,
+    payload: data.payload,
+    sourceAppId: data.sourceAppId,
+    timestamp: data.timestamp ?? Date.now(),
+  };
   for (const cb of callbacks) {
-    cb(data.payload, data.sourceAppId);
+    cb(msg);
   }
 }
 
@@ -117,7 +131,12 @@ function checkLocalhostManifest(topic: string, direction: 'publishes' | 'subscri
 
 // --- Public API ---
 
-export function broadcast(this: any, topic: string, payload: unknown): void {
+export function broadcast(
+  this: any,
+  topic: string,
+  payload: unknown,
+  opts?: { sticky?: boolean }
+): void {
   validateTopic(topic);
   checkPayloadSize(payload);
   this.connect();
@@ -127,24 +146,13 @@ export function broadcast(this: any, topic: string, payload: unknown): void {
   }
   checkLocalhostManifest(topic, 'publishes');
   window.parent.postMessage(
-    JSON.stringify({ event: 'bus.publish', topic, payload, sticky: false }),
+    JSON.stringify({ event: 'bus.publish', topic, payload, sticky: opts?.sticky ?? false }),
     '*'
   );
 }
 
 export function broadcastState(this: any, topic: string, payload: unknown): void {
-  validateTopic(topic);
-  checkPayloadSize(payload);
-  this.connect();
-  if (_appBroadcastingEnabled === false) {
-    warnFeatureOff();
-    return;
-  }
-  checkLocalhostManifest(topic, 'publishes');
-  window.parent.postMessage(
-    JSON.stringify({ event: 'bus.publish', topic, payload, sticky: true }),
-    '*'
-  );
+  broadcast.call(this, topic, payload, { sticky: true });
 }
 
 export function onBroadcast(
@@ -189,9 +197,9 @@ export function onBroadcastOnce(
   callback: BroadcastCallback
 ): () => void {
   let unsubscribe: () => void;
-  const wrapper: BroadcastCallback = (payload, sourceAppId) => {
+  const wrapper: BroadcastCallback = (msg) => {
     unsubscribe();
-    callback(payload, sourceAppId);
+    callback(msg);
   };
   unsubscribe = onBroadcast.call(this, topic, wrapper);
   return unsubscribe;
@@ -199,13 +207,13 @@ export function onBroadcastOnce(
 
 export function onBroadcastFrom(
   this: any,
-  sourceAppId: string,
   topic: string,
+  sourceAppId: string,
   callback: BroadcastCallback
 ): () => void {
-  return onBroadcast.call(this, topic, (payload: unknown, msgSourceAppId: string) => {
-    if (msgSourceAppId === sourceAppId) {
-      callback(payload, msgSourceAppId);
+  return onBroadcast.call(this, topic, (msg: BroadcastMessage) => {
+    if (msg.sourceAppId === sourceAppId) {
+      callback(msg);
     }
   });
 }

@@ -60,7 +60,9 @@ describe('handleBusMessage', () => {
     const callback = jest.fn();
     _subscriptions.set('my-topic', new Set([callback]));
     handleBusMessage({ topic: 'my-topic', payload: { value: 42 }, sourceAppId: 'app-abc' });
-    expect(callback).toHaveBeenCalledWith({ value: 42 }, 'app-abc');
+    expect(callback).toHaveBeenCalledWith({
+      topic: 'my-topic', payload: { value: 42 }, sourceAppId: 'app-abc', timestamp: expect.any(Number),
+    });
   });
 
   it('does nothing if no callbacks registered for topic', () => {
@@ -166,7 +168,9 @@ describe('onBroadcast', () => {
     const cb = jest.fn();
     onBroadcast.call(mockDomo, 'alerts', cb);
     handleBusMessage({ topic: 'alerts', payload: { severity: 'high' }, sourceAppId: 'app-1' });
-    expect(cb).toHaveBeenCalledWith({ severity: 'high' }, 'app-1');
+    expect(cb).toHaveBeenCalledWith({
+      topic: 'alerts', payload: { severity: 'high' }, sourceAppId: 'app-1', timestamp: expect.any(Number),
+    });
   });
 
   it('returns unsubscribe that sends bus.unsubscribe when last subscriber leaves', () => {
@@ -212,7 +216,9 @@ describe('onBroadcastOnce', () => {
     handleBusMessage({ topic: 'ping', payload: 1, sourceAppId: 'x' });
     handleBusMessage({ topic: 'ping', payload: 2, sourceAppId: 'x' });
     expect(cb).toHaveBeenCalledTimes(1);
-    expect(cb).toHaveBeenCalledWith(1, 'x');
+    expect(cb).toHaveBeenCalledWith({
+      topic: 'ping', payload: 1, sourceAppId: 'x', timestamp: expect.any(Number),
+    });
     expect(postMessageMock).toHaveBeenCalledWith(
       JSON.stringify({ event: 'bus.unsubscribe', topic: 'ping' }),
       '*'
@@ -227,11 +233,13 @@ describe('onBroadcastFrom', () => {
 
   it('only calls callback when sourceAppId matches', () => {
     const cb = jest.fn();
-    onBroadcastFrom.call(mockDomo, 'app-sender', 'news', cb);
+    onBroadcastFrom.call(mockDomo, 'news', 'app-sender', cb);
     handleBusMessage({ topic: 'news', payload: 'a', sourceAppId: 'other-app' });
     handleBusMessage({ topic: 'news', payload: 'b', sourceAppId: 'app-sender' });
     expect(cb).toHaveBeenCalledTimes(1);
-    expect(cb).toHaveBeenCalledWith('b', 'app-sender');
+    expect(cb).toHaveBeenCalledWith({
+      topic: 'news', payload: 'b', sourceAppId: 'app-sender', timestamp: expect.any(Number),
+    });
   });
 });
 
