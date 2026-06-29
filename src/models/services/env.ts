@@ -19,6 +19,10 @@ interface DomoEnv {
   platform: "desktop" | "mobile";
   /** The current page ID (from query params). */
   pageId: string;
+  /** The data app ID (from query params). */
+  dataAppId: string;
+  /** The analyzer ID (from query params). */
+  analyzer: string;
   /** Whether the environment API has been loaded. */
   loaded: boolean;
   /** Raw query parameters for any additional values. */
@@ -54,6 +58,8 @@ function buildEnv(): DomoEnv {
     locale: String(params.locale ?? ""),
     platform: params.platform === "mobile" ? "mobile" : "desktop",
     pageId: String(params.pageId ?? ""),
+    dataAppId: String(params.dataAppId ?? ""),
+    analyzer: String(params.analyzer ?? ""),
     loaded: false,
   };
 
@@ -88,6 +94,7 @@ async function fetchEnv(env: DomoEnv): Promise<void> {
     if (data.customer) env.customer = data.customer;
     if (data.host) env.host = data.host;
     if (data.locale) env.locale = data.locale;
+    if (data.dataAppId != null) env.dataAppId = String(data.dataAppId);
 
     env.loaded = true;
   } catch {

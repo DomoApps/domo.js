@@ -121,6 +121,7 @@ class DomoApp {
         ['Platform', env.platform || 'N/A'],
         ['Locale', env.locale || 'N/A'],
         ['Page ID', env.pageId || 'N/A'],
+        ['Analyzer', env.analyzer || 'N/A'],
         ['Debug', debugOn ? 'ON' : 'OFF'],
         ['Version', typeof RYUUJS_CHOSEN !== 'undefined' ? RYUUJS_CHOSEN : 'unknown'],
       ];

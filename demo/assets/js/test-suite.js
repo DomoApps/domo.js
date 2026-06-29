@@ -68,6 +68,107 @@ const EVENT_FEATURES = [
   "onAppDataUpdated",
 ];
 
+// ── URL param helpers ──────────────────────────────────────────────
+
+// Read all query params off the iframe URL into a plain object.
+// Mirrors src/utils/general.ts:getQueryParams() so we assert on the
+// raw wire surface, not the normalized domo.env shape.
+function readQueryParams() {
+  const result = {};
+  const query = (location.search || "").replace(/^\?/, "");
+  if (!query) return result;
+  query.split("&").forEach(function (part) {
+    const eq = part.indexOf("=");
+    const key = eq === -1 ? part : part.slice(0, eq);
+    const val = eq === -1 ? "" : decodeURIComponent(part.slice(eq + 1));
+    if (key) result[key] = val;
+  });
+  return result;
+}
+
+// Snapshot of everything a param card needs to decide pass/fail.
+// Read fresh on each test run so re-running after registering event
+// listeners or after env loads gives the up-to-date answer.
+function getParamSnapshot() {
+  const params = readQueryParams();
+  const isEmbedded =
+    typeof window.ENV !== "undefined" || /\/embed\//.test(location.pathname);
+  return {
+    params: params,
+    isEmbedded: isEmbedded,
+    hasPageId: Boolean(params.pageId),
+    hasDataAppId: Boolean(params.dataAppId),
+  };
+}
+
+// ── Param validity checkers ────────────────────────────────────────
+
+function isNonEmpty(s) { return typeof s === "string" && s.length > 0; }
+function isDigits(s)   { return isNonEmpty(s) && /^\d+$/.test(s); }
+function isEmail(s)    { return isNonEmpty(s) && /.+@.+\..+/.test(s); }
+function isLocale(s)   { return isNonEmpty(s) && /^[a-z]{2}(-[A-Z]{2})?$/.test(s); }
+function isPlatform(s) { return s === "desktop" || s === "mobile"; }
+function isJsonArray(s) {
+  if (!isNonEmpty(s)) return false;
+  try {
+    const parsed = JSON.parse(s);
+    return Array.isArray(parsed);
+  } catch (_) {
+    return false;
+  }
+}
+
+// ── Param test card factory ────────────────────────────────────────
+
+// Build a test definition that asserts presence, validity, and contextual
+// expectation of a single URL param.
+//
+//   name           — param name (used as test name and card id)
+//   description    — short blurb shown in the card header
+//   validate       — (value) => true | string. true = valid, string = error msg
+//   isExpected     — (snapshot) => true | false
+//   expectedReason — (snapshot, expected) => human-readable string
+function makeParamCard(name, opts) {
+  return {
+    name: "param." + name,
+    category: "params",
+    description: opts.description,
+    fn: function (_params) {
+      const snap = getParamSnapshot();
+      const value = snap.params[name];
+      const found = isNonEmpty(value);
+      const expected = opts.isExpected(snap);
+      const reason = opts.expectedReason(snap, expected);
+
+      if (found) {
+        const valid = opts.validate(value);
+        if (valid !== true) {
+          throw new Error("Invalid value: " + valid + " (got " + JSON.stringify(value) + ")");
+        }
+      }
+      if (expected && !found) {
+        throw new Error(name + ": expected but missing");
+      }
+      if (!expected && found) {
+        throw new Error(name + ": present but not expected here (value=" + JSON.stringify(value) + ")");
+      }
+
+      return {
+        _render: "payload",
+        direction: "received",
+        method: "url-param",
+        payload: {
+          param: name,
+          status: found ? "Found" : "Missing",
+          value: found ? value : "N/A",
+          expected: reason,
+          valid: found ? "yes" : "n/a",
+        },
+      };
+    },
+  };
+}
+
 // ── Test definitions ────────────────────────────────────────────────
 
 const testDefinitions = [
@@ -362,6 +463,244 @@ const testDefinitions = [
     },
     customButton: true,
   },
+  // ── Host Echo Correlation (DOMO-483472) ──────────────────────────
+  {
+    name: "onAppDataUpdated receives host requestId",
+    category: "echo",
+    description: "Synthesize an inbound appData message and assert the listener gets (appData, requestId)",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.onAppDataUpdated !== "function") return reject(new Error("Not available in this version"));
+      var received = null;
+      var unregister;
+      try {
+        unregister = domo.onAppDataUpdated(function(appData, requestId) {
+          received = { appData: appData, requestId: requestId };
+        });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+      if (!domo.channel || !domo.channel.port1) { try { unregister && unregister(); } catch (e) {} return reject(new Error("MessageChannel not connected — open this app inside Domo")); }
+      var port = new MessageChannel().port2;
+      domo.channel.port1.onmessage({
+        data: { event: "appData", appData: "synthetic-x", requestId: "req_synth_in_1" },
+        ports: [port],
+      });
+      try { unregister && unregister(); } catch (e) {}
+      if (!received) return reject(new Error("Callback did not fire"));
+      if (received.appData !== "synthetic-x") return reject(new Error("appData mismatch: " + received.appData));
+      if (received.requestId !== "req_synth_in_1") return reject(new Error("requestId 2nd arg missing or wrong: " + received.requestId));
+      resolve({ _render: "payload", direction: "received", method: "onAppDataUpdated (synthetic)", payload: received });
+    }),
+  },
+  {
+    name: "onAppDataUpdated tolerates missing requestId",
+    category: "echo",
+    description: "Synthesize an inbound appData without requestId; 2nd arg should be undefined",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.onAppDataUpdated !== "function") return reject(new Error("Not available in this version"));
+      var received = null;
+      var unregister;
+      try {
+        unregister = domo.onAppDataUpdated(function(appData, requestId) {
+          received = { appData: appData, requestId: requestId };
+        });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+      if (!domo.channel || !domo.channel.port1) { try { unregister && unregister(); } catch (e) {} return reject(new Error("MessageChannel not connected — open this app inside Domo")); }
+      var port = new MessageChannel().port2;
+      domo.channel.port1.onmessage({
+        data: { event: "appData", appData: "no-id" },
+        ports: [port],
+      });
+      try { unregister && unregister(); } catch (e) {}
+      if (!received) return reject(new Error("Callback did not fire"));
+      if (received.appData !== "no-id") return reject(new Error("appData mismatch"));
+      if (received.requestId !== undefined) return reject(new Error("requestId should be undefined, got: " + String(received.requestId)));
+      resolve({ _render: "payload", direction: "received", method: "onAppDataUpdated (synthetic, no id)", payload: received });
+    }),
+  },
+  {
+    name: "requestAppDataUpdate emits echoRequestId on wire",
+    category: "echo",
+    description: "Inspect SDK request store to assert echoRequestId is set distinct from requestId",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.requestAppDataUpdate !== "function") return reject(new Error("Not available in this version"));
+      if (typeof domo.getRequests !== "function") return reject(new Error("domo.getRequests not available — SDK too old"));
+      var requestsBefore = Object.keys(domo.getRequests());
+      try { domo.requestAppDataUpdate("echo-test-payload", undefined, undefined, { echoRequestId: "req_echo_out_1" }); } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+      var requestsAfter = Object.keys(domo.getRequests());
+      var newIds = requestsAfter.filter(function(id) { return requestsBefore.indexOf(id) === -1; });
+      if (newIds.length === 0) return reject(new Error("No new request recorded in SDK"));
+      var captured = domo.getRequests()[newIds[0]].request.payload;
+      if (!captured) return reject(new Error("No payload found in stored request"));
+      if (captured.echoRequestId !== "req_echo_out_1") return reject(new Error("echoRequestId missing or wrong: " + captured.echoRequestId));
+      if (!captured.requestId) return reject(new Error("SDK ACK requestId missing"));
+      if (captured.requestId === captured.echoRequestId) return reject(new Error("requestId and echoRequestId must be distinct"));
+      resolve({ _render: "payload", direction: "sent", method: "requestAppDataUpdate", payload: captured });
+    }),
+  },
+  {
+    name: "requestAppDataUpdate rejects invalid echoRequestId",
+    category: "echo",
+    description: "Pass '<script>' as echoRequestId; expect DomoValidationError",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.requestAppDataUpdate !== "function") return reject(new Error("Not available in this version"));
+      var threw = false;
+      var errName = null;
+      try {
+        domo.requestAppDataUpdate("payload", undefined, undefined, { echoRequestId: "<script>" });
+      } catch (e) {
+        threw = true;
+        errName = e && e.name;
+      }
+      if (!threw) return reject(new Error("Expected a throw, but call returned normally"));
+      if (errName !== "DomoValidationError") return reject(new Error("Expected DomoValidationError, got: " + errName));
+      resolve({ _render: "payload", direction: "sent", method: "requestAppDataUpdate", payload: { errorName: errName, input: "<script>" } });
+    }),
+  },
+  {
+    name: "onFiltersUpdated receives host requestId",
+    category: "echo",
+    description: "Synthesize an inbound filtersUpdated message; listener should get (filters, requestId)",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.onFiltersUpdated !== "function") return reject(new Error("Not available in this version"));
+      var received = null;
+      var unregister;
+      try {
+        unregister = domo.onFiltersUpdated(function(filters, requestId) {
+          received = { filters: filters, requestId: requestId };
+        });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+      if (!domo.channel || !domo.channel.port1) { try { unregister && unregister(); } catch (e) {} return reject(new Error("MessageChannel not connected — open this app inside Domo")); }
+      var port = new MessageChannel().port2;
+      var filters = [{ column: "x", operator: "IN", values: ["y"], dataType: "STRING" }];
+      domo.channel.port1.onmessage({
+        data: { event: "filtersUpdated", filters: filters, requestId: "req_synth_filter_1" },
+        ports: [port],
+      });
+      try { unregister && unregister(); } catch (e) {}
+      if (!received) return reject(new Error("Callback did not fire"));
+      if (!Array.isArray(received.filters) || received.filters.length !== 1) return reject(new Error("filters not forwarded"));
+      if (received.requestId !== "req_synth_filter_1") return reject(new Error("requestId 2nd arg missing or wrong: " + received.requestId));
+      resolve({ _render: "payload", direction: "received", method: "onFiltersUpdated (synthetic)", payload: received });
+    }),
+  },
+  {
+    name: "requestFiltersUpdate emits echoRequestId on wire",
+    category: "echo",
+    description: "Inspect SDK request store to assert echoRequestId is set distinct from requestId",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.requestFiltersUpdate !== "function") return reject(new Error("Not available in this version"));
+      if (typeof domo.getRequests !== "function") return reject(new Error("domo.getRequests not available — SDK too old"));
+      var requestsBefore = Object.keys(domo.getRequests());
+      var filters = [{ column: "x", operator: "IN", values: ["y"], dataType: "STRING" }];
+      try { domo.requestFiltersUpdate(filters, null, undefined, undefined, { echoRequestId: "req_filter_out_1" }); } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+      var requestsAfter = Object.keys(domo.getRequests());
+      var newIds = requestsAfter.filter(function(id) { return requestsBefore.indexOf(id) === -1; });
+      if (newIds.length === 0) return reject(new Error("No new request recorded in SDK"));
+      var captured = domo.getRequests()[newIds[0]].request.payload;
+      if (!captured) return reject(new Error("No payload found in stored request"));
+      if (captured.echoRequestId !== "req_filter_out_1") return reject(new Error("echoRequestId missing or wrong: " + captured.echoRequestId));
+      if (!captured.requestId) return reject(new Error("SDK ACK requestId missing"));
+      if (captured.requestId === captured.echoRequestId) return reject(new Error("requestId and echoRequestId must be distinct"));
+      resolve({ _render: "payload", direction: "sent", method: "requestFiltersUpdate", payload: captured });
+    }),
+  },
+  {
+    name: "Round-trip echo: requestFiltersUpdate → host echoes requestId → onFiltersUpdated receives it",
+    category: "echo",
+    description: "Simulates the full host echo cycle: SDK emits echoRequestId, host echoes it back on the next filtersUpdated, SDK delivers it to listener",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.requestFiltersUpdate !== "function") return reject(new Error("Not available in this version"));
+      if (typeof domo.onFiltersUpdated !== "function") return reject(new Error("Not available in this version"));
+      if (!domo.channel || !domo.channel.port1) return reject(new Error("MessageChannel not connected — open this app inside Domo"));
+
+      var echoId = "roundtrip_filter_" + Date.now();
+      var received = null;
+      var unregister;
+
+      try {
+        unregister = domo.onFiltersUpdated(function(filters, requestId) {
+          received = { filters: filters, requestId: requestId };
+        });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+
+      // Step 1: SDK sends requestFiltersUpdate with echoRequestId
+      var filters = [{ column: "status", operator: "IN", values: ["active"], dataType: "STRING" }];
+      try {
+        domo.requestFiltersUpdate(filters, null, undefined, undefined, { echoRequestId: echoId });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+
+      // Step 2: Simulate host echoing the echoRequestId back as requestId on inbound filtersUpdated
+      var responseFilters = [{ column: "status", operator: "IN", values: ["active"], dataType: "STRING" }];
+      var port = new MessageChannel().port2;
+      domo.channel.port1.onmessage({
+        data: { event: "filtersUpdated", filters: responseFilters, requestId: echoId },
+        ports: [port],
+      });
+
+      // Step 3: Assert the listener received the echoed requestId
+      try { unregister && unregister(); } catch (e) {}
+      if (!received) return reject(new Error("Listener did not fire"));
+      if (received.requestId !== echoId) return reject(new Error("Round-trip requestId mismatch: expected " + echoId + ", got " + received.requestId));
+      if (!Array.isArray(received.filters) || received.filters.length !== 1) return reject(new Error("Filters not forwarded correctly"));
+      resolve({ _render: "payload", direction: "both", method: "requestFiltersUpdate → onFiltersUpdated (round-trip)", payload: { echoRequestId: echoId, received: received } });
+    }),
+  },
+  {
+    name: "Round-trip echo: requestAppDataUpdate → host echoes requestId → onAppDataUpdated receives it",
+    category: "echo",
+    description: "Simulates the full host echo cycle for appData: SDK emits echoRequestId, host echoes it back, SDK delivers it to listener",
+    fn: () => new Promise(function(resolve, reject) {
+      if (typeof domo.requestAppDataUpdate !== "function") return reject(new Error("Not available in this version"));
+      if (typeof domo.onAppDataUpdated !== "function") return reject(new Error("Not available in this version"));
+      if (!domo.channel || !domo.channel.port1) return reject(new Error("MessageChannel not connected — open this app inside Domo"));
+
+      var echoId = "roundtrip_appdata_" + Date.now();
+      var received = null;
+      var unregister;
+
+      try {
+        unregister = domo.onAppDataUpdated(function(appData, requestId) {
+          received = { appData: appData, requestId: requestId };
+        });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+
+      // Step 1: SDK sends requestAppDataUpdate with echoRequestId
+      try {
+        domo.requestAppDataUpdate("roundtrip-payload", undefined, undefined, { echoRequestId: echoId });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "SecurityError")) throw e;
+      }
+
+      // Step 2: Simulate host echoing the echoRequestId back as requestId on inbound appData
+      var port = new MessageChannel().port2;
+      domo.channel.port1.onmessage({
+        data: { event: "appData", appData: "host-response-payload", requestId: echoId },
+        ports: [port],
+      });
+
+      // Step 3: Assert the listener received the echoed requestId
+      try { unregister && unregister(); } catch (e) {}
+      if (!received) return reject(new Error("Listener did not fire"));
+      if (received.requestId !== echoId) return reject(new Error("Round-trip requestId mismatch: expected " + echoId + ", got " + received.requestId));
+      if (received.appData !== "host-response-payload") return reject(new Error("appData mismatch: " + received.appData));
+      resolve({ _render: "payload", direction: "both", method: "requestAppDataUpdate → onAppDataUpdated (round-trip)", payload: { echoRequestId: echoId, received: received } });
+    }),
+  },
   // ── Code Engine ─────────────────────────────────────────────────
   {
     name: "codeEngine",
@@ -498,6 +837,7 @@ const testDefinitions = [
           locale: domo.env.locale,
           platform: domo.env.platform,
           pageId: domo.env.pageId,
+          analyzer: domo.env.analyzer,
           loaded: domo.env.loaded,
         },
       };
@@ -666,6 +1006,240 @@ const testDefinitions = [
         timing: `${(endTime - startTime).toFixed(2)}ms`
       };
     },
+  },
+
+  // ── URL Params ─────────────────────────────────────────────────
+  makeParamCard("userId", {
+    description: "Numeric user ID — always emitted",
+    validate: function (v) { return isDigits(v) || "must be all digits"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("userName", {
+    description: "Display name — always emitted",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("userEmail", {
+    description: "User email — always emitted",
+    validate: function (v) { return isEmail(v) || "must look like an email"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("customer", {
+    description: "Domo instance/customer — always emitted (regression: dropped post-pivot, restored by DOMO-483881)",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("locale", {
+    description: "User locale — always emitted",
+    validate: function (v) { return isLocale(v) || "must be xx or xx-XX"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("environment", {
+    description: "Domo environment name — always emitted",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  makeParamCard("platform", {
+    description: "Platform — always emitted as desktop or mobile",
+    validate: function (v) { return isPlatform(v) || "must be desktop or mobile"; },
+    isExpected: function () { return true; },
+    expectedReason: function () { return "Always"; },
+  }),
+  {
+    name: "param.analyzer",
+    category: "params",
+    description: "Initial filter blob — emitted when manifest acceptFilters !== false (informational; can't be verified from the iframe)",
+    fn: function () {
+      const snap = getParamSnapshot();
+      const value = snap.params.analyzer;
+      const found = isNonEmpty(value);
+      if (found && !isJsonArray(value)) {
+        throw new Error("analyzer: present but does not parse as a JSON array (value=" + JSON.stringify(value) + ")");
+      }
+      let parsed = null;
+      if (found) {
+        try { parsed = JSON.parse(value); } catch (_) { /* unreachable — isJsonArray verified */ }
+      }
+      return {
+        _render: "payload",
+        direction: "received",
+        method: "url-param",
+        payload: {
+          param: "analyzer",
+          status: found ? "Found" : "Missing",
+          filterCount: found ? parsed.length : "n/a",
+          expected: "Informational — depends on manifest acceptFilters (not detectable at runtime)",
+          valid: found ? "yes (parses as JSON array)" : "n/a",
+        },
+      };
+    },
+  },
+  makeParamCard("pageId", {
+    description: "Page ID — emitted when launched on a page (mutually exclusive with dataAppId)",
+    validate: function (v) { return isDigits(v) || "must be all digits"; },
+    isExpected: function (snap) { return !snap.hasDataAppId; },
+    expectedReason: function (snap, expected) {
+      return expected
+        ? "Yes — not launched as a data app"
+        : "No — dataAppId is present, so pageId is absent";
+    },
+  }),
+  makeParamCard("dataAppId", {
+    description: "Data App ID — emitted when launched as a data app (mutually exclusive with pageId)",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function (snap) { return !snap.hasPageId; },
+    expectedReason: function (snap, expected) {
+      return expected
+        ? "Yes — not launched on a page"
+        : "No — pageId is present, so dataAppId is absent";
+    },
+  }),
+  makeParamCard("embedCode", {
+    description: "Embed token — emitted only in embed mode (regression: renamed to embedToken post-pivot, restored by DOMO-483881)",
+    validate: function (v) { return isNonEmpty(v) || "must be non-empty"; },
+    isExpected: function (snap) { return snap.isEmbedded; },
+    expectedReason: function (snap, expected) {
+      return expected
+        ? "Yes — app is loaded via embed"
+        : "No — not embedded";
+    },
+  }),
+  {
+    name: "param.appData",
+    category: "params",
+    description: "Pass-through app data from the parent page (informational — present and absent are both fine)",
+    fn: function () {
+      const snap = getParamSnapshot();
+      const value = snap.params.appData;
+      const found = isNonEmpty(value);
+      return {
+        _render: "payload",
+        direction: "received",
+        method: "url-param",
+        payload: {
+          param: "appData",
+          status: found ? "Found" : "Missing",
+          value: found ? value : "N/A",
+          expected: "Pass-through — present or absent are both fine",
+          valid: found ? "yes" : "n/a",
+        },
+      };
+    },
+  },
+  {
+    name: "param.arg-*",
+    category: "params",
+    description: "appargs forwarded by the parent — lists every arg-* query param found",
+    fn: function () {
+      const snap = getParamSnapshot();
+      const args = {};
+      Object.keys(snap.params).forEach(function (key) {
+        if (key.indexOf("arg-") === 0) {
+          args[key] = snap.params[key];
+        }
+      });
+      const count = Object.keys(args).length;
+      return {
+        _render: "payload",
+        direction: "received",
+        method: "url-param-rollup",
+        payload: {
+          status: count > 0 ? "Found " + count + " arg-* param(s)" : "No arg-* params present",
+          values: args,
+          expected: "Pass-through — manifest may or may not declare appargs",
+        },
+      };
+    },
+  },
+  // ── Route Capture (DOMO-488031) ──────────────────────────────────────
+  {
+    name: "ROUTE_CHANGE: pushState triggers broadcast",
+    category: "routing",
+    description: "Calls history.pushState and asserts the SDK emits a ROUTE_CHANGE debug log within 150ms",
+    fn: () => new Promise(function(resolve, reject) {
+      if (!window.domo || !window.domo.debug) return reject(new Error("domo.debug not available — SDK too old"));
+      var captured = [];
+      var originalLog = window.domo.debug.log;
+      var originalPath = window.location.pathname + window.location.search + window.location.hash;
+      window.domo.debug.log = function(category, prefix, eventType, payload) {
+        if (category === 'messages' && prefix === 'sent:postMessage' && eventType === 'ROUTE_CHANGE') {
+          captured.push(payload);
+        }
+        if (originalLog) originalLog.apply(window.domo.debug, arguments);
+      };
+      history.pushState({}, '', '/test-route-capture');
+      setTimeout(function() {
+        window.domo.debug.log = originalLog;
+        history.replaceState({}, '', originalPath);
+        if (captured.length === 0) return reject(new Error("No ROUTE_CHANGE debug log emitted within 150ms"));
+        var payload = captured[0];
+        if (!payload || payload.type !== 'ROUTE_CHANGE') return reject(new Error("Payload missing type: " + JSON.stringify(payload)));
+        if (payload.route !== '/test-route-capture') return reject(new Error("Route mismatch: " + payload.route));
+        resolve({ _render: "payload", direction: "sent", method: "ROUTE_CHANGE (pushState)", payload: payload });
+      }, 150);
+    }),
+  },
+  {
+    name: "ROUTE_CHANGE: replaceState triggers broadcast",
+    category: "routing",
+    description: "Calls history.replaceState and asserts the SDK emits a ROUTE_CHANGE debug log within 150ms",
+    fn: () => new Promise(function(resolve, reject) {
+      if (!window.domo || !window.domo.debug) return reject(new Error("domo.debug not available — SDK too old"));
+      var captured = [];
+      var originalLog = window.domo.debug.log;
+      var originalPath = window.location.pathname + window.location.search + window.location.hash;
+      window.domo.debug.log = function(category, prefix, eventType, payload) {
+        if (category === 'messages' && prefix === 'sent:postMessage' && eventType === 'ROUTE_CHANGE') {
+          captured.push(payload);
+        }
+        if (originalLog) originalLog.apply(window.domo.debug, arguments);
+      };
+      history.replaceState({}, '', '/test-replace-route');
+      setTimeout(function() {
+        window.domo.debug.log = originalLog;
+        history.replaceState({}, '', originalPath);
+        if (captured.length === 0) return reject(new Error("No ROUTE_CHANGE debug log emitted within 150ms"));
+        var payload = captured[0];
+        if (!payload || payload.type !== 'ROUTE_CHANGE') return reject(new Error("Payload missing type: " + JSON.stringify(payload)));
+        if (payload.route !== '/test-replace-route') return reject(new Error("Route mismatch: " + payload.route));
+        resolve({ _render: "payload", direction: "sent", method: "ROUTE_CHANGE (replaceState)", payload: payload });
+      }, 150);
+    }),
+  },
+  {
+    name: "ROUTE_CHANGE: debounce collapses rapid pushState calls",
+    category: "routing",
+    description: "Three pushState calls within 100ms should emit exactly one ROUTE_CHANGE with the final route",
+    fn: () => new Promise(function(resolve, reject) {
+      if (!window.domo || !window.domo.debug) return reject(new Error("domo.debug not available — SDK too old"));
+      var captured = [];
+      var originalLog = window.domo.debug.log;
+      var originalPath = window.location.pathname + window.location.search + window.location.hash;
+      window.domo.debug.log = function(category, prefix, eventType, payload) {
+        if (category === 'messages' && prefix === 'sent:postMessage' && eventType === 'ROUTE_CHANGE') {
+          captured.push(payload);
+        }
+        if (originalLog) originalLog.apply(window.domo.debug, arguments);
+      };
+      history.pushState({}, '', '/debounce-1');
+      history.pushState({}, '', '/debounce-2');
+      history.pushState({}, '', '/debounce-final');
+      setTimeout(function() {
+        window.domo.debug.log = originalLog;
+        history.replaceState({}, '', originalPath);
+        if (captured.length === 0) return reject(new Error("No ROUTE_CHANGE emitted within 150ms"));
+        if (captured.length > 1) return reject(new Error("Expected 1 ROUTE_CHANGE (debounced), got " + captured.length));
+        var payload = captured[0];
+        if (payload.route !== '/debounce-final') return reject(new Error("Expected /debounce-final, got: " + payload.route));
+        resolve({ _render: "payload", direction: "sent", method: "ROUTE_CHANGE (debounced)", payload: { emitted: captured.length, finalRoute: payload.route } });
+      }, 150);
+    }),
   },
 
   // ── Broadcast ─────────────────────────────────────────────────
@@ -1162,10 +1736,8 @@ class TestSuite {
   _setupOnBroadcast() {
     const btn = DOMUtils.getElementById("onBroadcastBtn");
     if (!btn) return;
-
     const resultSpan = DOMUtils.getElementById("onBroadcastResult");
     let subscribed = false;
-
     btn.addEventListener("click", () => {
       if (subscribed) return;
       if (!domo.onBroadcast) {
@@ -1174,17 +1746,14 @@ class TestSuite {
       }
       const params = this._readFieldValues("onBroadcast");
       const topic = params?.topic || APP_CONFIG.BROADCAST_TOPIC;
-
       subscribed = true;
       if (resultSpan) {
         resultSpan.textContent = `Listening on "${topic}"...`;
         resultSpan.style.color = "var(--text-muted)";
       }
-
       domo.onBroadcast(topic, (msg) => {
         const formatted = DataRenderer.renderPayload("received", "onBroadcast", msg);
         this._updateCard("onBroadcast", "success", formatted);
-
         const card = DOMUtils.getElementById("card-onBroadcast");
         if (card) {
           card.classList.remove("test-card--event-fired");

@@ -37,7 +37,7 @@ const APP_CONFIG = {
   ],
 
   // Event types for monitor filtering
-  EVENT_TYPES: ['dataUpdated', 'filtersUpdated', 'variablesUpdated', 'appData', 'ack', 'subscribe', 'filter', 'variable', 'navigate', 'http'],
+  EVENT_TYPES: ['dataUpdated', 'filtersUpdated', 'variablesUpdated', 'appData', 'ack', 'subscribe', 'filter', 'variable', 'navigate', 'ROUTE_CHANGE', 'http'],
 
   // Tab definitions
   TABS: [
@@ -49,15 +49,18 @@ const APP_CONFIG = {
 
 // Category metadata for test suite cards
 const CATEGORY_META = {
-  data:       { icon: 'Q', label: 'Data API',     cssClass: 'data' },
-  appdb:      { icon: 'D', label: 'AppDB',        cssClass: 'appdb' },
-  events:     { icon: '~', label: 'Events',       cssClass: 'events' },
-  codeengine: { icon: '>', label: 'Code Engine',  cssClass: 'codeengine' },
-  workflow:   { icon: '%', label: 'Workflows',    cssClass: 'workflow' },
-  ai:         { icon: '*', label: 'AI Services',  cssClass: 'ai' },
-  utils:      { icon: '#', label: 'Utilities',    cssClass: 'utils' },
-  dx:         { icon: '+', label: 'DX Tools',     cssClass: 'dx' },
-  broadcast:  { icon: '^', label: 'Broadcast',    cssClass: 'broadcast' },
+  data:       { icon: 'Q', label: 'Data API',         cssClass: 'data' },
+  appdb:      { icon: 'D', label: 'AppDB',            cssClass: 'appdb' },
+  events:     { icon: '~', label: 'Events',           cssClass: 'events' },
+  codeengine: { icon: '>', label: 'Code Engine',      cssClass: 'codeengine' },
+  workflow:   { icon: '%', label: 'Workflows',        cssClass: 'workflow' },
+  ai:         { icon: '*', label: 'AI Services',      cssClass: 'ai' },
+  utils:      { icon: '#', label: 'Utilities',        cssClass: 'utils' },
+  params:     { icon: '?', label: 'URL Params',       cssClass: 'params' },
+  dx:         { icon: '+', label: 'DX Tools',         cssClass: 'dx' },
+  echo:       { icon: '@', label: 'Host Echo',        cssClass: 'events' },
+  routing:    { icon: '^', label: 'Route Capture',   cssClass: 'events' },
+  broadcast:  { icon: '^', label: 'Broadcast',       cssClass: 'broadcast' },
 };
 
 // Test status labels

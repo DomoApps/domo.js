@@ -158,7 +158,59 @@ describe('Filters Service', () => {
       const filters = [{ foo: 'bar' }];
       Domo.channel?.port1.onmessage?.(makeMessageEvent({ event: 'filtersUpdated', filters }, [port]));
       expect(port.postMessage).toHaveBeenCalled();
-      expect(cb).toHaveBeenCalledWith(filters);
+      expect(cb).toHaveBeenCalledWith(filters, undefined);
+    });
+
+    it('passes message.requestId as callback 2nd arg (DOMO-483472 inbound)', () => {
+      const cb = jest.fn();
+      Domo.onFiltersUpdated(cb);
+      const port = makeMockPort();
+      const filters = [{ foo: 'bar' }];
+      const requestId = 'req_host_filter_1';
+      Domo.channel?.port1.onmessage?.(makeMessageEvent(
+        { event: 'filtersUpdated', filters, requestId },
+        [port],
+      ));
+      expect(cb).toHaveBeenCalledWith(filters, requestId);
+    });
+
+    it('passes undefined as 2nd arg when filters message has no requestId', () => {
+      const cb = jest.fn();
+      Domo.onFiltersUpdated(cb);
+      const port = makeMockPort();
+      const filters = [{ foo: 'bar' }];
+      Domo.channel?.port1.onmessage?.(makeMessageEvent(
+        { event: 'filtersUpdated', filters },
+        [port],
+      ));
+      expect(cb).toHaveBeenCalledWith(filters, undefined);
+    });
+
+    it('should not send a null-filter request on first registration (DOMO-483920)', () => {
+      // Force a fresh connect so we observe the full handshake.
+      (Domo as any).connected = false;
+      (Domo as any).listeners.onFiltersUpdated = [];
+      (window.parent.postMessage as jest.Mock).mockClear();
+
+      Domo.onFiltersUpdated(jest.fn());
+
+      const payloads = (window.parent.postMessage as jest.Mock).mock.calls.map(
+        (call) => {
+          try { return JSON.parse(call[0]); } catch { return null; }
+        }
+      ).filter(Boolean);
+
+      // Subscribe must request initial filters via the SUBSCRIBE replay.
+      const subscribe = payloads.find((p) => p.event === 'subscribe');
+      expect(subscribe).toBeDefined();
+      expect(subscribe.skipFilters).toBe(false);
+
+      // The SDK must NOT follow up with a null-filter request — DomoWeb
+      // interprets `{ filter: undefined, pageStateUpdate: false }` as a page-level clear.
+      const clearLikeFilter = payloads.find(
+        (p) => p.event === 'filter' && p.filter === undefined
+      );
+      expect(clearLikeFilter).toBeUndefined();
     });
   });
 
@@ -263,6 +315,57 @@ describe('Filters Service', () => {
         expect.objectContaining({ column: 'columnName', operator: expect.any(String) })
       );
       spy.mockRestore();
+    });
+  });
+
+  describe('echoRequestId (DOMO-483472 outbound)', () => {
+    it('emits echoRequestId on wire when provided', () => {
+      const filters = [
+        { column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: FilterDataTypes.STRING as FilterDataTypes.STRING },
+      ];
+      (Domo as any).requestFiltersUpdate(filters, null, undefined, undefined, {
+        echoRequestId: 'req_filter_echo_1',
+      });
+      const wire = JSON.parse((window.parent.postMessage as jest.Mock).mock.calls[0][0]);
+      expect(wire.echoRequestId).toBe('req_filter_echo_1');
+      expect(wire.requestId).toBeDefined();
+      expect(wire.requestId).not.toBe('req_filter_echo_1');
+    });
+
+    it('does not add echoRequestId field when opts omits it', () => {
+      const filters = [
+        { column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: FilterDataTypes.STRING as FilterDataTypes.STRING },
+      ];
+      Domo.requestFiltersUpdate(filters);
+      const wire = JSON.parse((window.parent.postMessage as jest.Mock).mock.calls[0][0]);
+      expect(wire).not.toHaveProperty('echoRequestId');
+    });
+
+    it('throws DomoValidationError for invalid echoRequestId', () => {
+      const filters = [
+        { column: 'a', operator: FilterOperatorsString.IN, values: ['x'], dataType: FilterDataTypes.STRING as FilterDataTypes.STRING },
+      ];
+      const errSpy = jest.spyOn(console, 'error').mockImplementation();
+      try {
+        expect(() =>
+          (Domo as any).requestFiltersUpdate(filters, null, undefined, undefined, {
+            echoRequestId: '<script>',
+          }),
+        ).toThrow(DomoValidationError);
+        expect(() =>
+          (Domo as any).requestFiltersUpdate(filters, null, undefined, undefined, {
+            echoRequestId: '',
+          }),
+        ).toThrow(DomoValidationError);
+        expect(() =>
+          (Domo as any).requestFiltersUpdate(filters, null, undefined, undefined, {
+            echoRequestId: 'a'.repeat(129),
+          }),
+        ).toThrow(DomoValidationError);
+        expect(errSpy).toHaveBeenCalled();
+      } finally {
+        errSpy.mockRestore();
+      }
     });
   });
 });

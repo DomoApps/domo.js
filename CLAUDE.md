@@ -110,6 +110,8 @@ All messaging is logged through `domoDebug.log('messages', prefix, eventType, pa
 | `Domo.debug.enable(categories?)` | Enable debug logging (`'http'`, `'messages'`, `'filters'`, `'variables'`, `'all'`) |
 | `Domo.debug.disable()` | Disable debug logging |
 | `RequestOptions.schema` | Optional `{ parse }` for runtime response validation |
+| `requestAppDataUpdate(payload, onAck, onReply, { echoRequestId })` | Optional 4th opts bag — echoes a host correlation id (DOMO-483472) back on the wire |
+| `requestFiltersUpdate(filters, pageStateUpdate, onAck, onReply, { echoRequestId })` | Optional 5th opts bag — echoes a host correlation id (DOMO-483472) back on the wire |
 
 ## Error Types
 
@@ -128,7 +130,7 @@ All messaging is logged through `domoDebug.log('messages', prefix, eventType, pa
 - Auth header is `X-DOMO-Ryuu-Session`.
 - Filter wire event name is `"filter"` (not `"filtersUpdated"`), and the wire format uses `columnName` + `operator` (desktop) or `column` + `operand` (mobile).
 - `requestFiltersUpdate(null)` **clears all filters** on the parent page.
-- `onFiltersUpdated` calls `connect()` without skipFilters, then sends `requestFiltersUpdate(null, false)` on first registration — this clears parent filters. All other listeners call `connect(true)`.
+- `onFiltersUpdated` calls `connect()` without skipFilters; the SUBSCRIBE replay delivers initial filters. All other listeners call `connect(true)`. The SDK intentionally does NOT follow up with `requestFiltersUpdate(null, false)` — DomoWeb treats a null-filter request as a page-level clear (DOMO-483920).
 - `handleNode(node, token)` takes two args and recurses into children.
 - `setAuthTokenHeader(headers, token)` takes two args.
 - `appdb.create` and `appdb.update` auto-wrap documents in `{ content: ... }` if not already wrapped.
@@ -136,3 +138,4 @@ All messaging is logged through `domoDebug.log('messages', prefix, eventType, pa
 - Validation errors (`guardAgainstInvalidFilters`, `guardAgainstInvalidVariables`) log the expected data model as an actual object to `console.error` before throwing `DomoValidationError`.
 - `Domo.listeners` is typed via `DomoListeners` interface — callback signatures are `(filters: Filter[]) => void`, `(variables: Variable[]) => void`, `(appData: string) => void`, `(alias: string) => void`.
 - Interceptors wrap the fetch call (not the entire domoHttp flow), so headers/auth are already set when the interceptor runs.
+- Host echo correlation (DOMO-483472): inbound `onAppDataUpdated` / `onFiltersUpdated` callbacks receive an optional 2nd `requestId?: string` arg holding the host's correlation id. Outbound `requestAppDataUpdate` / `requestFiltersUpdate` accept `{ echoRequestId }` in their opts bag; the SDK emits it as a wire field distinct from its own ACK-tracking `requestId`. Validated against `^[A-Za-z0-9_\-:.]{1,128}$` (mirrors DomoWeb's `sanitizeRequestId`).
