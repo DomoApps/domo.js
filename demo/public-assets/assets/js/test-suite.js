@@ -667,6 +667,42 @@ const testDefinitions = [
       };
     },
   },
+
+  // ── Broadcast ─────────────────────────────────────────────────
+  {
+    name: "broadcast",
+    category: "broadcast",
+    description: "Publish a message to a topic on the dashboard broadcast bus",
+    fields: [
+      { key: "topic", label: "Topic", value: APP_CONFIG.BROADCAST_TOPIC, size: "medium" },
+      { key: "payload", label: "Payload", value: '{"hello":"world"}', size: "wide" },
+    ],
+    fn: (params) => {
+      if (!domo.broadcast) throw new Error("Not available in this version");
+      const topic = params?.topic || APP_CONFIG.BROADCAST_TOPIC;
+      let payload;
+      try { payload = JSON.parse(params?.payload || '{"hello":"world"}'); } catch (e) { throw new Error("Invalid JSON: " + e.message); }
+      const startTime = performance.now();
+      domo.broadcast(topic, payload);
+      const endTime = performance.now();
+      return {
+        _render: "payload", direction: "sent", method: "broadcast",
+        payload: { topic, payload },
+        timing: `${(endTime - startTime).toFixed(2)}ms`,
+      };
+    },
+    pendingMsg: `Publishes to topic <code>${APP_CONFIG.BROADCAST_TOPIC}</code> on the page bus`,
+  },
+  {
+    name: "onBroadcast",
+    category: "broadcast",
+    description: "Subscribe to a topic and display messages as they arrive",
+    fields: [
+      { key: "topic", label: "Topic", value: APP_CONFIG.BROADCAST_TOPIC, size: "medium" },
+    ],
+    fn: () => new Promise(), // Never resolves - event driven
+    customButton: true,
+  },
 ];
 
 // ── Helper functions ────────────────────────────────────────────────
@@ -677,7 +713,7 @@ function getTestsByCategory(category) {
 }
 
 function isEventDrivenTest(testName) {
-  return EVENT_FEATURES.includes(testName) || testName === "requestAppDataUpdate";
+  return EVENT_FEATURES.includes(testName) || testName === "requestAppDataUpdate" || testName === "onBroadcast";
 }
 
 // ── TestSuite class ─────────────────────────────────────────────────
@@ -743,11 +779,14 @@ class TestSuite {
 
         // Actions
         let actionsHTML = '';
-        if (isEvent && name !== 'requestAppDataUpdate') {
+        if (isEvent && name !== 'requestAppDataUpdate' && name !== 'onBroadcast') {
           actionsHTML = `<span class="event-hint">event-driven</span>`;
-        } else if (customButton) {
+        } else if (name === 'requestAppDataUpdate') {
           actionsHTML = `<button class="btn btn-small btn-run" id="requestAppDataUpdateBtn">Send App Data</button>
                          <span id="requestAppDataUpdateResult" style="font-size:0.72rem;color:var(--text-muted);"></span>`;
+        } else if (name === 'onBroadcast') {
+          actionsHTML = `<button class="btn btn-small btn-run" id="onBroadcastBtn">Subscribe</button>
+                         <span id="onBroadcastResult" style="font-size:0.72rem;color:var(--text-muted);"></span>`;
         } else {
           actionsHTML = `
             <button class="btn btn-small btn-run" data-run="${name}">Run</button>
@@ -817,6 +856,7 @@ class TestSuite {
 
     // Wire up the Send App Data button
     this._setupRequestAppDataUpdate();
+    this._setupOnBroadcast();
     this._updateStats();
   }
 
@@ -957,6 +997,9 @@ class TestSuite {
 
     const appDataResult = DOMUtils.getElementById("requestAppDataUpdateResult");
     if (appDataResult) DOMUtils.setElementContent(appDataResult, "");
+
+    const broadcastResult = DOMUtils.getElementById("onBroadcastResult");
+    if (broadcastResult) DOMUtils.setElementContent(broadcastResult, "");
 
     this._updateStats();
   }
@@ -1109,6 +1152,46 @@ class TestSuite {
           resultSpan.style.color = "var(--accent-red)";
         }
       }
+    });
+  }
+
+  /* -------------------------------------------------------------------
+     _setupOnBroadcast() — wire up the Subscribe button
+     ------------------------------------------------------------------- */
+
+  _setupOnBroadcast() {
+    const btn = DOMUtils.getElementById("onBroadcastBtn");
+    if (!btn) return;
+
+    const resultSpan = DOMUtils.getElementById("onBroadcastResult");
+    let subscribed = false;
+
+    btn.addEventListener("click", () => {
+      if (subscribed) return;
+      if (!domo.onBroadcast) {
+        this._updateCard("onBroadcast", "fail", "Not available in this version");
+        return;
+      }
+      const params = this._readFieldValues("onBroadcast");
+      const topic = params?.topic || APP_CONFIG.BROADCAST_TOPIC;
+
+      subscribed = true;
+      if (resultSpan) {
+        resultSpan.textContent = `Listening on "${topic}"...`;
+        resultSpan.style.color = "var(--text-muted)";
+      }
+
+      domo.onBroadcast(topic, (msg) => {
+        const formatted = DataRenderer.renderPayload("received", "onBroadcast", msg);
+        this._updateCard("onBroadcast", "success", formatted);
+
+        const card = DOMUtils.getElementById("card-onBroadcast");
+        if (card) {
+          card.classList.remove("test-card--event-fired");
+          void card.offsetWidth; // force reflow
+          card.classList.add("test-card--event-fired");
+        }
+      });
     });
   }
 

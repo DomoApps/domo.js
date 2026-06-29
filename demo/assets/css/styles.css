@@ -497,6 +497,11 @@ body::before {
   color: #a855f7;
 }
 
+.category-icon--broadcast {
+  background: rgba(251, 146, 60, 0.12);
+  color: #fb923c;
+}
+
 .category-title {
   font-size: 0.75rem;
   font-weight: 700;

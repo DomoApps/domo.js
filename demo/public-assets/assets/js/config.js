@@ -9,6 +9,7 @@ const APP_CONFIG = {
   COLLECTION: 'SanityTest',
   WORKFLOW_ALIAS: 'testWorkflow',
   PACKAGE_ALIAS: 'awesomeFunction',
+  BROADCAST_TOPIC: 'testChannel',
 
   // Endpoint presets for Request Builder autocomplete
   ENDPOINT_PRESETS: [
@@ -56,6 +57,7 @@ const CATEGORY_META = {
   ai:         { icon: '*', label: 'AI Services',  cssClass: 'ai' },
   utils:      { icon: '#', label: 'Utilities',    cssClass: 'utils' },
   dx:         { icon: '+', label: 'DX Tools',     cssClass: 'dx' },
+  broadcast:  { icon: '^', label: 'Broadcast',    cssClass: 'broadcast' },
 };
 
 // Test status labels
