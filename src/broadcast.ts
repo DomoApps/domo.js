@@ -7,7 +7,6 @@ export interface BroadcastMessage {
 
 export type BroadcastCallback = (msg: BroadcastMessage) => void;
 
-// Module state
 let _appBroadcastingEnabled: boolean | null = null;
 let _warnedNotEnabled = false;
 let _manifestPromise: Promise<{ publishes?: string[]; subscribes?: string[] } | null> | null = null;
@@ -53,8 +52,6 @@ export function __resetForTesting(): void {
   _subscriptions.clear();
 }
 
-// --- Helpers ---
-
 function validateTopic(topic: string): void {
   if (topic.startsWith('domo:')) {
     throw new Error(`Topics starting with "domo:" are reserved and cannot be used.`);
@@ -72,7 +69,10 @@ function getByteLength(str: string): number {
     if (code < 0x80) bytes += 1;
     else if (code < 0x800) bytes += 2;
     else if (code < 0xd800 || code >= 0xe000) bytes += 3;
-    else { bytes += 4; i++; } // surrogate pair
+    else {
+      bytes += 4;
+      i++;
+    } // surrogate pair
   }
   return bytes;
 }
@@ -128,8 +128,6 @@ function checkLocalhostManifest(topic: string, direction: 'publishes' | 'subscri
     }
   });
 }
-
-// --- Public API ---
 
 export function broadcast(
   this: any,

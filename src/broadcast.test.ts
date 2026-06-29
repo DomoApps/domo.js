@@ -42,8 +42,6 @@ beforeEach(() => {
   mockDomo.connect.mockClear();
 });
 
-// --- Handler tests ---
-
 describe('handleCapabilities', () => {
   it('does not throw when appBroadcasting is true', () => {
     expect(() => handleCapabilities({ appBroadcasting: true })).not.toThrow();
@@ -86,8 +84,6 @@ describe('handleBusError', () => {
     warnSpy.mockRestore();
   });
 });
-
-// --- broadcast API tests ---
 
 describe('broadcast', () => {
   beforeEach(() => {
@@ -242,8 +238,6 @@ describe('onBroadcastFrom', () => {
     });
   });
 });
-
-// --- Localhost manifest check tests (DOMO-487607) ---
 
 describe('localhost manifest check (DOMO-487607)', () => {
   beforeEach(() => {
