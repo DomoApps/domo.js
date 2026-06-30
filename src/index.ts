@@ -24,3 +24,4 @@ export { domoDebug, DebugCategory } from './utils/debug';
 export * from './utils/data-helpers';
 export * from './utils/domoutils';
 export * from './utils/general';
+export type { BroadcastCallback, BroadcastMessage } from './broadcast';
