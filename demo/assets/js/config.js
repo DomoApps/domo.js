@@ -9,7 +9,7 @@ const APP_CONFIG = {
   COLLECTION: 'SanityTest',
   WORKFLOW_ALIAS: 'testWorkflow',
   PACKAGE_ALIAS: 'awesomeFunction',
-  BROADCAST_TOPIC: 'testChannel',
+  BROADCAST_CHANNEL: 'testChannel',
 
   // Endpoint presets for Request Builder autocomplete
   ENDPOINT_PRESETS: [
