@@ -8,9 +8,6 @@ export const DomoEvent = {
   filtersUpdated: "filtersUpdated",
   variablesUpdated: "variablesUpdated",
   ack: "ack",
-  busMessage: "bus.message",
-  busError: "bus.error",
-  capabilities: "capabilities",
   broadcast: "broadcast",
 } as const;
 
@@ -20,7 +17,7 @@ export const DomoEvent = {
  * to the appropriate listener methods in the Domo class.
  */
 export const eventToListenerMap: {
-  [event in keyof Omit<typeof DomoEvent, 'ack' | 'busMessage' | 'busError' | 'capabilities'>]: string
+  [event in keyof Omit<typeof DomoEvent, 'ack'>]: string
 } = {
   [DomoEvent.appData]: "onAppDataUpdated",
   [DomoEvent.dataUpdated]: "onDataUpdated",

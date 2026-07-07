@@ -36,9 +36,7 @@ import {
   onBroadcast,
   onBroadcastOnce,
   onBroadcastFrom,
-  receiveBroadcast,
-  handleBusMessage,
-  handleBusError,
+  handleBroadcast,
   BroadcastCallback,
 } from './broadcast';
 import { Filter } from "./models/interfaces/filter";
@@ -175,9 +173,7 @@ class Domo {
       [DomoEvent.appData]: handleAppData.bind(this),
       [DomoEvent.variablesUpdated]: handleVariablesUpdated.bind(this),
       [DomoEvent.ack]: handleAck.bind(this),
-      [DomoEvent.busMessage]: handleBusMessage.bind(this),
-      [DomoEvent.busError]: handleBusError.bind(this),
-      [DomoEvent.broadcast]: receiveBroadcast.bind(this),
+      [DomoEvent.broadcast]: (data: any, responsePort?: MessagePort) => handleBroadcast(this.listeners.onBroadcast, data, responsePort),
     };
 
     // MessageChannel listener (current/new implementation)

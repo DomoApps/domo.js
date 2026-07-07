@@ -60,21 +60,8 @@ export function onBroadcastFrom(
   });
 }
 
-export function handleBusMessage(
-  this: any,
-  data: { topic: string; payload: unknown; sourceAppId: string; timestamp?: number },
-  responsePort?: MessagePort
-): void {
-  receiveBroadcast.call(this, { ...data, channel: data.topic, event: 'broadcast' }, responsePort);
-}
-
-export function handleBusError(data: { code: string; message: string; topic?: string }): void {
-  const channelSuffix = data.topic ? ` (channel: ${data.topic})` : '';
-  console.warn(`[domo.broadcast] ${data.code} — ${data.message}${channelSuffix}`);
-}
-
-export function receiveBroadcast(
-  this: any,
+export function handleBroadcast(
+  listeners: BroadcastCallback[],
   message: any,
   responsePort?: MessagePort
 ): void {
@@ -84,7 +71,7 @@ export function receiveBroadcast(
     console.warn(`[domo.broadcast] ${message.error.code} — ${message.error.message}${channelSuffix}`);
     return;
   }
-  if (this.listeners.onBroadcast.length) {
+  if (listeners.length) {
     const ack = { requestId: message.requestId, event: 'ack', channel: message.channel };
     domoDebug.log('messages', 'sent:ack:channel', 'ack', ack);
     responsePort?.postMessage(ack);
@@ -94,6 +81,6 @@ export function receiveBroadcast(
       sourceAppId: message.sourceAppId,
       timestamp: message.timestamp ?? Date.now(),
     };
-    this.listeners.onBroadcast.forEach((cb: BroadcastCallback) => cb(msg));
+    listeners.forEach((cb: BroadcastCallback) => cb(msg));
   }
 }

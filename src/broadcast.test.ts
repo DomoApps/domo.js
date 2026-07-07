@@ -3,7 +3,7 @@ import {
   onBroadcast,
   onBroadcastOnce,
   onBroadcastFrom,
-  receiveBroadcast,
+  handleBroadcast,
 } from './broadcast';
 
 class MockMessagePort {
@@ -42,7 +42,7 @@ describe('broadcast', () => {
     expect(mockDomo.connect).toHaveBeenCalledWith(true);
   });
 
-  it('sends broadcast event via window.parent.postMessage with channel, payload, sticky: false by default', () => {
+  it('posts broadcast event via window.parent.postMessage with channel, payload, sticky: false by default', () => {
     broadcast.call(mockDomo, 'news', { headline: 'hello' });
     expect(postMessageMock).toHaveBeenCalledWith(
       JSON.stringify({ event: 'broadcast', channel: 'news', payload: { headline: 'hello' }, sticky: false }),
@@ -84,7 +84,7 @@ describe('onBroadcast', () => {
   it('invokes callback for matching channel', () => {
     const cb = jest.fn();
     onBroadcast.call(mockDomo, 'alerts', cb);
-    receiveBroadcast.call(mockDomo, {
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
       event: 'broadcast',
       channel: 'alerts',
       payload: { severity: 'high' },
@@ -101,7 +101,7 @@ describe('onBroadcast', () => {
   it('does NOT invoke callback for a different channel', () => {
     const cb = jest.fn();
     onBroadcast.call(mockDomo, 'alerts', cb);
-    receiveBroadcast.call(mockDomo, {
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
       event: 'broadcast',
       channel: 'other',
       payload: {},
@@ -121,7 +121,7 @@ describe('onBroadcast', () => {
     const cb = jest.fn();
     const unsub = onBroadcast.call(mockDomo, 'alerts', cb);
     unsub();
-    receiveBroadcast.call(mockDomo, {
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
       event: 'broadcast',
       channel: 'alerts',
       payload: {},
@@ -143,15 +143,15 @@ describe('onBroadcastOnce', () => {
     const cb = jest.fn();
     onBroadcastOnce.call(mockDomo, 'ping', cb);
     const msg = { event: 'broadcast', channel: 'ping', payload: 1, sourceAppId: 'x' };
-    receiveBroadcast.call(mockDomo, msg);
-    receiveBroadcast.call(mockDomo, msg);
+    handleBroadcast(mockDomo.listeners.onBroadcast, msg);
+    handleBroadcast(mockDomo.listeners.onBroadcast, msg);
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
   it('wrapper is removed from listeners.onBroadcast after first fire', () => {
     onBroadcastOnce.call(mockDomo, 'ping', jest.fn());
     expect(mockDomo.listeners.onBroadcast).toHaveLength(1);
-    receiveBroadcast.call(mockDomo, {
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
       event: 'broadcast',
       channel: 'ping',
       payload: 1,
@@ -162,7 +162,7 @@ describe('onBroadcastOnce', () => {
 
   it('does NOT send any wire message', () => {
     onBroadcastOnce.call(mockDomo, 'ping', jest.fn());
-    receiveBroadcast.call(mockDomo, {
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
       event: 'broadcast',
       channel: 'ping',
       payload: 1,
@@ -176,13 +176,13 @@ describe('onBroadcastFrom', () => {
   it('only invokes callback when sourceAppId matches', () => {
     const cb = jest.fn();
     onBroadcastFrom.call(mockDomo, 'news', 'app-sender', cb);
-    receiveBroadcast.call(mockDomo, {
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
       event: 'broadcast',
       channel: 'news',
       payload: 'a',
       sourceAppId: 'other-app',
     });
-    receiveBroadcast.call(mockDomo, {
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
       event: 'broadcast',
       channel: 'news',
       payload: 'b',
@@ -195,7 +195,7 @@ describe('onBroadcastFrom', () => {
   });
 });
 
-describe('receiveBroadcast', () => {
+describe('handleBroadcast', () => {
   let responsePort: MockMessagePort;
 
   beforeEach(() => {
@@ -203,15 +203,15 @@ describe('receiveBroadcast', () => {
   });
 
   it('returns early when message is null/undefined', () => {
-    expect(() => receiveBroadcast.call(mockDomo, null)).not.toThrow();
-    expect(() => receiveBroadcast.call(mockDomo, undefined)).not.toThrow();
+    expect(() => handleBroadcast(mockDomo.listeners.onBroadcast, null)).not.toThrow();
+    expect(() => handleBroadcast(mockDomo.listeners.onBroadcast, undefined)).not.toThrow();
   });
 
   it('dispatches to matching listener and sends ACK via responsePort', () => {
     const cb = jest.fn();
     onBroadcast.call(mockDomo, 'alerts', cb);
-    receiveBroadcast.call(
-      mockDomo,
+    handleBroadcast(
+      mockDomo.listeners.onBroadcast,
       { event: 'broadcast', channel: 'alerts', payload: { val: 1 }, sourceAppId: 'app-a', requestId: 'req-1' },
       responsePort as any
     );
@@ -231,7 +231,7 @@ describe('receiveBroadcast', () => {
   it('drops silently when no listener matches the channel', () => {
     onBroadcast.call(mockDomo, 'other', jest.fn());
     expect(() =>
-      receiveBroadcast.call(mockDomo, {
+      handleBroadcast(mockDomo.listeners.onBroadcast, {
         event: 'broadcast',
         channel: 'unregistered',
         payload: {},
@@ -245,8 +245,8 @@ describe('receiveBroadcast', () => {
     const cb = jest.fn();
     onBroadcast.call(mockDomo, 'alerts', cb);
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    receiveBroadcast.call(
-      mockDomo,
+    handleBroadcast(
+      mockDomo.listeners.onBroadcast,
       {
         event: 'broadcast',
         channel: 'alerts',
@@ -262,8 +262,8 @@ describe('receiveBroadcast', () => {
 
   it('error branch runs even when no listeners are registered', () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    receiveBroadcast.call(
-      mockDomo,
+    handleBroadcast(
+      mockDomo.listeners.onBroadcast,
       { event: 'broadcast', error: { code: 'FEATURE_OFF', message: 'Not enabled' } },
       responsePort as any
     );
@@ -274,7 +274,7 @@ describe('receiveBroadcast', () => {
   it('uses message.timestamp when provided', () => {
     const cb = jest.fn();
     onBroadcast.call(mockDomo, 'ts-test', cb);
-    receiveBroadcast.call(mockDomo, {
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
       event: 'broadcast',
       channel: 'ts-test',
       payload: {},
