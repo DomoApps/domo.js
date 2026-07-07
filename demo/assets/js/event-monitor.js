@@ -255,7 +255,7 @@ class EventMonitor {
     if (category === 'messages' && typeof args[0] === 'string' && args[0].indexOf('sent:') === 0) {
       var prefix = args[0];
       var source;
-      if (prefix === 'sent:ack:channel') source = 'MessageChannel';
+      if (prefix === 'sent:channel' || prefix === 'sent:ack:channel') source = 'MessageChannel';
       else if (prefix === 'sent:postMessage' || prefix === 'sent:ack') source = 'postMessage';
       else if (prefix === 'sent:mobile') source = 'mobile';
       else source = prefix.replace('sent:', '');

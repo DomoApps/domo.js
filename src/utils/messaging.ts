@@ -14,11 +14,11 @@ type BridgeName = 'domofilter' | 'domovariable';
 export function sendToParent(
   event: string,
   desktopPayload: object,
-  bridgeName: BridgeName,
-  nativeBridgePayload: string,
-  webkitPayload: any
+  bridgeName?: BridgeName,
+  nativeBridgePayload?: string,
+  webkitPayload?: any
 ): void {
-  if (!isMobile()) {
+  if (!isMobile() || !bridgeName) {
     domoDebug.log('messages', 'sent:postMessage', event, desktopPayload);
     window.parent.postMessage(JSON.stringify(desktopPayload), '*');
     return;

@@ -61,5 +61,9 @@
       "name": "SanityTest"
     }
   ],
+  "channels": {
+    "publishes": ["testChannel"],
+    "subscribes": ["testChannel"]
+  },
   "fileName": "manifest.json"
 }

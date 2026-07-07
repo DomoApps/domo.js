@@ -33,13 +33,11 @@ import { domoDebug } from "./utils/debug";
 import { addInterceptor } from "./models/services/interceptors";
 import {
   broadcast,
-  broadcastState,
   onBroadcast,
   onBroadcastOnce,
   onBroadcastFrom,
-  handleCapabilities,
-  handleBusMessage,
-  handleBusError,
+  handleBroadcast,
+  BroadcastCallback,
 } from './broadcast';
 import { Filter } from "./models/interfaces/filter";
 import { Variable } from "./models/interfaces/variable";
@@ -49,6 +47,7 @@ export interface DomoListeners {
   onFiltersUpdated: ((filters: Filter[], requestId?: string) => void)[];
   onAppDataUpdated: ((appData: string, requestId?: string) => void)[];
   onVariablesUpdated: ((variables: Variable[]) => void)[];
+  onBroadcast: BroadcastCallback[];
   [key: string]: Function[];
 }
 
@@ -74,6 +73,7 @@ class Domo {
     onFiltersUpdated: [],
     onAppDataUpdated: [],
     onVariablesUpdated: [],
+    onBroadcast: [],
   };
 
   ////////////////////////////////////
@@ -113,7 +113,6 @@ class Domo {
   static requestAppDataUpdate = requestAppDataUpdate;
   static navigate = navigate;
   static broadcast = broadcast;
-  static broadcastState = broadcastState;
   static onBroadcast = onBroadcast;
   static onBroadcastOnce = onBroadcastOnce;
   static onBroadcastFrom = onBroadcastFrom;
@@ -174,9 +173,7 @@ class Domo {
       [DomoEvent.appData]: handleAppData.bind(this),
       [DomoEvent.variablesUpdated]: handleVariablesUpdated.bind(this),
       [DomoEvent.ack]: handleAck.bind(this),
-      [DomoEvent.busMessage]: handleBusMessage.bind(this),
-      [DomoEvent.busError]: handleBusError.bind(this),
-      [DomoEvent.capabilities]: handleCapabilities.bind(this),
+      [DomoEvent.broadcast]: (data: any, responsePort?: MessagePort) => handleBroadcast(this.listeners.onBroadcast, data, responsePort),
     };
 
     // MessageChannel listener (current/new implementation)

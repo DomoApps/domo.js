@@ -1246,33 +1246,33 @@ const testDefinitions = [
   {
     name: "broadcast",
     category: "broadcast",
-    description: "Publish a message to a topic on the dashboard broadcast bus",
+    description: "Publish a message to a channel on the dashboard broadcast bus",
     fields: [
-      { key: "topic", label: "Topic", value: APP_CONFIG.BROADCAST_TOPIC, size: "medium" },
+      { key: "channel", label: "Channel", value: APP_CONFIG.BROADCAST_CHANNEL, size: "medium" },
       { key: "payload", label: "Payload", value: '{"hello":"world"}', size: "wide" },
     ],
     fn: (params) => {
       if (!domo.broadcast) throw new Error("Not available in this version");
-      const topic = params?.topic || APP_CONFIG.BROADCAST_TOPIC;
+      const channel = params?.channel || APP_CONFIG.BROADCAST_CHANNEL;
       let payload;
       try { payload = JSON.parse(params?.payload || '{"hello":"world"}'); } catch (e) { throw new Error("Invalid JSON: " + e.message); }
       const startTime = performance.now();
-      domo.broadcast(topic, payload);
+      domo.broadcast(channel, payload);
       const endTime = performance.now();
       return {
         _render: "payload", direction: "sent", method: "broadcast",
-        payload: { topic, payload },
+        payload: { channel, payload },
         timing: `${(endTime - startTime).toFixed(2)}ms`,
       };
     },
-    pendingMsg: `Publishes to topic <code>${APP_CONFIG.BROADCAST_TOPIC}</code> on the page bus`,
+    pendingMsg: `Publishes to channel <code>${APP_CONFIG.BROADCAST_CHANNEL}</code> on the page bus`,
   },
   {
     name: "onBroadcast",
     category: "broadcast",
-    description: "Subscribe to a topic and display messages as they arrive",
+    description: "Subscribe to a channel and display messages as they arrive",
     fields: [
-      { key: "topic", label: "Topic", value: APP_CONFIG.BROADCAST_TOPIC, size: "medium" },
+      { key: "channel", label: "Channel", value: APP_CONFIG.BROADCAST_CHANNEL, size: "medium" },
     ],
     fn: () => new Promise(), // Never resolves - event driven
     customButton: true,
@@ -1745,13 +1745,13 @@ class TestSuite {
         return;
       }
       const params = this._readFieldValues("onBroadcast");
-      const topic = params?.topic || APP_CONFIG.BROADCAST_TOPIC;
+      const channel = params?.channel || APP_CONFIG.BROADCAST_CHANNEL;
       subscribed = true;
       if (resultSpan) {
-        resultSpan.textContent = `Listening on "${topic}"...`;
+        resultSpan.textContent = `Listening on "${channel}"...`;
         resultSpan.style.color = "var(--text-muted)";
       }
-      domo.onBroadcast(topic, (msg) => {
+      domo.onBroadcast(channel, (msg) => {
         const formatted = DataRenderer.renderPayload("received", "onBroadcast", msg);
         this._updateCard("onBroadcast", "success", formatted);
         const card = DOMUtils.getElementById("card-onBroadcast");

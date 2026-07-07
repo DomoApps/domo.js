@@ -1,14 +1,9 @@
 import {
-  handleCapabilities,
-  handleBusMessage,
-  handleBusError,
   broadcast,
-  broadcastState,
   onBroadcast,
   onBroadcastOnce,
   onBroadcastFrom,
-  __resetForTesting,
-  _subscriptions,
+  handleBroadcast,
 } from './broadcast';
 
 class MockMessagePort {
@@ -27,287 +22,265 @@ Object.defineProperty(window, 'parent', {
   writable: true,
 });
 
-// Minimal mock Domo context for `this`
-const mockDomo = {
-  connect: jest.fn(),
-  listeners: {},
-  channel: undefined as any,
-  connected: false,
-};
+let port1Mock: MockMessagePort;
+let mockDomo: any;
 
 beforeEach(() => {
   jest.resetAllMocks();
-  postMessageMock.mockClear();
-  __resetForTesting();
-  mockDomo.connect.mockClear();
-});
-
-describe('handleCapabilities', () => {
-  it('does not throw when appBroadcasting is true', () => {
-    expect(() => handleCapabilities({ appBroadcasting: true })).not.toThrow();
-  });
-
-  it('does not throw when appBroadcasting is false', () => {
-    expect(() => handleCapabilities({ appBroadcasting: false })).not.toThrow();
-  });
-});
-
-describe('handleBusMessage', () => {
-  it('dispatches to registered callbacks for the topic', () => {
-    handleCapabilities({ appBroadcasting: true });
-    const callback = jest.fn();
-    _subscriptions.set('my-topic', new Set([callback]));
-    handleBusMessage({ topic: 'my-topic', payload: { value: 42 }, sourceAppId: 'app-abc' });
-    expect(callback).toHaveBeenCalledWith({
-      topic: 'my-topic', payload: { value: 42 }, sourceAppId: 'app-abc', timestamp: expect.any(Number),
-    });
-  });
-
-  it('does nothing if no callbacks registered for topic', () => {
-    expect(() =>
-      handleBusMessage({ topic: 'unknown-topic', payload: {}, sourceAppId: 'app-1' })
-    ).not.toThrow();
-  });
-});
-
-describe('handleBusError', () => {
-  it('logs a console.warn with code and message', () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    handleBusError({ code: 'RATE_LIMIT_EXCEEDED', message: 'Too many messages', topic: 'my-topic' });
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('RATE_LIMIT_EXCEEDED'));
-    warnSpy.mockRestore();
-  });
-
-  it('handles missing topic gracefully', () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(() => handleBusError({ code: 'UNKNOWN', message: 'err' })).not.toThrow();
-    warnSpy.mockRestore();
-  });
+  port1Mock = new MockMessagePort();
+  mockDomo = {
+    connect: jest.fn(),
+    listeners: { onBroadcast: [] as any[] },
+    channel: { port1: port1Mock },
+    connected: false,
+  };
 });
 
 describe('broadcast', () => {
-  beforeEach(() => {
-    handleCapabilities({ appBroadcasting: true });
+  it('calls connect(true)', () => {
+    broadcast.call(mockDomo, 'news', { headline: 'hello' });
+    expect(mockDomo.connect).toHaveBeenCalledWith(true);
   });
 
-  it('sends bus.publish with topic and payload via postMessage', () => {
+  it('posts broadcast event via window.parent.postMessage with channel, payload, sticky: false by default', () => {
     broadcast.call(mockDomo, 'news', { headline: 'hello' });
     expect(postMessageMock).toHaveBeenCalledWith(
-      JSON.stringify({ event: 'bus.publish', topic: 'news', payload: { headline: 'hello' }, sticky: false }),
+      JSON.stringify({ event: 'broadcast', channel: 'news', payload: { headline: 'hello' }, sticky: false }),
       '*'
     );
   });
 
-  it('throws for reserved domo: namespace', () => {
-    expect(() => broadcast.call(mockDomo, 'domo:internal', {})).toThrow(/reserved/i);
-  });
-
-  it('throws for payload exceeding 64 KB', () => {
-    const bigPayload = 'x'.repeat(65537);
-    expect(() => broadcast.call(mockDomo, 'news', bigPayload)).toThrow(/64 KB/i);
-  });
-
-  it('no-ops and warns once when feature is disabled', () => {
-    __resetForTesting();
-    handleCapabilities({ appBroadcasting: false });
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    broadcast.call(mockDomo, 'news', {});
-    broadcast.call(mockDomo, 'news', {});
-    expect(postMessageMock).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    warnSpy.mockRestore();
-  });
-
-  it('sends when capabilities not yet received (optimistic)', () => {
-    __resetForTesting();
-    // _appBroadcastingEnabled is null (not received yet) — should send optimistically
-    broadcast.call(mockDomo, 'news', {});
-    expect(postMessageMock).toHaveBeenCalled();
-  });
-});
-
-describe('broadcastState', () => {
-  beforeEach(() => {
-    handleCapabilities({ appBroadcasting: true });
-  });
-
-  it('sends bus.publish with sticky: true', () => {
-    broadcastState.call(mockDomo, 'status', { active: true });
+  it('sends sticky: true when opts.sticky is set', () => {
+    broadcast.call(mockDomo, 'status', { active: true }, { sticky: true });
     expect(postMessageMock).toHaveBeenCalledWith(
-      JSON.stringify({ event: 'bus.publish', topic: 'status', payload: { active: true }, sticky: true }),
+      JSON.stringify({ event: 'broadcast', channel: 'status', payload: { active: true }, sticky: true }),
       '*'
     );
+  });
+
+  it('does NOT post over port1', () => {
+    broadcast.call(mockDomo, 'news', {});
+    expect(port1Mock.postMessage).not.toHaveBeenCalled();
   });
 });
 
 describe('onBroadcast', () => {
-  beforeEach(() => {
-    handleCapabilities({ appBroadcasting: true });
+  it('calls connect(true)', () => {
+    onBroadcast.call(mockDomo, 'alerts', jest.fn());
+    expect(mockDomo.connect).toHaveBeenCalledWith(true);
   });
 
-  it('sends bus.subscribe for the topic on first subscriber', () => {
-    onBroadcast.call(mockDomo, 'alerts', jest.fn());
-    expect(postMessageMock).toHaveBeenCalledWith(
-      JSON.stringify({ event: 'bus.subscribe', topic: 'alerts' }),
-      '*'
-    );
-  });
-
-  it('does NOT send bus.subscribe again for a second subscriber to same topic', () => {
-    onBroadcast.call(mockDomo, 'alerts', jest.fn());
-    postMessageMock.mockClear();
+  it('does NOT send any wire message', () => {
     onBroadcast.call(mockDomo, 'alerts', jest.fn());
     expect(postMessageMock).not.toHaveBeenCalled();
+    expect(port1Mock.postMessage).not.toHaveBeenCalled();
   });
 
-  it('calls callback when bus.message arrives for the topic', () => {
+  it('registers a wrapper in listeners.onBroadcast', () => {
+    onBroadcast.call(mockDomo, 'alerts', jest.fn());
+    expect(mockDomo.listeners.onBroadcast).toHaveLength(1);
+  });
+
+  it('invokes callback for matching channel', () => {
     const cb = jest.fn();
     onBroadcast.call(mockDomo, 'alerts', cb);
-    handleBusMessage({ topic: 'alerts', payload: { severity: 'high' }, sourceAppId: 'app-1' });
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
+      event: 'broadcast',
+      channel: 'alerts',
+      payload: { severity: 'high' },
+      sourceAppId: 'app-1',
+    });
     expect(cb).toHaveBeenCalledWith({
-      topic: 'alerts', payload: { severity: 'high' }, sourceAppId: 'app-1', timestamp: expect.any(Number),
+      channel: 'alerts',
+      payload: { severity: 'high' },
+      sourceAppId: 'app-1',
+      timestamp: expect.any(Number),
     });
   });
 
-  it('returns unsubscribe that sends bus.unsubscribe when last subscriber leaves', () => {
+  it('does NOT invoke callback for a different channel', () => {
+    const cb = jest.fn();
+    onBroadcast.call(mockDomo, 'alerts', cb);
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
+      event: 'broadcast',
+      channel: 'other',
+      payload: {},
+      sourceAppId: 'app-1',
+    });
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('returned unsubscribe removes wrapper from listeners.onBroadcast', () => {
     const unsub = onBroadcast.call(mockDomo, 'alerts', jest.fn());
-    postMessageMock.mockClear();
+    expect(mockDomo.listeners.onBroadcast).toHaveLength(1);
     unsub();
-    expect(postMessageMock).toHaveBeenCalledWith(
-      JSON.stringify({ event: 'bus.unsubscribe', topic: 'alerts' }),
-      '*'
-    );
+    expect(mockDomo.listeners.onBroadcast).toHaveLength(0);
   });
 
-  it('does NOT send bus.unsubscribe when a non-last subscriber leaves', () => {
-    const unsub1 = onBroadcast.call(mockDomo, 'alerts', jest.fn());
-    onBroadcast.call(mockDomo, 'alerts', jest.fn());
-    postMessageMock.mockClear();
-    unsub1();
-    expect(postMessageMock).not.toHaveBeenCalled();
+  it('callback not invoked after unsubscribe, even if more events arrive', () => {
+    const cb = jest.fn();
+    const unsub = onBroadcast.call(mockDomo, 'alerts', cb);
+    unsub();
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
+      event: 'broadcast',
+      channel: 'alerts',
+      payload: {},
+      sourceAppId: 'app-1',
+    });
+    expect(cb).not.toHaveBeenCalled();
   });
 
-  it('returns no-op unsubscribe and warns once when feature is disabled', () => {
-    __resetForTesting();
-    handleCapabilities({ appBroadcasting: false });
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const unsub1 = onBroadcast.call(mockDomo, 'alerts', jest.fn());
-    const unsub2 = onBroadcast.call(mockDomo, 'alerts', jest.fn());
+  it('does NOT send any wire message on unsubscribe', () => {
+    const unsub = onBroadcast.call(mockDomo, 'alerts', jest.fn());
+    unsub();
     expect(postMessageMock).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(() => unsub1()).not.toThrow();
-    expect(() => unsub2()).not.toThrow();
-    warnSpy.mockRestore();
+    expect(port1Mock.postMessage).not.toHaveBeenCalled();
   });
 });
 
 describe('onBroadcastOnce', () => {
-  beforeEach(() => {
-    handleCapabilities({ appBroadcasting: true });
-  });
-
-  it('fires callback exactly once and then auto-unsubscribes', () => {
+  it('fires callback exactly once', () => {
     const cb = jest.fn();
     onBroadcastOnce.call(mockDomo, 'ping', cb);
-    handleBusMessage({ topic: 'ping', payload: 1, sourceAppId: 'x' });
-    handleBusMessage({ topic: 'ping', payload: 2, sourceAppId: 'x' });
+    const msg = { event: 'broadcast', channel: 'ping', payload: 1, sourceAppId: 'x' };
+    handleBroadcast(mockDomo.listeners.onBroadcast, msg);
+    handleBroadcast(mockDomo.listeners.onBroadcast, msg);
     expect(cb).toHaveBeenCalledTimes(1);
-    expect(cb).toHaveBeenCalledWith({
-      topic: 'ping', payload: 1, sourceAppId: 'x', timestamp: expect.any(Number),
+  });
+
+  it('wrapper is removed from listeners.onBroadcast after first fire', () => {
+    onBroadcastOnce.call(mockDomo, 'ping', jest.fn());
+    expect(mockDomo.listeners.onBroadcast).toHaveLength(1);
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
+      event: 'broadcast',
+      channel: 'ping',
+      payload: 1,
+      sourceAppId: 'x',
     });
-    expect(postMessageMock).toHaveBeenCalledWith(
-      JSON.stringify({ event: 'bus.unsubscribe', topic: 'ping' }),
-      '*'
-    );
+    expect(mockDomo.listeners.onBroadcast).toHaveLength(0);
+  });
+
+  it('does NOT send any wire message', () => {
+    onBroadcastOnce.call(mockDomo, 'ping', jest.fn());
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
+      event: 'broadcast',
+      channel: 'ping',
+      payload: 1,
+      sourceAppId: 'x',
+    });
+    expect(postMessageMock).not.toHaveBeenCalled();
   });
 });
 
 describe('onBroadcastFrom', () => {
-  beforeEach(() => {
-    handleCapabilities({ appBroadcasting: true });
-  });
-
-  it('only calls callback when sourceAppId matches', () => {
+  it('only invokes callback when sourceAppId matches', () => {
     const cb = jest.fn();
     onBroadcastFrom.call(mockDomo, 'news', 'app-sender', cb);
-    handleBusMessage({ topic: 'news', payload: 'a', sourceAppId: 'other-app' });
-    handleBusMessage({ topic: 'news', payload: 'b', sourceAppId: 'app-sender' });
-    expect(cb).toHaveBeenCalledTimes(1);
-    expect(cb).toHaveBeenCalledWith({
-      topic: 'news', payload: 'b', sourceAppId: 'app-sender', timestamp: expect.any(Number),
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
+      event: 'broadcast',
+      channel: 'news',
+      payload: 'a',
+      sourceAppId: 'other-app',
     });
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
+      event: 'broadcast',
+      channel: 'news',
+      payload: 'b',
+      sourceAppId: 'app-sender',
+    });
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb).toHaveBeenCalledWith(
+      expect.objectContaining({ payload: 'b', sourceAppId: 'app-sender' })
+    );
   });
 });
 
-describe('localhost manifest check (DOMO-487607)', () => {
+describe('handleBroadcast', () => {
+  let responsePort: MockMessagePort;
+
   beforeEach(() => {
-    handleCapabilities({ appBroadcasting: true });
-    Object.defineProperty(window, 'location', {
-      value: { hostname: 'localhost' },
-      writable: true,
+    responsePort = new MockMessagePort();
+  });
+
+  it('returns early when message is null/undefined', () => {
+    expect(() => handleBroadcast(mockDomo.listeners.onBroadcast, null)).not.toThrow();
+    expect(() => handleBroadcast(mockDomo.listeners.onBroadcast, undefined)).not.toThrow();
+  });
+
+  it('dispatches to matching listener and sends ACK via responsePort', () => {
+    const cb = jest.fn();
+    onBroadcast.call(mockDomo, 'alerts', cb);
+    handleBroadcast(
+      mockDomo.listeners.onBroadcast,
+      { event: 'broadcast', channel: 'alerts', payload: { val: 1 }, sourceAppId: 'app-a', requestId: 'req-1' },
+      responsePort as any
+    );
+    expect(cb).toHaveBeenCalledWith({
+      channel: 'alerts',
+      payload: { val: 1 },
+      sourceAppId: 'app-a',
+      timestamp: expect.any(Number),
     });
-    (global as any).fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        channels: {
-          publishes: ['declared-topic'],
-          subscribes: ['declared-topic'],
-        },
-      }),
+    expect(responsePort.postMessage).toHaveBeenCalledWith({
+      requestId: 'req-1',
+      event: 'ack',
+      channel: 'alerts',
     });
   });
 
-  afterEach(() => {
-    Object.defineProperty(window, 'location', {
-      value: { hostname: 'testhost' },
-      writable: true,
+  it('drops silently when no listener matches the channel', () => {
+    onBroadcast.call(mockDomo, 'other', jest.fn());
+    expect(() =>
+      handleBroadcast(mockDomo.listeners.onBroadcast, {
+        event: 'broadcast',
+        channel: 'unregistered',
+        payload: {},
+        sourceAppId: 'app-a',
+      })
+    ).not.toThrow();
+    expect(responsePort.postMessage).not.toHaveBeenCalled();
+  });
+
+  it('console.warns and does NOT dispatch when message.error is set', () => {
+    const cb = jest.fn();
+    onBroadcast.call(mockDomo, 'alerts', cb);
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    handleBroadcast(
+      mockDomo.listeners.onBroadcast,
+      {
+        event: 'broadcast',
+        channel: 'alerts',
+        error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many messages' },
+      },
+      responsePort as any
+    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('RATE_LIMIT_EXCEEDED'));
+    expect(cb).not.toHaveBeenCalled();
+    expect(responsePort.postMessage).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('error branch runs even when no listeners are registered', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    handleBroadcast(
+      mockDomo.listeners.onBroadcast,
+      { event: 'broadcast', error: { code: 'FEATURE_OFF', message: 'Not enabled' } },
+      responsePort as any
+    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('FEATURE_OFF'));
+    warnSpy.mockRestore();
+  });
+
+  it('uses message.timestamp when provided', () => {
+    const cb = jest.fn();
+    onBroadcast.call(mockDomo, 'ts-test', cb);
+    handleBroadcast(mockDomo.listeners.onBroadcast, {
+      event: 'broadcast',
+      channel: 'ts-test',
+      payload: {},
+      sourceAppId: 'app-x',
+      timestamp: 1234567890,
     });
-    delete (global as any).fetch;
-  });
-
-  it('does not warn for a topic declared in manifest.channels.publishes', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    broadcast.call(mockDomo, 'declared-topic', {});
-    await new Promise(r => setTimeout(r, 20));
-    expect(warnSpy).not.toHaveBeenCalled();
-    warnSpy.mockRestore();
-  });
-
-  it('warns for a topic NOT declared in manifest.channels.publishes', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    broadcast.call(mockDomo, 'undeclared-topic', {});
-    await new Promise(r => setTimeout(r, 20));
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('undeclared-topic'));
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('channels.publishes'));
-    warnSpy.mockRestore();
-  });
-
-  it('warns for a topic NOT declared in manifest.channels.subscribes', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    onBroadcast.call(mockDomo, 'undeclared-topic', jest.fn());
-    await new Promise(r => setTimeout(r, 20));
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('channels.subscribes'));
-    warnSpy.mockRestore();
-  });
-
-  it('does not warn when not on localhost', async () => {
-    Object.defineProperty(window, 'location', {
-      value: { hostname: 'myapp.domoapps.prodaws.domo.com' },
-      writable: true,
-    });
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    broadcast.call(mockDomo, 'undeclared-topic', {});
-    await new Promise(r => setTimeout(r, 20));
-    expect(warnSpy).not.toHaveBeenCalled();
-    warnSpy.mockRestore();
-  });
-
-  it('does not throw when manifest.json is missing (fetch returns 404)', async () => {
-    (global as any).fetch = jest.fn().mockResolvedValue({ ok: false });
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(() => broadcast.call(mockDomo, 'any-topic', {})).not.toThrow();
-    await new Promise(r => setTimeout(r, 20));
-    expect(warnSpy).not.toHaveBeenCalled();
-    warnSpy.mockRestore();
+    expect(cb).toHaveBeenCalledWith(expect.objectContaining({ timestamp: 1234567890 }));
   });
 });
