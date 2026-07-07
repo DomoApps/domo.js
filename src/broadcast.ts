@@ -1,4 +1,5 @@
 import { domoDebug } from './utils/debug';
+import { sendToParent } from './utils/messaging';
 
 export interface BroadcastMessage {
   channel: string;
@@ -17,8 +18,7 @@ export function broadcast(
 ): void {
   this.connect(true);
   const p = { event: 'broadcast', channel, payload, sticky: opts?.sticky ?? false };
-  domoDebug.log('messages', 'sent:channel', 'broadcast', p);
-  this.channel.port1.postMessage(p);
+  sendToParent('broadcast', p);
 }
 
 export function onBroadcast(
@@ -59,8 +59,6 @@ export function onBroadcastFrom(
     if (msg.sourceAppId === sourceAppId) callback(msg);
   });
 }
-
-export function handleCapabilities(_data: { appBroadcasting?: boolean }): void {}
 
 export function handleBusMessage(
   this: any,

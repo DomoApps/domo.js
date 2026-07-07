@@ -42,29 +42,25 @@ describe('broadcast', () => {
     expect(mockDomo.connect).toHaveBeenCalledWith(true);
   });
 
-  it('posts broadcast event over port1 with channel, payload, sticky: false by default', () => {
+  it('sends broadcast event via window.parent.postMessage with channel, payload, sticky: false by default', () => {
     broadcast.call(mockDomo, 'news', { headline: 'hello' });
-    expect(port1Mock.postMessage).toHaveBeenCalledWith({
-      event: 'broadcast',
-      channel: 'news',
-      payload: { headline: 'hello' },
-      sticky: false,
-    });
+    expect(postMessageMock).toHaveBeenCalledWith(
+      JSON.stringify({ event: 'broadcast', channel: 'news', payload: { headline: 'hello' }, sticky: false }),
+      '*'
+    );
   });
 
   it('sends sticky: true when opts.sticky is set', () => {
     broadcast.call(mockDomo, 'status', { active: true }, { sticky: true });
-    expect(port1Mock.postMessage).toHaveBeenCalledWith({
-      event: 'broadcast',
-      channel: 'status',
-      payload: { active: true },
-      sticky: true,
-    });
+    expect(postMessageMock).toHaveBeenCalledWith(
+      JSON.stringify({ event: 'broadcast', channel: 'status', payload: { active: true }, sticky: true }),
+      '*'
+    );
   });
 
-  it('does NOT use window.parent.postMessage', () => {
+  it('does NOT post over port1', () => {
     broadcast.call(mockDomo, 'news', {});
-    expect(postMessageMock).not.toHaveBeenCalled();
+    expect(port1Mock.postMessage).not.toHaveBeenCalled();
   });
 });
 

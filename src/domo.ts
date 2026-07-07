@@ -39,7 +39,6 @@ import {
   receiveBroadcast,
   handleBusMessage,
   handleBusError,
-  handleCapabilities,
   BroadcastCallback,
 } from './broadcast';
 import { Filter } from "./models/interfaces/filter";
@@ -178,7 +177,6 @@ class Domo {
       [DomoEvent.ack]: handleAck.bind(this),
       [DomoEvent.busMessage]: handleBusMessage.bind(this),
       [DomoEvent.busError]: handleBusError.bind(this),
-      [DomoEvent.capabilities]: handleCapabilities.bind(this),
       [DomoEvent.broadcast]: receiveBroadcast.bind(this),
     };
 
