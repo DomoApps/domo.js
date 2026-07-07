@@ -11,6 +11,7 @@ export const DomoEvent = {
   busMessage: "bus.message",
   busError: "bus.error",
   capabilities: "capabilities",
+  broadcast: "broadcast",
 } as const;
 
 /**
@@ -25,6 +26,7 @@ export const eventToListenerMap: {
   [DomoEvent.dataUpdated]: "onDataUpdated",
   [DomoEvent.filtersUpdated]: "onFiltersUpdated",
   [DomoEvent.variablesUpdated]: "onVariablesUpdated",
+  [DomoEvent.broadcast]: "onBroadcast",
 };
 
 /**
