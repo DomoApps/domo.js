@@ -4,7 +4,7 @@ import { setFormatHeaders } from "../../utils/general";
 import { DataFormats } from "../enums/data-formats";
 import { RequestMethods } from "../enums/request-methods";
 import { RequestBody, RequestOptions, ObjectResponseBody, ArrayResponseBody, ResponseBody } from "../interfaces/request";
-import { DomoHttpError, DomoAuthError, DomoConnectionError, DomoValidationError } from "../errors";
+import { DomoHttpError, DomoAuthError, DomoConnectionError, DomoValidationError, DomoAbortError } from "../errors";
 import { domoDebug } from "../../utils/debug";
 import { buildInterceptorChain, InterceptorConfig } from "./interceptors";
 
@@ -29,7 +29,7 @@ async function domoHttp<T>(method: RequestMethods, url: string, options: Request
 
     const fetchImpl = customFetch || fetch;
     const chain = buildInterceptorChain((cfg: InterceptorConfig) =>
-      fetchImpl(cfg.url, { method: cfg.method, headers: cfg.headers, body: cfg.body })
+      fetchImpl(cfg.url, { method: cfg.method, headers: cfg.headers, body: cfg.body, signal: cfg.signal })
     );
 
     let response: Response;
@@ -39,8 +39,12 @@ async function domoHttp<T>(method: RequestMethods, url: string, options: Request
         url,
         headers,
         body: fetchOptions.body,
+        signal: options.signal,
       });
     } catch (fetchErr: any) {
+      if (fetchErr instanceof DOMException && fetchErr.name === 'AbortError') {
+        throw new DomoAbortError('Request aborted', { cause: fetchErr });
+      }
       domoDebug.log('http', 'connection error', url, fetchErr.message);
       throw new DomoConnectionError(fetchErr.message);
     }
