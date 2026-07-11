@@ -1,4 +1,4 @@
-import { DomoHttpError, DomoAuthError, DomoTimeoutError, DomoValidationError, DomoConnectionError } from './errors';
+import { DomoHttpError, DomoAuthError, DomoTimeoutError, DomoValidationError, DomoConnectionError, DomoError, DomoAbortError } from './errors';
 
 describe('Structured Error Types', () => {
   describe('DomoHttpError', () => {
@@ -69,6 +69,57 @@ describe('Structured Error Types', () => {
       expect(error).toBeInstanceOf(Error);
       expect(error.name).toBe('DomoConnectionError');
       expect(error.message).toBe('Failed to fetch');
+    });
+  });
+
+  describe('DomoError', () => {
+    it('is instanceof Error', () => {
+      const error = new DomoError('base error');
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toBeInstanceOf(DomoError);
+      expect(error.name).toBe('DomoError');
+      expect(error.message).toBe('base error');
+    });
+
+    it('all existing errors are instanceof DomoError', () => {
+      expect(new DomoHttpError('m', 500, 'ISE', '', {})).toBeInstanceOf(DomoError);
+      expect(new DomoAuthError('m', 401, 'Unauth', '', {})).toBeInstanceOf(DomoError);
+      expect(new DomoTimeoutError('m', '/url')).toBeInstanceOf(DomoError);
+      expect(new DomoValidationError('m')).toBeInstanceOf(DomoError);
+      expect(new DomoConnectionError('m')).toBeInstanceOf(DomoError);
+    });
+  });
+
+  describe('DomoAbortError', () => {
+    it('is instanceof DomoError and Error', () => {
+      const error = new DomoAbortError();
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toBeInstanceOf(DomoError);
+      expect(error).toBeInstanceOf(DomoAbortError);
+    });
+
+    it('has default message "Request aborted"', () => {
+      const error = new DomoAbortError();
+      expect(error.name).toBe('DomoAbortError');
+      expect(error.message).toBe('Request aborted');
+    });
+
+    it('accepts a custom message', () => {
+      const error = new DomoAbortError('cancelled by user');
+      expect(error.message).toBe('cancelled by user');
+    });
+
+    it('preserves cause from options', () => {
+      const cause = new DOMException('The user aborted a request.', 'AbortError');
+      const error = new DomoAbortError('Request aborted', { cause });
+      expect((error as any).cause).toBe(cause);
+      expect(((error as any).cause as DOMException).name).toBe('AbortError');
+    });
+
+    it('does not extend DomoHttpError or DomoConnectionError', () => {
+      const error = new DomoAbortError();
+      expect(error).not.toBeInstanceOf(DomoHttpError);
+      expect(error).not.toBeInstanceOf(DomoConnectionError);
     });
   });
 });

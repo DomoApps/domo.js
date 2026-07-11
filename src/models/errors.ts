@@ -1,7 +1,11 @@
-/**
- * Base HTTP error thrown for non-2xx responses from Domo endpoints.
- */
-export class DomoHttpError extends Error {
+export class DomoError extends Error {
+  constructor(message?: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'DomoError';
+  }
+}
+
+export class DomoHttpError extends DomoError {
   public readonly status: number;
   public readonly statusText: string;
   public readonly body: string;
@@ -17,9 +21,6 @@ export class DomoHttpError extends Error {
   }
 }
 
-/**
- * Thrown for 401/403 authentication or authorization failures.
- */
 export class DomoAuthError extends DomoHttpError {
   constructor(message: string, status: number, statusText: string, body: string, headers: Record<string, string>) {
     super(message, status, statusText, body, headers);
@@ -27,10 +28,7 @@ export class DomoAuthError extends DomoHttpError {
   }
 }
 
-/**
- * Thrown when a request or message times out.
- */
-export class DomoTimeoutError extends Error {
+export class DomoTimeoutError extends DomoError {
   public readonly url: string;
 
   constructor(message: string, url: string) {
@@ -40,10 +38,7 @@ export class DomoTimeoutError extends Error {
   }
 }
 
-/**
- * Thrown when input validation fails — schema parsing, filter guards, variable guards.
- */
-export class DomoValidationError extends Error {
+export class DomoValidationError extends DomoError {
   public readonly errors: unknown[];
 
   constructor(message: string, errors: unknown[] = []) {
@@ -53,12 +48,16 @@ export class DomoValidationError extends Error {
   }
 }
 
-/**
- * Thrown when a network-level connection failure occurs (fetch rejects).
- */
-export class DomoConnectionError extends Error {
+export class DomoConnectionError extends DomoError {
   constructor(message: string) {
     super(message);
     this.name = 'DomoConnectionError';
+  }
+}
+
+export class DomoAbortError extends DomoError {
+  constructor(message = 'Request aborted', options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'DomoAbortError';
   }
 }
