@@ -42,7 +42,8 @@ async function domoHttp<T>(method: RequestMethods, url: string, options: Request
         signal: options.signal,
       });
     } catch (fetchErr: any) {
-      if (fetchErr instanceof DOMException && fetchErr.name === 'AbortError') {
+      if (fetchErr.name === 'AbortError') {
+        domoDebug.log('http', 'aborted', url);
         throw new DomoAbortError('Request aborted', { cause: fetchErr });
       }
       domoDebug.log('http', 'connection error', url, fetchErr.message);
