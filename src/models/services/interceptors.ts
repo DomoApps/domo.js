@@ -3,6 +3,7 @@ export interface InterceptorConfig {
   url: string;
   headers: Record<string, string>;
   body?: any;
+  signal?: AbortSignal;
 }
 
 export type NextFn = (config: InterceptorConfig) => Promise<Response>;

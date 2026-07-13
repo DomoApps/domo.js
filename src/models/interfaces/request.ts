@@ -42,6 +42,11 @@ export interface RequestOptions<F extends DomoDataFormats = DomoDataFormats> {
    * domo.get<User[]>('/api/users', { schema: UserSchema });
    */
   schema?: { parse: (data: unknown) => any };
+  /**
+   * An AbortSignal to cancel the request. When the signal fires, the request
+   * rejects with DomoAbortError.
+   */
+  signal?: AbortSignal;
 }
 
 /**

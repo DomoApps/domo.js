@@ -1,6 +1,6 @@
 import Domo from "../../domo";
 import { RequestMethods } from "../enums/request-methods";
-import { DomoValidationError, DomoConnectionError, DomoHttpError, DomoAuthError } from "../errors";
+import { DomoValidationError, DomoConnectionError, DomoHttpError, DomoAuthError, DomoAbortError, DomoError } from "../errors";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -387,5 +387,94 @@ describe("Structured error types", () => {
       expect(err).toBeInstanceOf(DomoValidationError);
       expect(err.errors).toEqual([{ path: "name", message: "required" }]);
     }
+  });
+});
+
+describe('AbortController support', () => {
+  beforeEach(() => {
+    (window as any)['__RYUU_SID__'] = 'test-token';
+    global.fetch = jest.fn();
+  });
+
+  it('throws DomoAbortError when signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    (global.fetch as jest.Mock).mockRejectedValue(
+      new DOMException('The user aborted a request.', 'AbortError')
+    );
+
+    await expect(
+      Domo.get('/test', { signal: controller.signal } as any)
+    ).rejects.toThrow(DomoAbortError);
+  });
+
+  it('throws DomoAbortError when signal fires mid-flight', async () => {
+    (global.fetch as jest.Mock).mockRejectedValue(
+      new DOMException('The user aborted a request.', 'AbortError')
+    );
+
+    const controller = new AbortController();
+    const promise = Domo.get('/test', { signal: controller.signal } as any);
+    controller.abort();
+
+    await expect(promise).rejects.toThrow(DomoAbortError);
+  });
+
+  it('DomoAbortError preserves the original DOMException as cause', async () => {
+    const domException = new DOMException('The user aborted a request.', 'AbortError');
+    (global.fetch as jest.Mock).mockRejectedValue(domException);
+
+    const controller = new AbortController();
+    controller.abort();
+
+    try {
+      await Domo.get('/test', { signal: controller.signal } as any);
+      fail('should have thrown');
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(DomoAbortError);
+      expect(err.cause).toBe(domException);
+      expect(err.cause.name).toBe('AbortError');
+    }
+  });
+
+  it('DomoAbortError is instanceof DomoError but not DomoConnectionError', async () => {
+    (global.fetch as jest.Mock).mockRejectedValue(
+      new DOMException('The user aborted a request.', 'AbortError')
+    );
+
+    const controller = new AbortController();
+    controller.abort();
+
+    try {
+      await Domo.get('/test', { signal: controller.signal } as any);
+      fail('should have thrown');
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(DomoAbortError);
+      expect(err).toBeInstanceOf(DomoError);
+      expect(err).not.toBeInstanceOf(DomoConnectionError);
+    }
+  });
+
+  it('non-abort fetch rejection still throws DomoConnectionError', async () => {
+    (global.fetch as jest.Mock).mockRejectedValue(new Error('Network failure'));
+
+    await expect(Domo.get('/test')).rejects.toThrow(DomoConnectionError);
+    await expect(Domo.get('/test')).rejects.not.toThrow(DomoAbortError);
+  });
+
+  it('passes signal through to the native fetch call', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true, status: 200, statusText: 'OK',
+      text: async () => '{}', body: {},
+    });
+
+    const controller = new AbortController();
+    await Domo.get('/test', { signal: controller.signal } as any);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/test'),
+      expect.objectContaining({ signal: controller.signal })
+    );
   });
 });
