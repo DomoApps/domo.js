@@ -62,8 +62,8 @@
     }
   ],
   "channels": {
-    "publishes": ["testChannel"],
-    "subscribes": ["testChannel"]
+    "publishes": [],
+    "subscribes": []
   },
   "fileName": "manifest.json"
 }
