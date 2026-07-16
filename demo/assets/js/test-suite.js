@@ -196,6 +196,28 @@ const testDefinitions = [
     pendingMsg: "Queries the <code>test</code> dataset alias",
   },
   {
+    name: "data.query (ignorePageFilters)",
+    category: "data",
+    description: "Query a dataset by alias with page filters bypassed",
+    fields: [
+      { key: "limit", label: "Limit", value: "5", size: "small" },
+    ],
+    fn: async (params) => {
+      if (!domo.data?.query) throw new Error("Not available in this version");
+      const alias = "test";
+      const limit = parseInt(params?.limit || "5", 10) || 5;
+      const startTime = performance.now();
+      const result = await domo.data.query(alias, { limit, ignorePageFilters: true });
+      const endTime = performance.now();
+      return {
+        _render: "http", httpMethod: "GET",
+        url: `/data/v1/${alias}?limit=${limit}&ignorePageFilters=true`,
+        payload: result, timing: `${(endTime - startTime).toFixed(2)}ms`
+      };
+    },
+    pendingMsg: "Queries the <code>test</code> dataset alias with <code>ignorePageFilters=true</code>",
+  },
+  {
     name: "data.sql",
     category: "data",
     description: "Execute a SQL query against datasets",
@@ -1248,14 +1270,15 @@ const testDefinitions = [
     category: "broadcast",
     description: "Publish a message to a channel on the dashboard broadcast bus",
     fields: [
-      { key: "channel", label: "Channel", value: APP_CONFIG.BROADCAST_CHANNEL, size: "medium" },
-      { key: "payload", label: "Payload", value: '{"hello":"world"}', size: "wide" },
+      { key: "channel", label: "Channel", value: APP_CONFIG.PUBLISH_CHANNEL, size: "medium" },
+      { key: "payload", label: "Payload", value: '42', size: "wide" },
     ],
     fn: (params) => {
       if (!domo.broadcast) throw new Error("Not available in this version");
-      const channel = params?.channel || APP_CONFIG.BROADCAST_CHANNEL;
+      const channel = params?.channel || APP_CONFIG.PUBLISH_CHANNEL;
+      const raw = params?.payload || '42';
       let payload;
-      try { payload = JSON.parse(params?.payload || '{"hello":"world"}'); } catch (e) { throw new Error("Invalid JSON: " + e.message); }
+      try { payload = JSON.parse(raw); } catch (e) { payload = raw; }
       const startTime = performance.now();
       domo.broadcast(channel, payload);
       const endTime = performance.now();
@@ -1265,14 +1288,14 @@ const testDefinitions = [
         timing: `${(endTime - startTime).toFixed(2)}ms`,
       };
     },
-    pendingMsg: `Publishes to channel <code>${APP_CONFIG.BROADCAST_CHANNEL}</code> on the page bus`,
+    pendingMsg: `Publishes to channel <code>${APP_CONFIG.PUBLISH_CHANNEL}</code> on the page bus`,
   },
   {
     name: "onBroadcast",
     category: "broadcast",
     description: "Subscribe to a channel and display messages as they arrive",
     fields: [
-      { key: "channel", label: "Channel", value: APP_CONFIG.BROADCAST_CHANNEL, size: "medium" },
+      { key: "channel", label: "Channel", value: APP_CONFIG.SUBSCRIBE_CHANNEL, size: "medium" },
     ],
     fn: () => new Promise(), // Never resolves - event driven
     customButton: true,
@@ -1745,7 +1768,7 @@ class TestSuite {
         return;
       }
       const params = this._readFieldValues("onBroadcast");
-      const channel = params?.channel || APP_CONFIG.BROADCAST_CHANNEL;
+      const channel = params?.channel || APP_CONFIG.SUBSCRIBE_CHANNEL;
       subscribed = true;
       if (resultSpan) {
         resultSpan.textContent = `Listening on "${channel}"...`;

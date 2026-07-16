@@ -45,6 +45,10 @@ interface DataQueryOptions {
   /** Enable beast mode columns in the query. */
   useBeastMode?: boolean;
 
+  // ── Page filter bypass ──
+  /** When true, bypasses page-level filters applied by the host. */
+  ignorePageFilters?: boolean;
+
   // ── Response format ──
   /** Response format. Defaults to 'array-of-objects'. */
   format?: DomoDataFormats;
@@ -57,7 +61,7 @@ interface DataQueryOptions {
  *
  * Supports all Data API query operators: fields, filter, aggregations
  * (avg, count, max, min, sum, unique), groupBy, dateGrain, calendar,
- * orderBy, limit, offset, and useBeastMode.
+ * orderBy, limit, offset, useBeastMode, and ignorePageFilters.
  *
  * @param alias - The dataset alias from manifest.json datasetsMapping.
  * @param opts - Query options.
@@ -134,6 +138,9 @@ function query<T = any>(
 
   // Beast modes
   if (opts?.useBeastMode) params.set("useBeastMode", "true");
+
+  // Page filter bypass
+  if (opts?.ignorePageFilters) params.set("ignorePageFilters", "true");
 
   const qs = params.toString();
   const base = "/data/v1/" + encodeURIComponent(alias);

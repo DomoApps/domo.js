@@ -121,6 +121,16 @@ describe("data.query", () => {
     );
   });
 
+  it("should append ignorePageFilters=true when option is set", async () => {
+    mockFetchOk([]);
+
+    await Domo.data.query("sales", { ignorePageFilters: true, limit: 5 });
+
+    const url = (global.fetch as jest.Mock).mock.calls[0][0] as string;
+    expect(url).toContain("ignorePageFilters=true");
+    expect(url).toContain("limit=5");
+  });
+
   it("should encode special characters in alias", async () => {
     mockFetchOk([]);
 
