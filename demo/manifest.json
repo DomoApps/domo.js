@@ -71,7 +71,7 @@
     ],
     "subscribes": [
       {
-        "name": "numbers",
+        "name": "strings",
         "description": "Subscribes to a string value"
       }
     ]

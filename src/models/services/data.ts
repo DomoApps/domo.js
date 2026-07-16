@@ -61,7 +61,7 @@ interface DataQueryOptions {
  *
  * Supports all Data API query operators: fields, filter, aggregations
  * (avg, count, max, min, sum, unique), groupBy, dateGrain, calendar,
- * orderBy, limit, offset, and useBeastMode.
+ * orderBy, limit, offset, useBeastMode, and ignorePageFilters.
  *
  * @param alias - The dataset alias from manifest.json datasetsMapping.
  * @param opts - Query options.

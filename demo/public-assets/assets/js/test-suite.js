@@ -1276,7 +1276,7 @@ const testDefinitions = [
     fn: (params) => {
       if (!domo.broadcast) throw new Error("Not available in this version");
       const channel = params?.channel || APP_CONFIG.PUBLISH_CHANNEL;
-      const raw = params?.payload ?? '42';
+      const raw = params?.payload || '42';
       let payload;
       try { payload = JSON.parse(raw); } catch (e) { payload = raw; }
       const startTime = performance.now();
