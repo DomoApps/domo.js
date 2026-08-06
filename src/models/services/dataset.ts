@@ -8,7 +8,7 @@ import { domoDebug } from "../../utils/debug";
  * @param {(alias: string) => void} callback - Callback function to be called with the alias when a data update event occurs.
  * @returns {() => void} - Function to remove the registered callback.
  */
-export function onDataUpdated(callback: (alias: string) => void) {
+export function onDataUpdated(this: any, callback: (alias: string) => void) {
   this.connect(true);
   this.listeners.onDataUpdated.push(callback);
 
@@ -26,7 +26,7 @@ export function onDataUpdated(callback: (alias: string) => void) {
  * @param responsePort - Optional MessagePort to send the response back (for MessageChannel communication).
  * @returns void
  */
-export function handleDataUpdated(message: any, responsePort?: MessagePort) {
+export function handleDataUpdated(this: any, message: any, responsePort?: MessagePort) {
   if (!message) return;
 
   if (this.listeners.onDataUpdated.length) {

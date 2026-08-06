@@ -35,6 +35,7 @@ type FiltersPayload = {
  * @param opts - Optional bag; `opts.echoRequestId` echoes a host correlation id back on the wire.
  */
 export function requestFiltersUpdate(
+  this: any,
   filters: Filter[] | null,
   pageStateUpdate: boolean | null = null,
   onAck?: OnAckCallback,
@@ -114,7 +115,7 @@ export function requestFiltersUpdate(
  * @param callback - The function to call when filters are updated.
  * @returns A function to unregister the callback.
  */
-export function onFiltersUpdated(callback: (filters: Filter[], requestId?: string) => void) {
+export function onFiltersUpdated(this: any, callback: (filters: Filter[], requestId?: string) => void) {
   this.connect();
   this.listeners.onFiltersUpdated.push(callback);
 
@@ -132,7 +133,7 @@ export function onFiltersUpdated(callback: (filters: Filter[], requestId?: strin
  * @param responsePort - The port to send the response back.
  * @returns void
  */
-export function handleFiltersUpdated(message: any, responsePort?: MessagePort): void {
+export function handleFiltersUpdated(this: any, message: any, responsePort?: MessagePort): void {
   if (!message) return;
 
   if (this.listeners.onFiltersUpdated.length) {

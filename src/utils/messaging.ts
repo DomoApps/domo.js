@@ -29,7 +29,7 @@ export function sendToParent(
 
   try {
     domoDebug.log('messages', 'sent:mobile', event, { via: bridgeName, payload: nativeBridgePayload });
-    bridge!.postMessage(nativeBridgePayload);
+    bridge!.postMessage(nativeBridgePayload!);
   } catch (error) {
     console.error(`Failed to post message using ${bridgeName}:`, error);
     try {
