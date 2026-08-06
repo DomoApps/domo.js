@@ -10,14 +10,16 @@ export interface BroadcastMessage {
 
 export type BroadcastCallback = (msg: BroadcastMessage) => void;
 
+export interface BroadcastOptions {}
+
 export function broadcast(
   this: any,
   channel: string,
   payload: unknown,
-  opts?: { sticky?: boolean }
+  opts?: BroadcastOptions
 ): void {
   this.connect(true);
-  const p = { event: 'broadcast', channel, payload, sticky: opts?.sticky ?? false };
+  const p = { event: 'broadcast', channel, payload };
   sendToParent('broadcast', p);
 }
 
