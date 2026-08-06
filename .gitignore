@@ -6,3 +6,4 @@ coverage/
 demo/domo.js
 jira.apikey
 docs/
+.worktrees/
