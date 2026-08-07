@@ -1,6 +1,6 @@
 {
   "name": "ryuu.js",
-  "version": "6.0.8-alpha.0",
+  "version": "6.0.8",
   "description": "Ryuu JavaScript Utility Library",
   "main": "dist/domo.js",
   "sideEffects": [
