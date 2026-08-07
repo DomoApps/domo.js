@@ -30,6 +30,7 @@ type AppDataPayload = {
  * @param opts - Optional bag; `opts.echoRequestId` echoes a host correlation id back on the wire.
  */
 export function requestAppDataUpdate(
+  this: any,
   appData: string,
   onAck?: OnAckCallback,
   onReply?: OnReplyCallback,
@@ -79,7 +80,7 @@ export function requestAppDataUpdate(
  * @param callback - The function to call when app data is received.
  * @returns A function to unregister the callback.
  */
-export function onAppDataUpdated(callback: (appData: string, requestId?: string) => void) {
+export function onAppDataUpdated(this: any, callback: (appData: string, requestId?: string) => void) {
   this.connect(true);
   this.listeners.onAppDataUpdated.push(callback);
 
@@ -96,7 +97,7 @@ export function onAppDataUpdated(callback: (appData: string, requestId?: string)
  * @param responsePort - Optional MessagePort to send the response back (for MessageChannel communication).
  * @returns void
  */
-export function handleAppData(message: any, responsePort?: MessagePort) {
+export function handleAppData(this: any, message: any, responsePort?: MessagePort) {
   if (!message) return;
 
   if (this.listeners.onAppDataUpdated.length) {

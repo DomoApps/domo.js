@@ -7,7 +7,7 @@
  * @param requestId - The ID of the request to acknowledge.
  * @returns void
  */
-export function handleAck(data: any, responsePort: MessagePort) {
+export function handleAck(this: any, data: any, _responsePort?: MessagePort) {
   const { requestId } = data;
   if (!requestId) return;
 
@@ -36,7 +36,7 @@ export function handleAck(data: any, responsePort: MessagePort) {
  * @param error - An optional error object if the reply is rejected.
  * @returns void
  */
-export function handleReply(requestId: string, payload: any, error?: Error) {
+export function handleReply(this: any, requestId: string, payload: any, error?: Error) {
   if (!requestId) return;
 
   const entry = this.requests[requestId];

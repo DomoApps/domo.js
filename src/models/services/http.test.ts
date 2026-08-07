@@ -22,7 +22,7 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.restoreAllMocks();
-  delete global.fetch;
+  delete (global as any).fetch;
 });
 
 describe("domo HTTP methods", () => {

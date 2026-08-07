@@ -14,7 +14,7 @@ import { domoDebug } from "../../utils/debug";
  * @param onReply - Optional callback to invoke when a reply is received.
  * @returns The request ID for tracking the request.
  */
-export function requestVariablesUpdate(variables: string | Variable[], onAck?: OnAckCallback, onReply?: OnReplyCallback): string {
+export function requestVariablesUpdate(this: any, variables: string | Variable[], onAck?: OnAckCallback, onReply?: OnReplyCallback): string {
   guardAgainstInvalidVariables(variables);
   const sanitizedVariables = typeof variables === 'string' ? JSON.parse(variables) : variables;
   const requestId = generateUniqueId();
@@ -54,7 +54,7 @@ export function requestVariablesUpdate(variables: string | Variable[], onAck?: O
  * @param callback - The function to call when variables are updated.
  * @returns A function to unregister the callback.
  */
-export function onVariablesUpdated(callback: (variables: Variable[]) => void) {
+export function onVariablesUpdated(this: any, callback: (variables: Variable[]) => void) {
   this.connect(true);
   this.listeners.onVariablesUpdated.push(callback);
 
@@ -72,7 +72,7 @@ export function onVariablesUpdated(callback: (variables: Variable[]) => void) {
  * @param responsePort - The port to send the response back.
  * @returns void
  */
-export function handleVariablesUpdated(message: any, responsePort?: MessagePort) {
+export function handleVariablesUpdated(this: any, message: any, responsePort?: MessagePort) {
   if (!message) return;
   
   if (this.listeners.onVariablesUpdated.length) {

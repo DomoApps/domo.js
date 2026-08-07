@@ -17,7 +17,7 @@ async function domoHttp<T>(method: RequestMethods, url: string, options: Request
     const headers: Record<string, string> = {};
     setFormatHeaders(headers as any, url, options);
     setContentHeaders(headers as any, options);
-    setAuthTokenHeader(headers as any, getToken());
+    setAuthTokenHeader(headers as any, getToken() ?? '');
 
     const fetchOptions: RequestInit = {
       method,
@@ -91,7 +91,7 @@ function get(url: string, options: RequestOptions<'array-of-objects'>): Promise<
 function get(url: string, options: RequestOptions<'array-of-arrays'>): Promise<ArrayResponseBody>;
 function get(url: string, options?: RequestOptions): Promise<ResponseBody>;
 function get<T>(url: string, options?: RequestOptions): Promise<T>;
-function get<T>(url: string, options?: RequestOptions): Promise<T> {
+function get<T>(this: any, url: string, options?: RequestOptions): Promise<T> {
   const handle = this?.domoHttp ?? domoHttp;
   return handle(RequestMethods.GET, url, options);
 }
@@ -100,28 +100,28 @@ function getAll(urls: string[], options: RequestOptions<'array-of-objects'>): Pr
 function getAll(urls: string[], options: RequestOptions<'array-of-arrays'>): Promise<ArrayResponseBody[]>;
 function getAll(urls: string[], options?: RequestOptions): Promise<ResponseBody[]>;
 function getAll<T>(urls: string[], options?: RequestOptions): Promise<T[]>;
-function getAll<T = ResponseBody>(urls: string[], options?: RequestOptions): Promise<T[]> {
+function getAll<T = ResponseBody>(this: any, urls: string[], options?: RequestOptions): Promise<T[]> {
   const handle = this?.get ?? get;
   return Promise.all(urls.map(url => handle(url, options)));
 };
 
 function post(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
 function post<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T>;
-function post<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
+function post<T>(this: any, url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
   const handle = this?.domoHttp ?? domoHttp;
   return handle(RequestMethods.POST, url, options, body);
 }
 
 function put(url: string, body?: RequestBody, options?: RequestOptions): Promise<ResponseBody>;
 function put<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T>;
-function put<T>(url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
+function put<T>(this: any, url: string, body?: RequestBody, options?: RequestOptions): Promise<T> {
   const handle = this?.domoHttp ?? domoHttp;
   return handle(RequestMethods.PUT, url, options, body);
 }
 
 function trash(url: string, options?: RequestOptions): Promise<ResponseBody>;
 function trash<T>(url: string, options?: RequestOptions): Promise<T>;
-function trash<T>(url: string, options?: RequestOptions): Promise<T> {
+function trash<T>(this: any, url: string, options?: RequestOptions): Promise<T> {
   const handle = this?.domoHttp ?? domoHttp;
   return handle(RequestMethods.DELETE, url, options);
 }
@@ -151,7 +151,7 @@ function buildError(response: Response, errorText: string, errorBody: string): D
 }
 
 function parseResponse<T>(response: Response, options: RequestOptions): Promise<T> {
-  if (options.responseType !== "blob" && ["csv", "excel"].includes(options.format))
+  if (options.responseType !== "blob" && options.format && ["csv", "excel"].includes(options.format))
     return response.text() as any as Promise<T>;
   
   if (options.responseType === "blob")
