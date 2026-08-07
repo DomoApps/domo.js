@@ -5,6 +5,7 @@
 [![npm version](https://img.shields.io/npm/v/ryuu.js.svg)](https://www.npmjs.com/package/ryuu.js)
 [![License](https://img.shields.io/badge/license-SEE%20LICENSE-blue.svg)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FDomoApps%2Fdomo.js.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FDomoApps%2Fdomo.js?ref=badge_shield)
 
 ryuu.js (published as `ryuu.js`, developed as `domo.js`) is a comprehensive JavaScript library that enables developers to build interactive custom applications within the Domo platform. It provides seamless communication between your custom app and the Domo environment, supporting data fetching, real-time events, filters, variables, and cross-platform mobile integration.
 
@@ -1781,6 +1782,9 @@ SEE LICENSE IN [LICENSE](./LICENSE)
 Copyright (c) Domo
 
 ---
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FDomoApps%2Fdomo.js.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FDomoApps%2Fdomo.js?ref=badge_large)
 
 ## Support
 
