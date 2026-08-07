@@ -42,18 +42,10 @@ describe('broadcast', () => {
     expect(mockDomo.connect).toHaveBeenCalledWith(true);
   });
 
-  it('posts broadcast event via window.parent.postMessage with channel, payload, sticky: false by default', () => {
+  it('posts broadcast event with channel and payload only', () => {
     broadcast.call(mockDomo, 'news', { headline: 'hello' });
     expect(postMessageMock).toHaveBeenCalledWith(
-      JSON.stringify({ event: 'broadcast', channel: 'news', payload: { headline: 'hello' }, sticky: false }),
-      '*'
-    );
-  });
-
-  it('sends sticky: true when opts.sticky is set', () => {
-    broadcast.call(mockDomo, 'status', { active: true }, { sticky: true });
-    expect(postMessageMock).toHaveBeenCalledWith(
-      JSON.stringify({ event: 'broadcast', channel: 'status', payload: { active: true }, sticky: true }),
+      JSON.stringify({ event: 'broadcast', channel: 'news', payload: { headline: 'hello' } }),
       '*'
     );
   });
