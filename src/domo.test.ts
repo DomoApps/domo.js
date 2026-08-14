@@ -1,4 +1,5 @@
 import Domo, { __mutationObserverCallback } from './domo';
+import { FilterDataTypes, FilterOperatorsString } from './models/interfaces/filter';
 import { RequestMethods } from './models/enums/request-methods';
 import { transport } from './transport';
 
@@ -175,6 +176,23 @@ describe('domo.env and global exposure', () => {
   it('should expose env and __util', () => {
     expect(Domo.env).toBeDefined();
     expect(Domo.__util).toBeDefined();
+  });
+
+  // Native mobile hosts resolve window.domo, so a bundled `import` must still populate it.
+  it('should assign the Domo class to window.domo at module load', () => {
+    expect(window.domo).toBe(Domo);
+  });
+
+  it('should keep `this` bound when reached through window.domo', () => {
+    window.parent.postMessage = jest.fn();
+
+    const requestId = window.domo.requestFiltersUpdate([
+      { column: 'Region', operator: FilterOperatorsString.IN, values: ['West'], dataType: FilterDataTypes.STRING as FilterDataTypes.STRING },
+    ]);
+
+    expect(typeof requestId).toBe('string');
+    expect(Domo.getRequest(requestId)).toBeDefined();
+    expect(window.parent.postMessage).toHaveBeenCalled();
   });
 });
 
