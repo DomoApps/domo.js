@@ -289,5 +289,15 @@ class Domo {
   }
 }
 
+declare global {
+  interface Window {
+    domo: typeof Domo;
+  }
+}
+
+// Native mobile hosts reach the SDK by resolving `window.domo` through evaluateJavaScript;
+// a WebView has no parent frame, so inbound postMessage is not available to them.
+if (typeof window !== 'undefined') window.domo = Domo;
+
 export default Domo;
 export { Domo, __mutationObserverCallback };
