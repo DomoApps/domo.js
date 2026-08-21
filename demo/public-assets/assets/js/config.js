@@ -61,6 +61,7 @@ const CATEGORY_META = {
   dx:         { icon: '+', label: 'DX Tools',         cssClass: 'dx' },
   echo:       { icon: '@', label: 'Host Echo',        cssClass: 'events' },
   routing:    { icon: '^', label: 'Route Capture',   cssClass: 'events' },
+  http:       { icon: '/', label: 'HTTP',             cssClass: 'http' },
   broadcast:  { icon: 'B', label: 'Broadcast',       cssClass: 'broadcast' },
 };
 

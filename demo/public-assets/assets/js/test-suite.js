@@ -172,6 +172,36 @@ function makeParamCard(name, opts) {
 // ── Test definitions ────────────────────────────────────────────────
 
 const testDefinitions = [
+  // ── HTTP ────────────────────────────────────────────────────────
+  {
+    name: "domo.post (raw payload)",
+    category: "http",
+    description: "POST any value as-is — empty, object, number, string, array, null",
+    fields: [
+      { key: "url", label: "URL", value: "/domo/datastores/v1/collections/SanityTest/documents/", size: "wide" },
+      { key: "body", label: "Body (raw)", value: "", size: "wide" },
+    ],
+    fn: async (params) => {
+      const url = params?.url || "/domo/datastores/v1/collections/SanityTest/documents/";
+      const raw = params?.body;
+      let body;
+      if (raw === undefined || raw === "") {
+        body = undefined;
+      } else {
+        try { body = JSON.parse(raw); } catch (_) { body = raw; }
+      }
+      const startTime = performance.now();
+      const result = await domo.post(url, body);
+      const endTime = performance.now();
+      return {
+        _render: "payload", direction: "sent", method: "domo.post",
+        payload: { sent: body, sentType: typeof body, response: result },
+        timing: `${(endTime - startTime).toFixed(2)}ms`,
+      };
+    },
+    pendingMsg: "Provide any value (or leave empty) — it will be passed directly to <code>domo.post(url, body)</code>",
+  },
+
   // ── Data API ────────────────────────────────────────────────────
   {
     name: "data.query",
@@ -366,6 +396,78 @@ const testDefinitions = [
       };
     },
     pendingMsg: "Queries <code>SanityTest</code> with groupby containing spaces",
+  },
+
+  {
+    name: "appdb.bulkCreate",
+    category: "appdb",
+    description: "Create multiple documents in a single request",
+    fields: [
+      { key: "docs", label: "Documents (JSON array)", value: '[{"name":"Alpha"},{"name":"Beta"},{"name":"Gamma"}]', size: "wide" },
+    ],
+    fn: async (params) => {
+      if (!domo.appdb?.bulkCreate) throw new Error("Not available in this version");
+      let docs;
+      try { docs = JSON.parse(params?.docs || '[{"name":"Alpha"},{"name":"Beta"},{"name":"Gamma"}]'); } catch (e) { throw new Error("Invalid JSON: " + e.message); }
+      if (!Array.isArray(docs)) throw new Error("Must be a JSON array");
+      const startTime = performance.now();
+      const result = await domo.appdb.bulkCreate("SanityTest", docs);
+      const endTime = performance.now();
+      window.__lastBulkCreateResult = result;
+      return {
+        _render: "payload", direction: "sent", method: "appdb.bulkCreate",
+        payload: { sent: docs, response: result },
+        timing: `${(endTime - startTime).toFixed(2)}ms`,
+      };
+    },
+    pendingMsg: "Creates multiple documents in <code>SanityTest</code> — auto-wraps each in <code>{ content: ... }</code>",
+  },
+  {
+    name: "appdb.bulkUpsert",
+    category: "appdb",
+    description: "Upsert multiple documents — docs with an id are updated, without are created",
+    fields: [
+      { key: "docs", label: "Documents (JSON array)", value: '[{"name":"Upserted-1"},{"name":"Upserted-2"}]', size: "wide" },
+    ],
+    fn: async (params) => {
+      if (!domo.appdb?.bulkUpsert) throw new Error("Not available in this version");
+      let docs;
+      try { docs = JSON.parse(params?.docs || '[{"name":"Upserted-1"},{"name":"Upserted-2"}]'); } catch (e) { throw new Error("Invalid JSON: " + e.message); }
+      if (!Array.isArray(docs)) throw new Error("Must be a JSON array");
+      const startTime = performance.now();
+      const result = await domo.appdb.bulkUpsert("SanityTest", docs);
+      const endTime = performance.now();
+      return {
+        _render: "payload", direction: "sent", method: "appdb.bulkUpsert",
+        payload: { sent: docs, response: result },
+        timing: `${(endTime - startTime).toFixed(2)}ms`,
+      };
+    },
+    pendingMsg: "Docs with <code>id</code> are updated; without are created. Auto-wraps in <code>{ content: ... }</code>",
+  },
+  {
+    name: "appdb.bulkDelete",
+    category: "appdb",
+    description: "Delete multiple documents by ID",
+    fields: [
+      { key: "ids", label: "Document IDs (comma-separated)", value: "", size: "wide" },
+    ],
+    fn: async (params) => {
+      if (!domo.appdb?.bulkDelete) throw new Error("Not available in this version");
+      const raw = (params?.ids || "").trim();
+      if (!raw) throw new Error("Provide comma-separated document IDs");
+      const ids = raw.split(",").map(s => s.trim()).filter(Boolean);
+      if (ids.length === 0) throw new Error("No valid IDs provided");
+      const startTime = performance.now();
+      const result = await domo.appdb.bulkDelete("SanityTest", ids);
+      const endTime = performance.now();
+      return {
+        _render: "payload", direction: "sent", method: "appdb.bulkDelete",
+        payload: { ids, response: result },
+        timing: `${(endTime - startTime).toFixed(2)}ms`,
+      };
+    },
+    pendingMsg: "Paste document IDs separated by commas — run <code>appdb.list</code> to find IDs",
   },
 
   // ── Events ─────────────────────────────────────────────────────
