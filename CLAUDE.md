@@ -7,7 +7,7 @@ JavaScript SDK (published as `ryuu.js` on npm) for building custom apps inside t
 - **Build:** Webpack 5 → UMD bundle at `dist/domo.js` (~28KB), exposed as global `Domo`
 - **Tests:** Jest (`npm test`) — `sdk` project (jsdom, `src/`) and `ci` project (node, `scripts/ci/`)
 - **Type check:** `npm run typecheck` (SDK + CI scripts)
-- **Releasing:** automated `beta` → `rc` (14-day soak) → `latest` (30-day soak) pipeline; see [RELEASING.md](RELEASING.md). Never `npm publish` by hand.
+- **Releasing:** automated `beta` → `rc` (first beta 7d + 3d quiet) → `latest` (7d) pipeline; a `release:hotfix` PR label skips both soaks. See [RELEASING.md](RELEASING.md). Never `npm publish` by hand.
 
 ## Commands
 
@@ -32,6 +32,7 @@ npm run release:rehearse  # full merge → beta → publish rehearsal in a throw
 scripts/ci/
 ├── lib.ts              # Pure decision logic (version line, beta/rc numbers, soak gates, Jira blocker rule)
 ├── jira.ts             # Jira Cloud search client (POST /rest/api/3/search/jql)
+├── github.ts           # Looks up merged PRs' labels for release:hotfix
 ├── release.ts          # CLI: gathers npm/git/Jira state, writes the decision to $GITHUB_OUTPUT
 ├── cut-release.sh      # Build, compare artifact, commit version bump, tag, push, dispatch publish
 ├── rehearse.sh         # Local end-to-end rehearsal (npm run release:rehearse)

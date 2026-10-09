@@ -52,7 +52,7 @@ release() {
   action=$(kv action "$w/plan.out") version=$(kv version "$w/plan.out") compare=$(kv compare "$w/plan.out")
   case "$action" in
     beta | rc | ga)
-      if DRY_RUN=$1 "$RUNNER_TEMP/ci/cut-release.sh" "$action" "$version" "$(kv from "$w/plan.out")" "${compare:--}" \
+      if DRY_RUN=$1 HOTFIX=$(kv hotfix "$w/plan.out") "$RUNNER_TEMP/ci/cut-release.sh" "$action" "$version" "$(kv from "$w/plan.out")" "${compare:--}" \
         > "$w/cut.log" 2>&1; then
         grep -E 'same-artifact|DRY_RUN|No shippable|Tests:|new tag|new branch' "$w/cut.log" || true
       else

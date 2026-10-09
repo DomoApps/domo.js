@@ -14,11 +14,11 @@ on:
         type: boolean
         default: true
       force_rc:
-        description: Promote the newest beta to rc now, skipping the 14-day soak and the Jira check
+        description: Promote the newest beta to rc now, skipping the beta soak and the Jira check
         type: boolean
         default: false
       force_ga:
-        description: Release the newest rc as latest now, skipping the 30-day soak and the Jira check
+        description: Release the newest rc as latest now, skipping the 7-day rc soak and the Jira check
         type: boolean
         default: false
       simulate_now:
@@ -49,6 +49,7 @@ jobs:
     permissions:
       contents: read
       actions: write
+      pull-requests: read # for the release:hotfix label
     steps:
       - uses: actions/checkout@v7
         with:
@@ -72,6 +73,7 @@ jobs:
           FORCE_GA: ${{ inputs.force_ga }}
           JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
       - name: Re-dispatch publish for v${{ steps.plan.outputs.version }}
         if: steps.plan.outputs.action == 'publish' && env.DRY_RUN != 'true'
         run: gh workflow run publish.yml --ref "v$VERSION"
@@ -86,4 +88,5 @@ jobs:
           VERSION: ${{ steps.plan.outputs.version }}
           FROM: ${{ steps.plan.outputs.from }}
           COMPARE: ${{ steps.plan.outputs.compare }}
+          HOTFIX: ${{ steps.plan.outputs.hotfix }}
           GH_TOKEN: ${{ github.token }}

@@ -8,11 +8,16 @@
 # Then commits the version bump on a detached HEAD, tags v<version> (plus
 # release/v<version> for a GA), pushes atomically and dispatches publish.yml.
 #
-# DRY_RUN=true stops before pushing. Run from a copy outside the checkout: this
-# script checks out other trees.
+# DRY_RUN=true stops before pushing. HOTFIX=true marks the tag annotation
+# "(hotfix)", which tells later Release runs to promote it without soaking.
+# Run from a copy outside the checkout: this script checks out other trees.
 set -euo pipefail
 
 kind=$1 version=$2 from=$3 compare=$4
+note=
+if [ "${HOTFIX:-}" = true ]; then
+  note=' (hotfix)'
+fi
 here=$(cd "$(dirname "$0")" && pwd)
 summary=${GITHUB_STEP_SUMMARY:-/dev/null}
 
@@ -55,7 +60,7 @@ git -c user.name='github-actions[bot]' \
     commit --quiet -m "chore(release): $version" -- package.json package-lock.json
 git -c user.name='github-actions[bot]' \
     -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-    tag -a "v$version" -m "ryuu.js $version"
+    tag -a "v$version" -m "ryuu.js $version$note"
 
 refs=("refs/tags/v$version")
 if [ "$kind" = ga ]; then

@@ -3,11 +3,14 @@
 
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
+import { GitHubConfig, labelledPrs } from './github';
 import { checkAccess, bugJql, JiraConfig, search } from './jira';
 import {
   Action,
   blockers,
   BugCheck,
+  HOTFIX_LABEL,
+  HotfixCheck,
   NON_BUG_RESOLUTIONS,
   parse,
   planRelease,
@@ -28,12 +31,18 @@ function readNpm(): State['npm'] {
   return { versions: view.versions, time: view.time, distTags: view['dist-tags'] };
 }
 
+// cut-release.sh writes "(hotfix)" into the annotation of every tag in a hotfix release.
 function readTags(): Record<string, TagInfo> {
-  const refs = sh('git', ['for-each-ref', 'refs/tags', '--format=%(refname:short) %(objectname) %(*objectname)'])
+  const format = '%(refname:short)%09%(objecttype)%09%(objectname)%09%(*objectname)%09%(contents:subject)';
+  const refs = sh('git', ['for-each-ref', 'refs/tags', `--format=${format}`])
     .split('\n')
-    .map((line) => line.split(' '))
+    .map((line) => line.split('\t'))
     .filter(([name]) => name?.startsWith('v') && parse(name.slice(1)) !== null)
-    .map(([name, obj, peeled]) => ({ version: name.slice(1), sha: peeled || obj }));
+    .map(([name, type, obj, peeled, subject]) => ({
+      version: name.slice(1),
+      sha: peeled || obj,
+      hotfix: type === 'tag' && /\(hotfix\)\s*$/.test(subject ?? ''),
+    }));
   if (!refs.length) return {};
 
   const parents = new Map(
@@ -41,7 +50,30 @@ function readTags(): Record<string, TagInfo> {
       .split('\n')
       .map((line) => line.split(' ') as [string, string]),
   );
-  return Object.fromEntries(refs.map((r) => [r.version, { sha: r.sha, parent: parents.get(r.sha) ?? '' }]));
+  return Object.fromEntries(
+    refs.map((r) => [r.version, { sha: r.sha, parent: parents.get(r.sha) ?? '', hotfix: r.hotfix }]),
+  );
+}
+
+// Only called when a beta is about to be cut: does a merged PR since the last release carry the label?
+function prHotfixCheck(): HotfixCheck {
+  const cfg: GitHubConfig = {
+    repo: process.env.GITHUB_REPOSITORY || 'DomoApps/domo.js',
+    token: process.env.GH_TOKEN || process.env.GITHUB_TOKEN,
+  };
+  return async (from, to) => {
+    const shas = sh('git', ['rev-list', '--max-count=50', ...(from ? [`${from}..${to}`] : ['--max-count=1', to])])
+      .split('\n')
+      .filter(Boolean);
+    for (const sha of shas) {
+      const prs = await labelledPrs(cfg, sha, HOTFIX_LABEL);
+      if (prs.length) {
+        console.log(`PR #${prs[0]} (${sha.slice(0, 7)}) is labelled ${HOTFIX_LABEL}`);
+        return true;
+      }
+    }
+    return false;
+  };
 }
 
 // Jira is only read once a gate's soak time has passed, so credentials are resolved lazily.
@@ -75,6 +107,7 @@ function report(s: State, action: Action): void {
   if ('version' in action) fields.version = action.version;
   if ('from' in action) fields.from = action.from;
   if ('compare' in action) fields.compare = action.compare ?? '';
+  if ('hotfix' in action) fields.hotfix = String(action.hotfix);
 
   console.log(`plan: ${JSON.stringify(fields, null, 2)}`);
   if (process.env.GITHUB_OUTPUT) {
@@ -105,10 +138,12 @@ async function main(): Promise<void> {
     npm: readNpm(),
     tags: readTags(),
   };
-  const action = await planRelease(state, jiraBugCheck(), {
-    forceRc: process.env.FORCE_RC === 'true',
-    forceGa: process.env.FORCE_GA === 'true',
-  });
+  const action = await planRelease(
+    state,
+    jiraBugCheck(),
+    { forceRc: process.env.FORCE_RC === 'true', forceGa: process.env.FORCE_GA === 'true' },
+    prHotfixCheck(),
+  );
   report(state, action);
 }
 
