@@ -1,5 +1,5 @@
 // CLI for the release workflow: gathers npm, git and Jira state, asks lib.ts what to
-// do, and writes the decision to $GITHUB_OUTPUT. Usage: node release.js plan|stable
+// do, and writes the decision to $GITHUB_OUTPUT. Usage: node release.js plan
 
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
@@ -11,7 +11,6 @@ import {
   NON_BUG_RESOLUTIONS,
   parse,
   planRelease,
-  planStable,
   simulatedNow,
   State,
   TagInfo,
@@ -71,13 +70,13 @@ function required(name: string): string {
   return v;
 }
 
-function report(mode: string, s: State, action: Action): void {
+function report(s: State, action: Action): void {
   const fields: Record<string, string> = { action: action.kind, reason: action.reason };
   if ('version' in action) fields.version = action.version;
   if ('from' in action) fields.from = action.from;
   if ('compare' in action) fields.compare = action.compare ?? '';
 
-  console.log(`${mode}: ${JSON.stringify(fields, null, 2)}`);
+  console.log(`plan: ${JSON.stringify(fields, null, 2)}`);
   if (process.env.GITHUB_OUTPUT) {
     appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(fields).map(([k, v]) => `${k}=${v}\n`).join(''));
   }
@@ -85,16 +84,15 @@ function report(mode: string, s: State, action: Action): void {
     const tags = s.npm.distTags;
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      `### ${mode}: \`${action.kind}\` ${'version' in action ? `\`${action.version}\`` : ''}\n\n${action.reason}\n\n` +
-        `latest \`${tags.latest ?? '-'}\` · beta \`${tags.beta ?? '-'}\` · stable \`${tags.stable ?? '-'}\` · ` +
+      `### Release plan: \`${action.kind}\` ${'version' in action ? `\`${action.version}\`` : ''}\n\n${action.reason}\n\n` +
+        `latest \`${tags.latest ?? '-'}\` · rc \`${tags.rc ?? '-'}\` · beta \`${tags.beta ?? '-'}\` · ` +
         `master \`${s.masterSha.slice(0, 7)}\` (${s.masterVersion}) · now ${s.now.toISOString()}\n`,
     );
   }
 }
 
 async function main(): Promise<void> {
-  const mode = process.argv[2];
-  if (mode !== 'plan' && mode !== 'stable') throw new Error('usage: release.js plan|stable');
+  if (process.argv[2] !== 'plan') throw new Error('usage: release.js plan');
 
   const dryRun = process.env.DRY_RUN === 'true';
   const simulate = process.env.SIMULATE_NOW ?? '';
@@ -107,12 +105,11 @@ async function main(): Promise<void> {
     npm: readNpm(),
     tags: readTags(),
   };
-  const bugs = jiraBugCheck();
-  const action =
-    mode === 'plan'
-      ? await planRelease(state, bugs, { forceGa: process.env.FORCE_GA === 'true' })
-      : await planStable(state, bugs);
-  report(mode, state, action);
+  const action = await planRelease(state, jiraBugCheck(), {
+    forceRc: process.env.FORCE_RC === 'true',
+    forceGa: process.env.FORCE_GA === 'true',
+  });
+  report(state, action);
 }
 
 main().catch((err) => {

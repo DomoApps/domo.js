@@ -7,7 +7,7 @@ JavaScript SDK (published as `ryuu.js` on npm) for building custom apps inside t
 - **Build:** Webpack 5 → UMD bundle at `dist/domo.js` (~28KB), exposed as global `Domo`
 - **Tests:** Jest (`npm test`) — `sdk` project (jsdom, `src/`) and `ci` project (node, `scripts/ci/`)
 - **Type check:** `npm run typecheck` (SDK + CI scripts)
-- **Releasing:** automated beta → latest → stable pipeline; see [RELEASING.md](RELEASING.md). Never `npm publish` by hand.
+- **Releasing:** automated `beta` → `rc` (14-day soak) → `latest` (30-day soak) pipeline; see [RELEASING.md](RELEASING.md). Never `npm publish` by hand.
 
 ## Commands
 
@@ -25,15 +25,15 @@ npm run ci:build    # compile scripts/ci → .ci-out/ (local release dry runs)
 ```
 .github/workflows/
 ├── pr-validate.yml     # PR gate: typecheck, test, build, package contents
-├── release.yml         # push/cron/dispatch: decides the next step (beta, GA, stable); one irreversible action per run
+├── release.yml         # push/cron/dispatch: decides the next step (beta, rc, GA); one irreversible action per run
 └── publish.yml         # dispatched on a v* tag: verifies the tag commit, rebuilds, npm publish via OIDC
 scripts/ci/
-├── lib.ts              # Pure decision logic (version line, beta numbers, soak gates, Jira blocker rule)
+├── lib.ts              # Pure decision logic (version line, beta/rc numbers, soak gates, Jira blocker rule)
 ├── jira.ts             # Jira Cloud search client (POST /rest/api/3/search/jql)
 ├── release.ts          # CLI: gathers npm/git/Jira state, writes the decision to $GITHUB_OUTPUT
 ├── cut-release.sh      # Build, compare artifact, commit version bump, tag, push, dispatch publish
 ├── same-artifact.sh    # Compare two npm-pack tarballs, ignoring version/scripts/devDependencies
-└── verify-tag.sh       # publish.yml guard: tag commit is a bot-made, package-files-only release commit
+└── verify-tag.sh       # publish.yml guard: every commit in the GA → rc → beta → master chain is a bot-made version bump
 ```
 
 ## Annotated File Tree

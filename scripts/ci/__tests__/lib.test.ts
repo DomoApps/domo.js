@@ -5,12 +5,11 @@ import {
   BugCheck,
   cmp,
   JiraIssue,
-  nextBetaNumber,
+  nextNumber,
   NON_BUG_RESOLUTIONS,
   parse,
   pendingPublish,
   planRelease,
-  planStable,
   simulatedNow,
   State,
 } from '../lib';
@@ -35,7 +34,7 @@ function base(): State {
   };
 }
 
-// 6.0.10 in beta: beta.0 built from master m1, beta.1 built from m2, published `age` days ago.
+// 6.0.10 in beta: beta.0 built from master m1, beta.1 from m2, published `age` days ago.
 function inBeta(age: number): State {
   const s = base();
   s.masterSha = 'm2';
@@ -48,22 +47,34 @@ function inBeta(age: number): State {
   return s;
 }
 
-// 6.0.10 GA'd `age` days ago from beta.1 and is the latest dist-tag.
-function released(age: number): State {
+// beta.1 soaked and became 6.0.10-rc.0 `age` days ago.
+function inRc(age: number): State {
   const s = inBeta(age + 15);
+  s.npm.versions.push('6.0.10-rc.0');
+  s.npm.time['6.0.10-rc.0'] = ago(age);
+  s.npm.distTags.rc = '6.0.10-rc.0';
+  s.tags['6.0.10-rc.0'] = { sha: 'r0', parent: 'b1' };
+  return s;
+}
+
+// rc.0 soaked and became 6.0.10 on latest `age` days ago.
+function released(age: number): State {
+  const s = inRc(age + 31);
   s.npm.versions.push('6.0.10');
   s.npm.time['6.0.10'] = ago(age);
   s.npm.distTags.latest = '6.0.10';
-  s.tags['6.0.10'] = { sha: 'g0', parent: 'b1' };
+  s.tags['6.0.10'] = { sha: 'g0', parent: 'r0' };
   return s;
 }
 
 const noBugs: BugCheck = async () => [];
+const LABELS_6_0_10 = ['ryuu.js-6.0.10', 'ryuu.js-6.0.10-beta.0', 'ryuu.js-6.0.10-beta.1'];
 
 describe('parse', () => {
-  it('parses GA and beta versions', () => {
-    expect(parse('6.0.10')).toEqual({ base: '6.0.10', major: 6, minor: 0, patch: 10, beta: null });
-    expect(parse('6.0.10-beta.3')).toEqual({ base: '6.0.10', major: 6, minor: 0, patch: 10, beta: 3 });
+  it('parses GA, beta and rc versions', () => {
+    expect(parse('6.0.10')).toEqual({ base: '6.0.10', major: 6, minor: 0, patch: 10, pre: null, num: null });
+    expect(parse('6.0.10-beta.3')).toEqual({ base: '6.0.10', major: 6, minor: 0, patch: 10, pre: 'beta', num: 3 });
+    expect(parse('6.0.10-rc.0')).toEqual({ base: '6.0.10', major: 6, minor: 0, patch: 10, pre: 'rc', num: 0 });
   });
 
   it('returns null for versions outside the pipeline format', () => {
@@ -104,9 +115,9 @@ describe('simulatedNow', () => {
 });
 
 describe('cmp', () => {
-  it('orders numerically, with a GA above its own betas', () => {
-    const sorted = ['6.0.10', '6.0.9', '6.0.10-beta.10', '6.0.10-beta.2', '6.1.0-beta.0'].sort(cmp);
-    expect(sorted).toEqual(['6.0.9', '6.0.10-beta.2', '6.0.10-beta.10', '6.0.10', '6.1.0-beta.0']);
+  it('orders beta < rc < GA within a version, numerically throughout', () => {
+    const sorted = ['6.0.10', '6.0.9', '6.0.10-rc.0', '6.0.10-beta.10', '6.0.10-beta.2', '6.1.0-beta.0'].sort(cmp);
+    expect(sorted).toEqual(['6.0.9', '6.0.10-beta.2', '6.0.10-beta.10', '6.0.10-rc.0', '6.0.10', '6.1.0-beta.0']);
   });
 });
 
@@ -115,15 +126,20 @@ describe('activeBase', () => {
     expect(activeBase(base())).toBe('6.0.10');
   });
 
-  it('counts GA tags that npm does not show yet', () => {
+  it('moves to the next patch as soon as a line reaches rc', () => {
+    expect(activeBase(inRc(1))).toBe('6.0.11');
+  });
+
+  it('counts an rc tag that npm does not show yet', () => {
     const s = inBeta(20);
-    s.tags['6.0.10'] = { sha: 'g0', parent: 'b1' };
+    s.tags['6.0.10-rc.0'] = { sha: 'r0', parent: 'b1' };
     expect(activeBase(s)).toBe('6.0.11');
   });
 
-  it('ignores a hand-made GA tag that does not sit on a beta tag', () => {
+  it('ignores hand-made rc and GA tags that are not on the release chain', () => {
     const s = base();
-    s.tags['7.0.0'] = { sha: 'stray', parent: 'm1' };
+    s.tags['6.0.10-rc.0'] = { sha: 'stray-rc', parent: 'm1' };
+    s.tags['7.0.0'] = { sha: 'stray-ga', parent: 'm1' };
     expect(activeBase(s)).toBe('6.0.10');
   });
 
@@ -134,16 +150,17 @@ describe('activeBase', () => {
   });
 });
 
-describe('nextBetaNumber', () => {
-  it('starts at 0 for a new line', () => {
-    expect(nextBetaNumber('6.0.10', base())).toBe(0);
+describe('nextNumber', () => {
+  it('starts at 0', () => {
+    expect(nextNumber('6.0.10', 'beta', base())).toBe(0);
+    expect(nextNumber('6.0.10', 'rc', inBeta(1))).toBe(0);
   });
 
   it('skips numbers that exist only as unpublished npm time entries or git tags', () => {
     const s = inBeta(1);
     s.npm.time['6.0.10-beta.4'] = ago(2); // published then unpublished: npm never reuses it
     s.tags['6.0.10-beta.6'] = { sha: 'b6', parent: 'm9' };
-    expect(nextBetaNumber('6.0.10', s)).toBe(7);
+    expect(nextNumber('6.0.10', 'beta', s)).toBe(7);
   });
 });
 
@@ -152,6 +169,12 @@ describe('pendingPublish', () => {
     const s = inBeta(1);
     s.tags['6.0.10-beta.2'] = { sha: 'b2', parent: 'm3' };
     expect(pendingPublish(s)).toBe('6.0.10-beta.2');
+  });
+
+  it('finds an rc tag that has not been published', () => {
+    const s = inBeta(20);
+    s.tags['6.0.10-rc.0'] = { sha: 'r0', parent: 'b1' };
+    expect(pendingPublish(s)).toBe('6.0.10-rc.0');
   });
 
   it('ignores tags already on npm and old orphaned tags', () => {
@@ -164,6 +187,14 @@ describe('pendingPublish', () => {
     const s = inBeta(1);
     s.tags['7.0.0'] = { sha: 'stray', parent: 'm2' };
     expect(pendingPublish(s)).toBeNull();
+  });
+
+  it('ignores a GA tag sitting on a hand-made rc that is not on a beta', () => {
+    const s = base();
+    s.tags['6.0.10-rc.0'] = { sha: 'stray-rc', parent: 'm1' };
+    s.tags['6.0.10'] = { sha: 'stray-ga', parent: 'stray-rc' };
+    expect(pendingPublish(s)).toBeNull();
+    expect(activeBase(s)).toBe('6.0.10');
   });
 
   it('ignores a version npm has seen and unpublished, since it can never be republished', () => {
@@ -210,7 +241,7 @@ describe('blockers', () => {
   });
 });
 
-describe('planRelease', () => {
+describe('planRelease: beta', () => {
   it('cuts 6.0.10-beta.0 on day 0, comparing against the last GA', async () => {
     expect(await planRelease(base(), noBugs)).toMatchObject({
       kind: 'beta',
@@ -235,76 +266,10 @@ describe('planRelease', () => {
     });
   });
 
-  it('waits until the newest beta has soaked 14 days', async () => {
-    const bugs = jest.fn(noBugs);
-    const s = inBeta(14 - 1 / 24 / 60);
-    expect(await planRelease(s, bugs)).toMatchObject({ kind: 'none' });
-    expect(bugs).not.toHaveBeenCalled();
-  });
-
-  it('promotes the soaked beta to GA after 14 days with no bugs', async () => {
-    const bugs = jest.fn(noBugs);
-    const s = inBeta(14);
-    expect(await planRelease(s, bugs)).toMatchObject({
-      kind: 'ga',
-      version: '6.0.10',
-      from: 'v6.0.10-beta.1',
-      compare: '6.0.10-beta.1',
-    });
-    expect(bugs).toHaveBeenCalledWith(
-      ['ryuu.js-6.0.10', 'ryuu.js-6.0.10-beta.0', 'ryuu.js-6.0.10-beta.1'],
-      new Date(s.npm.time['6.0.10-beta.1']),
-    );
-  });
-
-  it('promotes to GA even when master has moved on; new commits go to the next line', async () => {
-    const s = inBeta(15);
-    s.masterSha = 'm3';
-    expect(await planRelease(s, noBugs)).toMatchObject({ kind: 'ga', version: '6.0.10' });
-  });
-
-  it('holds GA while a bug blocks, and still cuts betas so a fix can ship', async () => {
-    const s = inBeta(20);
-    const bugs: BugCheck = async () => ['DOMO-7'];
-    expect(await planRelease(s, bugs)).toMatchObject({ kind: 'none', reason: expect.stringContaining('DOMO-7') });
-    s.masterSha = 'm3';
-    expect(await planRelease(s, bugs)).toMatchObject({ kind: 'beta', version: '6.0.10-beta.2' });
-  });
-
-  it('fails instead of cutting a beta when Jira errors while GA is due', async () => {
-    const s = inBeta(20);
-    s.masterSha = 'm3';
-    const bugs: BugCheck = async () => {
-      throw new Error('Jira returned 503');
-    };
-    await expect(planRelease(s, bugs)).rejects.toThrow('Jira returned 503');
-  });
-
-  it('force_ga skips the soak and the bug check', async () => {
-    const bugs = jest.fn(noBugs);
-    expect(await planRelease(inBeta(1), bugs, { forceGa: true })).toMatchObject({ kind: 'ga', version: '6.0.10' });
-    expect(bugs).not.toHaveBeenCalled();
-  });
-
   it('re-dispatches a pending publish before anything else', async () => {
     const s = inBeta(20);
-    s.tags['6.0.10'] = { sha: 'g0', parent: 'b1' };
-    expect(await planRelease(s, noBugs)).toMatchObject({ kind: 'publish', version: '6.0.10' });
-  });
-
-  it('after GA, starts the next patch line from new master commits', async () => {
-    const s = released(2);
-    s.masterSha = 'm3';
-    expect(await planRelease(s, noBugs)).toMatchObject({
-      kind: 'beta',
-      version: '6.0.11-beta.0',
-      from: 'm3',
-      compare: '6.0.10',
-    });
-  });
-
-  it('after GA, does nothing while master is still the commit that shipped', async () => {
-    expect(await planRelease(released(2), noBugs)).toMatchObject({ kind: 'none' });
+    s.tags['6.0.10-rc.0'] = { sha: 'r0', parent: 'b1' };
+    expect(await planRelease(s, noBugs)).toMatchObject({ kind: 'publish', version: '6.0.10-rc.0' });
   });
 
   it('abandons the in-flight line when master raises the floor', async () => {
@@ -315,64 +280,161 @@ describe('planRelease', () => {
   });
 });
 
-describe('planStable', () => {
-  it('never auto-promotes an untagged GA such as 6.0.9', async () => {
-    expect(await planStable(base(), noBugs)).toMatchObject({ kind: 'none' });
-  });
-
-  it('waits 30 days after GA', async () => {
+describe('planRelease: beta → rc after 14 days', () => {
+  it('waits until the newest beta has soaked 14 days', async () => {
     const bugs = jest.fn(noBugs);
-    expect(await planStable(released(29), bugs)).toMatchObject({ kind: 'none' });
+    expect(await planRelease(inBeta(14 - 1 / 24 / 60), bugs)).toMatchObject({ kind: 'none' });
     expect(bugs).not.toHaveBeenCalled();
   });
 
-  it('tags a GA stable after 30 bug-free days', async () => {
+  it('promotes the soaked beta to rc after 14 days with no bugs', async () => {
     const bugs = jest.fn(noBugs);
-    const s = released(30);
-    expect(await planStable(s, bugs)).toMatchObject({ kind: 'stable', version: '6.0.10' });
-    expect(bugs).toHaveBeenCalledWith(
-      ['ryuu.js-6.0.10', 'ryuu.js-6.0.10-beta.0', 'ryuu.js-6.0.10-beta.1'],
-      new Date(s.npm.time['6.0.10']),
-    );
+    const s = inBeta(14);
+    expect(await planRelease(s, bugs)).toMatchObject({
+      kind: 'rc',
+      version: '6.0.10-rc.0',
+      from: 'v6.0.10-beta.1',
+      compare: '6.0.10-beta.1',
+    });
+    expect(bugs).toHaveBeenCalledWith(LABELS_6_0_10, new Date(s.npm.time['6.0.10-beta.1']));
   });
 
-  it('skips a GA with bugs', async () => {
-    expect(await planStable(released(40), async () => ['DOMO-9'])).toMatchObject({
+  it('promotes to rc even when master has moved on; new commits go to the next line', async () => {
+    const s = inBeta(15);
+    s.masterSha = 'm3';
+    expect(await planRelease(s, noBugs)).toMatchObject({ kind: 'rc', version: '6.0.10-rc.0' });
+  });
+
+  it('holds the rc while a bug blocks, and still cuts betas so a fix can ship', async () => {
+    const s = inBeta(20);
+    const bugs: BugCheck = async () => ['DOMO-7'];
+    expect(await planRelease(s, bugs)).toMatchObject({ kind: 'none', reason: expect.stringContaining('DOMO-7') });
+    s.masterSha = 'm3';
+    expect(await planRelease(s, bugs)).toMatchObject({ kind: 'beta', version: '6.0.10-beta.2' });
+  });
+
+  it('fails instead of cutting a beta when Jira errors while the rc is due', async () => {
+    const s = inBeta(20);
+    s.masterSha = 'm3';
+    const bugs: BugCheck = async () => {
+      throw new Error('Jira returned 503');
+    };
+    await expect(planRelease(s, bugs)).rejects.toThrow('Jira returned 503');
+  });
+
+  it('force_rc skips the soak and the bug check', async () => {
+    const bugs = jest.fn(noBugs);
+    expect(await planRelease(inBeta(1), bugs, { forceRc: true })).toMatchObject({ kind: 'rc', version: '6.0.10-rc.0' });
+    expect(bugs).not.toHaveBeenCalled();
+  });
+
+  it('force_rc with no beta to promote does nothing rather than cutting a beta', async () => {
+    expect(await planRelease(base(), noBugs, { forceRc: true })).toMatchObject({
       kind: 'none',
-      reason: expect.stringContaining('DOMO-9'),
+      reason: expect.stringContaining('force_rc'),
+    });
+  });
+});
+
+describe('planRelease: after rc, the next line', () => {
+  it('starts the next patch line from new master commits, comparing against the rc', async () => {
+    const s = inRc(2);
+    s.masterSha = 'm3';
+    expect(await planRelease(s, noBugs)).toMatchObject({
+      kind: 'beta',
+      version: '6.0.11-beta.0',
+      from: 'm3',
+      compare: '6.0.10-rc.0',
     });
   });
 
-  it('does nothing when the GA is already stable', async () => {
-    const s = released(40);
-    s.npm.distTags.stable = '6.0.10';
-    expect(await planStable(s, noBugs)).toMatchObject({ kind: 'none' });
+  it('does nothing while master is still the commit that became the rc', async () => {
+    expect(await planRelease(inRc(2), noBugs)).toMatchObject({ kind: 'none' });
+  });
+});
+
+describe('planRelease: rc → latest after 30 days', () => {
+  it('waits until the rc has soaked 30 days', async () => {
+    const bugs = jest.fn(noBugs);
+    expect(await planRelease(inRc(29), bugs)).toMatchObject({ kind: 'none' });
+    expect(bugs).not.toHaveBeenCalled();
   });
 
-  it('picks the highest qualifying GA, skipping newer ones still soaking', async () => {
-    const s = released(40);
-    s.npm.versions.push('6.0.11-beta.0', '6.0.11', '6.0.12');
-    s.npm.time['6.0.11'] = ago(31);
-    s.npm.time['6.0.12'] = ago(5);
-    s.npm.distTags.latest = '6.0.12';
+  it('releases the rc as latest after 30 bug-free days', async () => {
+    const bugs = jest.fn(noBugs);
+    const s = inRc(30);
+    expect(await planRelease(s, bugs)).toMatchObject({
+      kind: 'ga',
+      version: '6.0.10',
+      from: 'v6.0.10-rc.0',
+      compare: '6.0.10-rc.0',
+    });
+    expect(bugs).toHaveBeenCalledWith([...LABELS_6_0_10, 'ryuu.js-6.0.10-rc.0'], new Date(s.npm.time['6.0.10-rc.0']));
+  });
+
+  it('holds the GA while a bug blocks, and the next line keeps shipping betas', async () => {
+    const s = inRc(40);
+    s.masterSha = 'm3';
+    expect(await planRelease(s, async () => ['DOMO-9'])).toMatchObject({ kind: 'beta', version: '6.0.11-beta.0' });
+  });
+
+  it('fails instead of moving on when Jira errors while the GA is due', async () => {
+    const s = inRc(40);
+    s.masterSha = 'm3';
+    await expect(
+      planRelease(s, async () => {
+        throw new Error('Jira returned 401');
+      }),
+    ).rejects.toThrow('Jira returned 401');
+  });
+
+  it('releases the highest ripe rc, skipping a newer one still soaking', async () => {
+    const s = inRc(40);
+    s.npm.versions.push('6.0.11-beta.0', '6.0.11-rc.0', '6.0.12-beta.0', '6.0.12-rc.0');
+    s.npm.time['6.0.11-beta.0'] = ago(60);
+    s.npm.time['6.0.11-rc.0'] = ago(31);
+    s.npm.time['6.0.12-beta.0'] = ago(30);
+    s.npm.time['6.0.12-rc.0'] = ago(5);
     s.tags['6.0.11-beta.0'] = { sha: 'b11', parent: 'm4' };
-    s.tags['6.0.11'] = { sha: 'g1', parent: 'b11' };
+    s.tags['6.0.11-rc.0'] = { sha: 'r11', parent: 'b11' };
     s.tags['6.0.12-beta.0'] = { sha: 'b12', parent: 'm5' };
-    s.tags['6.0.12'] = { sha: 'g2', parent: 'b12' };
-    expect(await planStable(s, noBugs)).toMatchObject({ kind: 'stable', version: '6.0.11' });
+    s.tags['6.0.12-rc.0'] = { sha: 'r12', parent: 'b12' };
+    s.masterSha = 'm5';
+    expect(await planRelease(s, noBugs)).toMatchObject({ kind: 'ga', version: '6.0.11', from: 'v6.0.11-rc.0' });
   });
 
-  it('ignores GA tags the pipeline did not create, such as the legacy v5.0.1', async () => {
-    const s = base();
-    s.npm.versions.push('5.0.1');
-    s.npm.time['5.0.1'] = ago(400);
-    s.tags['5.0.1'] = { sha: 'legacy', parent: 'some-commit' };
-    expect(await planStable(s, noBugs)).toMatchObject({ kind: 'none' });
+  it('never releases a version at or below latest', async () => {
+    const s = inRc(40);
+    s.npm.distTags.latest = '6.0.10';
+    expect(await planRelease(s, noBugs)).toMatchObject({ kind: 'none' });
   });
 
-  it('never tags a version above latest, e.g. after latest was rolled back', async () => {
-    const s = released(40);
-    s.npm.distTags.latest = '6.0.9';
-    expect(await planStable(s, noBugs)).toMatchObject({ kind: 'none' });
+  it('ignores an rc tag that is not on a beta tag', async () => {
+    const s = inRc(40);
+    s.tags['6.0.10-rc.0'] = { sha: 'r0', parent: 'm2' };
+    expect(await planRelease(s, noBugs)).not.toMatchObject({ kind: 'ga' });
+  });
+
+  it('force_ga releases the newest rc now, skipping the soak and the bug check', async () => {
+    const bugs = jest.fn(noBugs);
+    expect(await planRelease(inRc(1), bugs, { forceGa: true })).toMatchObject({ kind: 'ga', version: '6.0.10' });
+    expect(bugs).not.toHaveBeenCalled();
+  });
+
+  it('force_ga with no rc to release does nothing', async () => {
+    expect(await planRelease(inBeta(3), noBugs, { forceGa: true })).toMatchObject({
+      kind: 'none',
+      reason: expect.stringContaining('force_ga'),
+    });
+  });
+
+  it('after the GA, master unchanged means nothing to do', async () => {
+    expect(await planRelease(released(2), noBugs)).toMatchObject({ kind: 'none' });
+  });
+
+  it('after the GA, new commits start 6.0.11', async () => {
+    const s = released(2);
+    s.masterSha = 'm3';
+    expect(await planRelease(s, noBugs)).toMatchObject({ kind: 'beta', version: '6.0.11-beta.0', compare: '6.0.10' });
   });
 });

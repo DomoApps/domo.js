@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Usage: cut-release.sh <beta|ga> <version> <from-ref> <compare-version|->
+# Usage: cut-release.sh <beta|rc|ga> <version> <from-ref> <compare-version|->
 #
 # Builds <from-ref> as <version> and compares the packed tarball with
 # <compare-version> from npm:
-#   beta: an identical artifact means nothing shippable changed, so stop (exit 0).
-#   ga:   the artifact must be identical to the soaked beta, or fail.
+#   beta:  an identical artifact means nothing shippable changed, so stop (exit 0).
+#   rc/ga: the artifact must be identical to the soaked beta/rc, or fail.
 # Then commits the version bump on a detached HEAD, tags v<version> (plus
 # release/v<version> for a GA), pushes atomically and dispatches publish.yml.
 #
@@ -16,7 +16,8 @@ kind=$1 version=$2 from=$3 compare=$4
 here=$(cd "$(dirname "$0")" && pwd)
 summary=${GITHUB_STEP_SUMMARY:-/dev/null}
 
-case "$kind" in beta | ga) ;; *) echo "kind must be beta or ga, got $kind" >&2; exit 2 ;; esac
+case "$kind" in beta | rc | ga) ;; *) echo "kind must be beta, rc or ga, got $kind" >&2; exit 2 ;; esac
+[ "$kind" = beta ] || [ "$compare" != "-" ] || { echo "$kind needs the soaked version to compare against" >&2; exit 2; }
 
 git checkout --quiet --detach "$from"
 npm ci --ignore-scripts --no-audit --no-fund
@@ -43,8 +44,8 @@ if [ "$compare" != "-" ]; then
       echo "No shippable change since \`$compare\`; skipped \`$version\`." >> "$summary"
       exit 0
     fi
-  elif [ "$kind" = ga ]; then
-    echo "GA $version does not match the soaked $compare artifact; refusing to release." >&2
+  elif [ "$kind" != beta ]; then
+    echo "$version does not match the soaked $compare artifact; refusing to release." >&2
     exit 1
   fi
 fi

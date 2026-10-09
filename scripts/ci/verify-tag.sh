@@ -38,25 +38,43 @@ check_release_commit() {
   [ "$(version_at "$commit" package-lock.json)" = "$expected" ] || fail "$label: package-lock.json is not $expected"
 }
 
+# The version tagged on <commit>'s parent that matches <stage> (beta|rc) of this X.Y.Z, or empty.
+tag_below() {
+  local found
+  found=$(git tag --points-at "$1^" | grep -E "^v${base//./\\.}-$2\.[0-9]+$" | head -1 || true)
+  echo "${found#v}"
+}
+
 tag=$1
 version=${tag#v}
+base=${version%%-*}
 bot='41898282+github-actions[bot]@users.noreply.github.com'
 
 [ "$(git rev-parse HEAD)" = "$(git rev-parse "$tag^{commit}")" ] || fail "HEAD is not $tag"
 
+# Each stage ships the tree of the stage below it, so every commit in the chain
+# down to master must pass the same checks: GA → rc → beta → master.
 if [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
   dist_tag=beta soaked=
   check_release_commit HEAD "$version" "$tag"
   git merge-base --is-ancestor HEAD^ origin/master || fail "$tag: parent is not on master"
-elif [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  dist_tag=latest
-  soaked=$(git tag --points-at HEAD^ | grep -E "^v${version//./\\.}-beta\.[0-9]+$" | head -1 || true)
-  [ -n "$soaked" ] || fail "$tag: parent is not a v$version-beta.* tag"
-  soaked=${soaked#v}
+elif [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+  dist_tag=rc
+  soaked=$(tag_below HEAD beta)
+  [ -n "$soaked" ] || fail "$tag: parent is not a v$base-beta.* tag"
   check_release_commit HEAD "$version" "$tag"
-  # The GA ships the soaked beta's tree, so that beta must pass the same checks.
   check_release_commit HEAD^ "$soaked" "v$soaked"
   git merge-base --is-ancestor HEAD^^ origin/master || fail "v$soaked: parent is not on master"
+elif [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  dist_tag=latest
+  soaked=$(tag_below HEAD rc)
+  [ -n "$soaked" ] || fail "$tag: parent is not a v$base-rc.* tag"
+  beta=$(tag_below HEAD^ beta)
+  [ -n "$beta" ] || fail "v$soaked: parent is not a v$base-beta.* tag"
+  check_release_commit HEAD "$version" "$tag"
+  check_release_commit HEAD^ "$soaked" "v$soaked"
+  check_release_commit HEAD^^ "$beta" "v$beta"
+  git merge-base --is-ancestor HEAD^^^ origin/master || fail "v$beta: parent is not on master"
 else
   fail "$tag is not a pipeline tag"
 fi
@@ -67,14 +85,14 @@ if [ -n "$(npm view "ryuu.js@$version" version --prefer-online 2>/dev/null || tr
   skip=true
 else
   current=$(npm view ryuu.js "dist-tags.$dist_tag" --prefer-online 2>/dev/null || true)
-  # Never move a dist-tag backwards. A GA sorts above its own betas.
+  # Never move a dist-tag backwards. Within an X.Y.Z, beta < rc < GA.
   node -e '
     const parse = (v) => {
-      const m = /^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/.exec(v);
-      return m && [m[1], m[2], m[3], m[4] ?? Infinity].map(Number);
+      const m = /^(\d+)\.(\d+)\.(\d+)(?:-(beta|rc)\.(\d+))?$/.exec(v);
+      return m && [m[1], m[2], m[3], { beta: 0, rc: 1 }[m[4]] ?? 2, m[5] ?? 0].map(Number);
     };
     const [next, current] = [parse(process.argv[1]), parse(process.argv[2])];
-    const diff = current ? next.map((n, i) => n - current[i]).find((d) => d !== 0 && !Number.isNaN(d)) ?? 0 : 1;
+    const diff = current ? next.map((n, i) => n - current[i]).find((d) => d !== 0) ?? 0 : 1;
     if (diff <= 0) {
       console.error(`::error::${process.argv[1]} is not newer than ${process.argv[3]} (${process.argv[2]})`);
       process.exit(1);

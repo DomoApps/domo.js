@@ -1,19 +1,24 @@
 // Pure release-decision logic for the ryuu.js pipeline. No I/O: release.ts gathers
 // state from npm, git and Jira and hands it in. See RELEASING.md for the model.
+//
+// Stages: X.Y.Z-beta.N (npm `beta`) → X.Y.Z-rc.N (npm `rc`) → X.Y.Z (npm `latest`).
 
 export const BETA_SOAK_DAYS = 14;
-export const STABLE_SOAK_DAYS = 30;
+export const RC_SOAK_DAYS = 30;
 export const NON_BUG_RESOLUTIONS = ['duplicate', "won't do", "won't fix", 'cannot reproduce', 'not a bug'];
 
 const DAY_MS = 86_400_000;
-const VERSION_RE = /^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/;
+const VERSION_RE = /^(\d+)\.(\d+)\.(\d+)(?:-(beta|rc)\.(\d+))?$/;
+
+export type Pre = 'beta' | 'rc';
 
 export interface Parsed {
   base: string;
   major: number;
   minor: number;
   patch: number;
-  beta: number | null;
+  pre: Pre | null;
+  num: number | null;
 }
 
 export interface TagInfo {
@@ -30,7 +35,7 @@ export interface State {
     time: Record<string, string>;
     distTags: Record<string, string>;
   };
-  /** Pipeline tags, keyed by version without the leading `v`. */
+  /** Pipeline-format tags, keyed by version without the leading `v`. */
   tags: Record<string, TagInfo>;
 }
 
@@ -47,11 +52,16 @@ export type BugCheck = (labels: string[], since: Date) => Promise<string[]>;
 export type Action =
   | { kind: 'none'; reason: string }
   | { kind: 'publish'; version: string; reason: string }
-  | { kind: 'ga'; version: string; from: string; compare: string; reason: string }
   | { kind: 'beta'; version: string; from: string; compare: string | null; reason: string }
-  | { kind: 'stable'; version: string; reason: string };
+  | { kind: 'rc'; version: string; from: string; compare: string; reason: string }
+  | { kind: 'ga'; version: string; from: string; compare: string; reason: string };
 
-/** Parses `X.Y.Z` or `X.Y.Z-beta.N`; anything else (alphas, legacy formats) is null. */
+export interface PlanOptions {
+  forceRc?: boolean;
+  forceGa?: boolean;
+}
+
+/** Parses `X.Y.Z`, `X.Y.Z-beta.N` or `X.Y.Z-rc.N`; anything else (alphas, legacy formats) is null. */
 export function parse(v: string): Parsed | null {
   const m = VERSION_RE.exec(v);
   if (!m) return null;
@@ -60,7 +70,8 @@ export function parse(v: string): Parsed | null {
     major: Number(m[1]),
     minor: Number(m[2]),
     patch: Number(m[3]),
-    beta: m[4] === undefined ? null : Number(m[4]),
+    pre: (m[4] as Pre | undefined) ?? null,
+    num: m[5] === undefined ? null : Number(m[5]),
   };
 }
 
@@ -70,6 +81,7 @@ export function baseOf(v: string): string | null {
   return m ? m[1] : null;
 }
 
+/** Semver order for pipeline versions: beta < rc < GA within the same X.Y.Z. */
 export function cmp(a: string, b: string): number {
   const pa = mustParse(a);
   const pb = mustParse(b);
@@ -77,8 +89,8 @@ export function cmp(a: string, b: string): number {
     pa.major - pb.major ||
     pa.minor - pb.minor ||
     pa.patch - pb.patch ||
-    (pa.beta ?? Infinity) - (pb.beta ?? Infinity) ||
-    0
+    rank(pa) - rank(pb) ||
+    (pa.num ?? 0) - (pb.num ?? 0)
   );
 }
 
@@ -92,21 +104,22 @@ export function simulatedNow(input: string, real: Date): Date {
   throw new Error(`simulate_now must be +Nd or an ISO timestamp, got "${input}"`);
 }
 
+/** The X.Y.Z that new merges ship as betas: the line after the newest rc or GA, or master's floor. */
 export function activeBase(s: State): string {
-  const ga = gaVersions(s);
-  const next = ga.length ? nextPatch(ga[ga.length - 1]) : null;
+  const finished = known(s).filter((v) => mustParse(v).pre !== 'beta');
+  const next = finished.length ? nextPatch(finished[finished.length - 1]) : null;
   const floor = baseOf(s.masterVersion);
   const candidates = [next, floor].filter((v): v is string => v !== null).sort(cmp);
-  if (!candidates.length) throw new Error(`no GA versions and no usable master version (${s.masterVersion})`);
+  if (!candidates.length) throw new Error(`no released versions and no usable master version (${s.masterVersion})`);
   return candidates[candidates.length - 1];
 }
 
-/** One past every beta number npm or git has ever seen for `base`; npm never reuses a version. */
-export function nextBetaNumber(base: string, s: State): number {
+/** One past every `pre` number npm or git has ever seen for `base`; npm never reuses a version. */
+export function nextNumber(base: string, pre: Pre, s: State): number {
   const seen = [...s.npm.versions, ...Object.keys(s.npm.time), ...Object.keys(s.tags)]
     .map(parse)
-    .filter((p): p is Parsed => p !== null && p.base === base && p.beta !== null)
-    .map((p) => p.beta as number);
+    .filter((p): p is Parsed => p !== null && p.base === base && p.pre === pre)
+    .map((p) => p.num as number);
   return seen.length ? Math.max(...seen) + 1 : 0;
 }
 
@@ -120,68 +133,72 @@ export function pendingPublish(s: State): string | null {
   return pending[0] ?? null;
 }
 
-export async function planRelease(s: State, bugs: BugCheck, o: { forceGa?: boolean } = {}): Promise<Action> {
+/**
+ * At most one irreversible step per run, in priority order: finish a pending publish,
+ * release a soaked rc as latest, promote a soaked beta to rc, cut a beta from master.
+ */
+export async function planRelease(s: State, bugs: BugCheck, o: PlanOptions = {}): Promise<Action> {
   const pending = pendingPublish(s);
   if (pending) return { kind: 'publish', version: pending, reason: `v${pending} is tagged but not on npm` };
 
-  const line = activeBase(s);
   const notes: string[] = [];
 
-  const soaked = newest(betasOf(line, s.npm.versions));
-  if (soaked && s.tags[soaked]) {
-    const since = new Date(s.npm.time[soaked]);
-    const ageDays = (s.now.getTime() - since.getTime()) / DAY_MS;
-    const promote = { kind: 'ga', version: line, from: `v${soaked}`, compare: soaked } as const;
-    if (o.forceGa) return { ...promote, reason: `force_ga: promoting ${soaked}` };
-    if (ageDays >= BETA_SOAK_DAYS) {
+  // rc → latest
+  const rcs = gaCandidates(s);
+  if (o.forceGa) {
+    return rcs.length
+      ? ga(rcs[0], `force_ga: releasing ${rcs[0]}`)
+      : { kind: 'none', reason: 'force_ga: no rc to release' };
+  }
+  for (const rc of rcs) {
+    const since = new Date(s.npm.time[rc]);
+    const days = ageDays(s, since);
+    if (days < RC_SOAK_DAYS) {
+      notes.push(`${rc} has soaked ${days.toFixed(1)}/${RC_SOAK_DAYS} days`);
+      continue;
+    }
+    const found = await bugs(labelsFor(mustParse(rc).base, s), since);
+    if (!found.length) return ga(rc, `${rc} soaked ${days.toFixed(1)} days with no bugs`);
+    notes.push(`${rc} blocked by ${found.join(', ')}`);
+  }
+
+  // beta → rc
+  const line = activeBase(s);
+  const beta = newest(stage(line, 'beta', s.npm.versions).filter((v) => s.tags[v]));
+  const rc = (reason: string): Action => ({
+    kind: 'rc',
+    version: `${line}-rc.${nextNumber(line, 'rc', s)}`,
+    from: `v${beta}`,
+    compare: beta as string,
+    reason,
+  });
+  if (o.forceRc) return beta ? rc(`force_rc: promoting ${beta}`) : { kind: 'none', reason: 'force_rc: no beta to promote' };
+  if (beta) {
+    const since = new Date(s.npm.time[beta]);
+    const days = ageDays(s, since);
+    if (days >= BETA_SOAK_DAYS) {
       const found = await bugs(labelsFor(line, s), since);
-      if (!found.length) return { ...promote, reason: `${soaked} soaked ${ageDays.toFixed(1)} days with no bugs` };
-      notes.push(`GA ${line} blocked by ${found.join(', ')}`);
+      if (!found.length) return rc(`${beta} soaked ${days.toFixed(1)} days with no bugs`);
+      notes.push(`rc of ${line} blocked by ${found.join(', ')}`);
     } else {
-      notes.push(`${soaked} has soaked ${ageDays.toFixed(1)}/${BETA_SOAK_DAYS} days`);
+      notes.push(`${beta} has soaked ${days.toFixed(1)}/${BETA_SOAK_DAYS} days`);
     }
   }
 
-  const shipped = lastShippedMasterSha(line, s);
-  if (shipped === s.masterSha) {
+  // master → beta
+  if (lastShippedMasterSha(line, s) === s.masterSha) {
     notes.push(`master ${s.masterSha.slice(0, 7)} is already released`);
     return { kind: 'none', reason: notes.join('; ') };
   }
-
-  const ga = gaVersions(s, s.npm.versions);
-  const version = `${line}-beta.${nextBetaNumber(line, s)}`;
+  const shipped = sorted(s.npm.versions).filter((v) => mustParse(v).pre !== 'beta');
   notes.push(`master ${s.masterSha.slice(0, 7)} has unreleased commits`);
   return {
     kind: 'beta',
-    version,
+    version: `${line}-beta.${nextNumber(line, 'beta', s)}`,
     from: s.masterSha,
-    compare: soaked ?? ga[ga.length - 1] ?? null,
+    compare: beta ?? newest(shipped),
     reason: notes.join('; '),
   };
-}
-
-export async function planStable(s: State, bugs: BugCheck): Promise<Action> {
-  const latest = s.npm.distTags.latest;
-  const stable = s.npm.distTags.stable;
-  const candidates = gaVersions(s, s.npm.versions)
-    .filter((v) => isPipelineGa(v, s) && latest && cmp(v, latest) <= 0 && (!stable || cmp(v, stable) > 0))
-    .reverse();
-
-  const notes: string[] = [];
-  for (const v of candidates) {
-    const since = new Date(s.npm.time[v]);
-    const ageDays = (s.now.getTime() - since.getTime()) / DAY_MS;
-    if (ageDays < STABLE_SOAK_DAYS) {
-      notes.push(`${v} has been GA ${ageDays.toFixed(1)}/${STABLE_SOAK_DAYS} days`);
-      continue;
-    }
-    const found = await bugs(labelsFor(mustParse(v).base, s), since);
-    if (!found.length) {
-      return { kind: 'stable', version: v, reason: `${v} GA for ${ageDays.toFixed(1)} days with no bugs` };
-    }
-    notes.push(`${v} blocked by ${found.join(', ')}`);
-  }
-  return { kind: 'none', reason: notes.join('; ') || `no tagged GA newer than stable (${stable ?? 'unset'})` };
 }
 
 export function blockers(issues: JiraIssue[], since: Date, nonBugResolutions: string[]): string[] {
@@ -195,48 +212,79 @@ export function blockers(issues: JiraIssue[], since: Date, nonBugResolutions: st
     .map((i) => i.key);
 }
 
-/** The base label plus a `-beta.N` variant for every known beta, so mislabelled bugs still count. */
+/** The base label plus a variant for every known beta and rc, so mislabelled bugs still count. */
 export function labelsFor(base: string, s: State): string[] {
-  return [base, ...betasOf(base, [...s.npm.versions, ...Object.keys(s.tags)])].map((v) => `ryuu.js-${v}`);
+  const pres = sorted([...new Set([...s.npm.versions, ...Object.keys(s.tags)])]).filter((v) => {
+    const p = mustParse(v);
+    return p.base === base && p.pre !== null;
+  });
+  return [base, ...pres].map((v) => `ryuu.js-${v}`);
+}
+
+function ga(rc: string, reason: string): Action {
+  return { kind: 'ga', version: mustParse(rc).base, from: `v${rc}`, compare: rc, reason };
+}
+
+/** The newest pipeline rc of each X.Y.Z that has no GA yet and sits above latest, highest first. */
+function gaCandidates(s: State): string[] {
+  const latest = s.npm.distTags.latest;
+  const floor = latest && parse(latest) ? latest : null;
+  const released = new Set(known(s).filter((v) => mustParse(v).pre === null));
+  const newestRc = new Map<string, string>();
+  for (const v of sorted(s.npm.versions)) {
+    const p = mustParse(v);
+    if (p.pre === 'rc' && isPipelineRelease(v, s)) newestRc.set(p.base, v);
+  }
+  return [...newestRc.entries()]
+    .filter(([b]) => !released.has(b) && (!floor || cmp(b, floor) > 0))
+    .map(([, v]) => v)
+    .sort(cmp)
+    .reverse();
 }
 
 function lastShippedMasterSha(line: string, s: State): string | null {
-  const tagged = newest(betasOf(line, Object.keys(s.tags)));
+  const tagged = newest(stage(line, 'beta', Object.keys(s.tags)));
   if (tagged) return s.tags[tagged].parent;
 
-  // No beta on this line yet: master was last shipped by the beta behind the newest GA.
-  const ga = newest(gaVersions(s).filter((v) => isPipelineGa(v, s)));
-  return ga ? s.tags[soakedBetaOf(ga, s) as string].parent : null;
+  // No beta on this line yet: master was last shipped by the beta behind the newest rc.
+  const rc = newest(releaseTags(s).filter((v) => mustParse(v).pre === 'rc'));
+  return rc ? s.tags[parentTag(rc, s) as string].parent : null;
 }
 
-/** Beta tags plus pipeline GA tags; a hand-made GA tag must not move the line or stall publishing. */
+/** Beta tags, plus rc and GA tags that sit on the release chain; hand-made tags are ignored. */
 function releaseTags(s: State): string[] {
   return Object.keys(s.tags).filter((v) => {
     const p = parse(v);
-    return p !== null && (p.beta !== null || isPipelineGa(v, s));
+    return p !== null && (p.pre === 'beta' || isPipelineRelease(v, s));
   });
 }
 
-/** Pipeline GA tags sit directly on a beta tag of the same line; legacy tags (v5.0.1, v2.x) don't. */
-function isPipelineGa(v: string, s: State): boolean {
-  return soakedBetaOf(v, s) !== null;
+/** An rc tag sits on a beta tag of its X.Y.Z, and a GA tag sits on such an rc tag. */
+function isPipelineRelease(v: string, s: State): boolean {
+  const parent = parentTag(v, s);
+  if (!parent) return false;
+  return mustParse(v).pre === 'rc' || isPipelineRelease(parent, s);
 }
 
-function soakedBetaOf(ga: string, s: State): string | null {
-  const tag = s.tags[ga];
-  if (!tag) return null;
-  return betasOf(ga, Object.keys(s.tags)).find((b) => s.tags[b].sha === tag.parent) ?? null;
+/** The tag of the stage below `v` (rc → beta, GA → rc) that `v` was cut from. */
+function parentTag(v: string, s: State): string | null {
+  const tag = s.tags[v];
+  const p = parse(v);
+  if (!tag || !p || p.pre === 'beta') return null;
+  const below: Pre = p.pre === 'rc' ? 'beta' : 'rc';
+  return stage(p.base, below, Object.keys(s.tags)).find((t) => s.tags[t].sha === tag.parent) ?? null;
 }
 
-function gaVersions(s: State, from: string[] = [...s.npm.versions, ...releaseTags(s)]): string[] {
-  return sorted([...new Set(from)].filter((v) => parse(v)?.beta === null));
+/** Every parseable version npm or a trusted release tag knows about, ascending. */
+function known(s: State): string[] {
+  return sorted([...new Set([...s.npm.versions, ...releaseTags(s)])]);
 }
 
-function betasOf(base: string, from: string[]): string[] {
+function stage(base: string, pre: Pre, from: string[]): string[] {
   return sorted(
     [...new Set(from)].filter((v) => {
       const p = parse(v);
-      return p !== null && p.base === base && p.beta !== null;
+      return p !== null && p.base === base && p.pre === pre;
     }),
   );
 }
@@ -247,6 +295,14 @@ function sorted(versions: string[]): string[] {
 
 function newest(versions: string[]): string | null {
   return versions.length ? versions[versions.length - 1] : null;
+}
+
+function ageDays(s: State, since: Date): number {
+  return (s.now.getTime() - since.getTime()) / DAY_MS;
+}
+
+function rank(p: Parsed): number {
+  return p.pre === 'beta' ? 0 : p.pre === 'rc' ? 1 : 2;
 }
 
 function nextPatch(v: string): string {

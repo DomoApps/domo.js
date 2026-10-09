@@ -13,8 +13,12 @@ on:
         description: Plan, build and test, but push and publish nothing
         type: boolean
         default: true
+      force_rc:
+        description: Promote the newest beta to rc now, skipping the 14-day soak and the Jira check
+        type: boolean
+        default: false
       force_ga:
-        description: Promote the current beta to GA now, skipping the soak and the Jira check
+        description: Release the newest rc as latest now, skipping the 30-day soak and the Jira check
         type: boolean
         default: false
       simulate_now:
@@ -64,6 +68,7 @@ jobs:
         id: plan
         run: node "$RUNNER_TEMP/ci/release.js" plan
         env:
+          FORCE_RC: ${{ inputs.force_rc }}
           FORCE_GA: ${{ inputs.force_ga }}
           JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
@@ -74,7 +79,7 @@ jobs:
           VERSION: ${{ steps.plan.outputs.version }}
           GH_TOKEN: ${{ github.token }}
       - name: Cut ${{ steps.plan.outputs.action }} ${{ steps.plan.outputs.version }}
-        if: steps.plan.outputs.action == 'beta' || steps.plan.outputs.action == 'ga'
+        if: contains(fromJSON('["beta", "rc", "ga"]'), steps.plan.outputs.action)
         run: '"$RUNNER_TEMP/ci/cut-release.sh" "$ACTION" "$VERSION" "$FROM" "${COMPARE:--}"'
         env:
           ACTION: ${{ steps.plan.outputs.action }}
@@ -82,47 +87,3 @@ jobs:
           FROM: ${{ steps.plan.outputs.from }}
           COMPARE: ${{ steps.plan.outputs.compare }}
           GH_TOKEN: ${{ github.token }}
-
-  stable:
-    if: vars.RELEASE_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && github.triggering_actor != 'github-actions[bot]')
-    runs-on: ubuntu-latest
-    environment: release # for the Jira secrets
-    permissions:
-      contents: read
-    outputs:
-      action: ${{ steps.plan.outputs.action }}
-      version: ${{ steps.plan.outputs.version }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: master
-          fetch-depth: 0
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-      - run: npm ci --ignore-scripts
-      - run: npx tsc -p scripts/ci --outDir "$RUNNER_TEMP/ci"
-      - name: Plan
-        id: plan
-        run: node "$RUNNER_TEMP/ci/release.js" stable
-        env:
-          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-
-  tag-stable:
-    needs: stable
-    if: needs.stable.outputs.action == 'stable' && (github.event_name != 'workflow_dispatch' || !inputs.dry_run)
-    runs-on: ubuntu-latest
-    environment: npm-dist-tag
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-      # Trusted publishing can manage dist-tags from npm 11.21.0.
-      - run: npm install -g npm@^11.21.0
-      - run: npm dist-tag add "ryuu.js@$VERSION" stable
-        env:
-          VERSION: ${{ needs.stable.outputs.version }}

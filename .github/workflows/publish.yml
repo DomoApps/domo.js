@@ -41,8 +41,9 @@ jobs:
       - name: Pack
         if: steps.check.outputs.skip == 'false'
         run: npm pack --ignore-scripts
-      - name: Check GA matches the soaked beta
-        if: steps.check.outputs.skip == 'false' && steps.check.outputs.dist_tag == 'latest'
+      # An rc must ship exactly the soaked beta, and a GA exactly the soaked rc.
+      - name: Check the package matches the soaked release
+        if: steps.check.outputs.skip == 'false' && steps.check.outputs.dist_tag != 'beta'
         run: |
           npm pack "ryuu.js@$SOAKED" --pack-destination "$RUNNER_TEMP"
           scripts/ci/same-artifact.sh "$RUNNER_TEMP/ryuu.js-$SOAKED.tgz" "ryuu.js-$VERSION.tgz"
@@ -69,7 +70,8 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - run: npm install -g npm@^11.21.0
+      # Trusted publishing (OIDC) needs npm 11.5.1 or later.
+      - run: npm install -g npm@^11.5.1
       - uses: actions/download-artifact@v8
         with:
           name: tarball
