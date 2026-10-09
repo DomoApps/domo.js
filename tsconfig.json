@@ -13,6 +13,7 @@
     },
     "exclude": [
       "dist",
+      "scripts",
       "**/*.test.ts",
       "**/*.test.tsx",
       "**/__tests__"
