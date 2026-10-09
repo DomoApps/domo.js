@@ -17,7 +17,9 @@ npm run typecheck   # tsc --noEmit for src/ and scripts/ci/
 npm run coverage    # jest --coverage --silent
 npm run build       # webpack production build → dist/domo.js
 npm run build:demo  # node demo/build.js
-npm run ci:build    # compile scripts/ci → .ci-out/ (local release dry runs)
+npm run ci:build    # compile scripts/ci → .ci-out/
+npm run release:plan      # what Release would do now (SIMULATE_NOW=+15d, MASTER_REF=HEAD supported)
+npm run release:rehearse  # full merge → beta → publish rehearsal in a throwaway clone; never pushes or publishes
 ```
 
 ## Release Pipeline
@@ -32,6 +34,7 @@ scripts/ci/
 ├── jira.ts             # Jira Cloud search client (POST /rest/api/3/search/jql)
 ├── release.ts          # CLI: gathers npm/git/Jira state, writes the decision to $GITHUB_OUTPUT
 ├── cut-release.sh      # Build, compare artifact, commit version bump, tag, push, dispatch publish
+├── rehearse.sh         # Local end-to-end rehearsal (npm run release:rehearse)
 ├── same-artifact.sh    # Compare two npm-pack tarballs, ignoring version/scripts/devDependencies
 └── verify-tag.sh       # publish.yml guard: every commit in the GA → rc → beta → master chain is a bot-made version bump
 ```

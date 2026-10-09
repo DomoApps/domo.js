@@ -123,6 +123,16 @@ import Domo from 'ryuu.js';
 const Domo = require('ryuu.js').default;
 ```
 
+### Release channels
+
+| Install | You get |
+|---|---|
+| `npm install ryuu.js` (or `@latest`, or a CDN URL without a version) | The newest release, after a 14-day beta soak and a 30-day release-candidate soak |
+| `npm install ryuu.js@rc` | The next release candidate |
+| `npm install ryuu.js@beta` | The newest build of the next version |
+
+See [RELEASING.md](RELEASING.md) for how a change moves through these channels.
+
 ### CDN / Script Tag
 
 ```html
@@ -1749,6 +1759,8 @@ Contributions are welcome! Please follow these guidelines:
 7. **Commit:** `git commit -m "Add my feature"`
 8. **Push:** `git push origin feature/my-feature`
 9. **Open a Pull Request**
+
+Merged PRs are released automatically. See [RELEASING.md](RELEASING.md) for the release cycle, and for how to test it locally.
 
 ### Development Setup
 

@@ -40,7 +40,9 @@
     "build:demo": "node demo/build.js",
     "clean:demo": "node demo/clean.js",
     "typecheck": "tsc --noEmit --skipLibCheck && tsc -p scripts/ci --noEmit",
-    "ci:build": "rm -rf .ci-out && tsc -p scripts/ci"
+    "ci:build": "rm -rf .ci-out && tsc -p scripts/ci",
+    "release:plan": "npm run ci:build --silent && DRY_RUN=true node .ci-out/release.js plan",
+    "release:rehearse": "bash scripts/ci/rehearse.sh"
   },
   "author": "Domo"
 }
