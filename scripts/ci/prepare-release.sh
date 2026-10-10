@@ -6,9 +6,7 @@
 # verify-tag.sh, and writes <out-dir>/release.bundle for push-release.sh. <from> is a master commit for a
 # beta, or the tag of the stage below for an rc/ga.
 #
-#   beta:   an identical package means nothing shippable changed, so stop with ready=false. HOTFIX=true
-#           releases anyway: a labelled hotfix that was skipped would stay in scope and make the next,
-#           unrelated merge look like a hotfix.
+#   beta:   an identical package means nothing shippable changed, so stop with ready=false.
 #   rc/ga:  the package must be identical to the soaked beta/rc, or this fails.
 #
 # HOTFIX=true writes "(hotfix)" at the end of the tag annotation, which later runs read as a fast-track.
@@ -70,14 +68,10 @@ if [ "$compare" != "-" ]; then
     *) fail "could not compare the package with $compare" ;;
   esac
   if [ "$identical" = true ] && [ "$kind" = beta ]; then
-    if [ "${HOTFIX:-}" = true ]; then
-      echo "Hotfix: releasing $version although the package is identical to $compare."
-    else
-      echo "No shippable change since $compare; not cutting $version."
-      echo "No shippable change since \`$compare\`; skipped \`$version\`." >> "$summary"
-      result false
-      exit 0
-    fi
+    echo "No shippable change since $compare; not cutting $version."
+    echo "No shippable change since \`$compare\`; skipped \`$version\`." >> "$summary"
+    result false
+    exit 0
   elif [ "$identical" = false ] && [ "$kind" != beta ]; then
     fail "$version does not match the soaked $compare package; refusing to release"
   fi

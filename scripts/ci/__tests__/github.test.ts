@@ -1,4 +1,4 @@
-import { GitHubConfig, labelledPrs } from '../github';
+import { GitHubConfig, hasTrustedLabel } from '../github';
 
 const REPO = 'DomoApps/domo.js';
 const LABEL = 'release:hotfix';
@@ -58,14 +58,14 @@ const labeled = (login: string, at: string, label = LABEL) => ({
   created_at: at,
 });
 
-describe('labelledPrs', () => {
+describe('hasTrustedLabel', () => {
   it('counts a PR whose label was applied before the merge by a maintainer', async () => {
     const api = fakeApi({
       pulls: [pr(101, [LABEL])],
       events: { 101: [labeled('alice', '2026-10-09T11:00:00Z')] },
       roles: { alice: 'maintain' },
     });
-    expect(await labelledPrs(cfg(api.fn), 'abc', LABEL, ROLES)).toEqual([101]);
+    expect(await hasTrustedLabel(cfg(api.fn), 'abc', LABEL, ROLES)).toBe(true);
   });
 
   it('counts an admin too', async () => {
@@ -74,7 +74,7 @@ describe('labelledPrs', () => {
       events: { 101: [labeled('boss', '2026-10-09T11:00:00Z')] },
       roles: { boss: 'admin' },
     });
-    expect(await labelledPrs(cfg(api.fn), 'abc', LABEL, ROLES)).toEqual([101]);
+    expect(await hasTrustedLabel(cfg(api.fn), 'abc', LABEL, ROLES)).toBe(true);
   });
 
   it('ignores a label applied by someone with only write access', async () => {
@@ -84,7 +84,7 @@ describe('labelledPrs', () => {
       events: { 101: [labeled('mallory', '2026-10-09T11:00:00Z')] },
       roles: { mallory: 'write' },
     });
-    expect(await labelledPrs(cfg(api.fn, { log }), 'abc', LABEL, ROLES)).toEqual([]);
+    expect(await hasTrustedLabel(cfg(api.fn, { log }), 'abc', LABEL, ROLES)).toBe(false);
     expect(log).toHaveBeenCalledWith(expect.stringContaining('#101'));
   });
 
@@ -94,7 +94,7 @@ describe('labelledPrs', () => {
       events: { 101: [labeled('alice', '2026-10-09T12:00:01Z')] },
       roles: { alice: 'admin' },
     });
-    expect(await labelledPrs(cfg(api.fn), 'abc', LABEL, ROLES)).toEqual([]);
+    expect(await hasTrustedLabel(cfg(api.fn), 'abc', LABEL, ROLES)).toBe(false);
   });
 
   it('ignores a label from an actor GitHub cannot resolve to a collaborator, such as a bot', async () => {
@@ -103,7 +103,7 @@ describe('labelledPrs', () => {
       events: { 101: [labeled('some-app[bot]', '2026-10-09T11:00:00Z')] },
       roles: {},
     });
-    expect(await labelledPrs(cfg(api.fn), 'abc', LABEL, ROLES)).toEqual([]);
+    expect(await hasTrustedLabel(cfg(api.fn), 'abc', LABEL, ROLES)).toBe(false);
   });
 
   it('judges the most recent application: a writer re-applying the label after a maintainer does not count', async () => {
@@ -112,7 +112,7 @@ describe('labelledPrs', () => {
       events: { 101: [labeled('alice', '2026-10-09T10:00:00Z'), labeled('mallory', '2026-10-09T11:00:00Z')] },
       roles: { alice: 'admin', mallory: 'write' },
     });
-    expect(await labelledPrs(cfg(api.fn), 'abc', LABEL, ROLES)).toEqual([]);
+    expect(await hasTrustedLabel(cfg(api.fn), 'abc', LABEL, ROLES)).toBe(false);
   });
 
   it('judges the most recent application: a maintainer re-applying it after a writer does count', async () => {
@@ -121,7 +121,7 @@ describe('labelledPrs', () => {
       events: { 101: [labeled('mallory', '2026-10-09T10:00:00Z'), labeled('alice', '2026-10-09T11:00:00Z')] },
       roles: { alice: 'admin', mallory: 'write' },
     });
-    expect(await labelledPrs(cfg(api.fn), 'abc', LABEL, ROLES)).toEqual([101]);
+    expect(await hasTrustedLabel(cfg(api.fn), 'abc', LABEL, ROLES)).toBe(true);
   });
 
   it('finds the labeled event on a later page of a busy PR', async () => {
@@ -131,52 +131,48 @@ describe('labelledPrs', () => {
       events: { 101: [...noise, labeled('alice', '2026-10-09T11:00:00Z')] },
       roles: { alice: 'maintain' },
     });
-    expect(await labelledPrs(cfg(api.fn), 'abc', LABEL, ROLES)).toEqual([101]);
+    expect(await hasTrustedLabel(cfg(api.fn), 'abc', LABEL, ROLES)).toBe(true);
   });
 
   it('does not look at events for PRs without the label, unmerged PRs, or other labels', async () => {
     const api = fakeApi({
       pulls: [pr(101, ['bug']), pr(102, [LABEL], null), pr(103, ['dependencies'])],
     });
-    expect(await labelledPrs(cfg(api.fn), 'abc', LABEL, ROLES)).toEqual([]);
+    expect(await hasTrustedLabel(cfg(api.fn), 'abc', LABEL, ROLES)).toBe(false);
     expect(api.calls.filter((c) => c.startsWith('/issues'))).toEqual([]);
   });
 
-  it('checks each PR once even when it is introduced by several commits', async () => {
+  it("is true when any one of the commit's PRs is trusted", async () => {
     const api = fakeApi({
-      pulls: [pr(101, [LABEL])],
-      events: { 101: [labeled('alice', '2026-10-09T11:00:00Z')] },
-      roles: { alice: 'maintain' },
+      pulls: [pr(101, [LABEL]), pr(102, [LABEL])],
+      events: { 101: [labeled('mallory', '2026-10-09T11:00:00Z')], 102: [labeled('alice', '2026-10-09T11:00:00Z')] },
+      roles: { mallory: 'write', alice: 'maintain' },
     });
-    const verdicts = new Map<number, boolean>();
-    await labelledPrs(cfg(api.fn), 'c1', LABEL, ROLES, verdicts);
-    await labelledPrs(cfg(api.fn), 'c2', LABEL, ROLES, verdicts);
-    expect(api.calls.filter((c) => c.startsWith('/issues')).length).toBe(1);
-    expect(api.calls.filter((c) => c.startsWith('/collaborators')).length).toBe(1);
+    expect(await hasTrustedLabel(cfg(api.fn), 'abc', LABEL, ROLES)).toBe(true);
   });
 
   it('sends the token when there is one, and works without it', async () => {
     const withToken = fakeApi({});
-    await labelledPrs(cfg(withToken.fn, { token: 't0ken' }), 'abc', LABEL, ROLES);
+    await hasTrustedLabel(cfg(withToken.fn, { token: 't0ken' }), 'abc', LABEL, ROLES);
     expect(withToken.headers[0].Authorization).toBe('Bearer t0ken');
     const anon = fakeApi({});
-    await labelledPrs(cfg(anon.fn), 'abc', LABEL, ROLES);
+    await hasTrustedLabel(cfg(anon.fn), 'abc', LABEL, ROLES);
     expect(anon.headers[0].Authorization).toBeUndefined();
   });
 
   it('treats a commit GitHub has never seen (e.g. unpushed, in a local rehearsal) as having no PR', async () => {
-    expect(await labelledPrs(cfg(fakeApi({ pullsStatus: 422, pulls: {} }).fn), 'abc', LABEL, ROLES)).toEqual([]);
+    expect(await hasTrustedLabel(cfg(fakeApi({ pullsStatus: 422, pulls: {} }).fn), 'abc', LABEL, ROLES)).toBe(false);
   });
 
   it('throws when the pull request lookup fails, instead of treating the merge as a normal one', async () => {
     await expect(
-      labelledPrs(cfg(fakeApi({ pullsStatus: 403, pulls: { message: 'rate limited' } }).fn), 'abc', LABEL, ROLES),
+      hasTrustedLabel(cfg(fakeApi({ pullsStatus: 403, pulls: { message: 'rate limited' } }).fn), 'abc', LABEL, ROLES),
     ).rejects.toThrow(/GitHub pull request lookup failed: 403/);
   });
 
   it('throws when the events lookup fails', async () => {
     const api = fakeApi({ pulls: [pr(101, [LABEL])], eventsStatus: 500 });
-    await expect(labelledPrs(cfg(api.fn), 'abc', LABEL, ROLES)).rejects.toThrow(/GitHub event lookup failed: 500/);
+    await expect(hasTrustedLabel(cfg(api.fn), 'abc', LABEL, ROLES)).rejects.toThrow(/GitHub event lookup failed: 500/);
   });
 
   it('throws when the permission lookup fails for a reason other than the actor not being a collaborator', async () => {
@@ -185,6 +181,6 @@ describe('labelledPrs', () => {
       events: { 101: [labeled('alice', '2026-10-09T11:00:00Z')] },
       permissionStatus: 500,
     });
-    await expect(labelledPrs(cfg(api.fn), 'abc', LABEL, ROLES)).rejects.toThrow(/GitHub permission lookup failed: 500/);
+    await expect(hasTrustedLabel(cfg(api.fn), 'abc', LABEL, ROLES)).rejects.toThrow(/GitHub permission lookup failed: 500/);
   });
 });

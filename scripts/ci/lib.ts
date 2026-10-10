@@ -62,8 +62,8 @@ export interface JiraIssue {
 /** Returns the keys of bugs that block the given labels since `since`. Throws if Jira can't be read. */
 export type BugCheck = (labels: string[], since: Date) => Promise<string[]>;
 
-/** Whether a merged PR in `from..to` (or just `to` when `from` is null) carries HOTFIX_LABEL. */
-export type HotfixCheck = (from: string | null, to: string) => Promise<boolean>;
+/** Whether master's commit `sha` came from a PR with a trustworthy HOTFIX_LABEL. */
+export type HotfixCheck = (sha: string) => Promise<boolean>;
 
 export type Action =
   | { kind: 'none'; reason: string }
@@ -77,7 +77,15 @@ export interface PlanOptions {
   forceGa?: boolean;
 }
 
-/** Parses `X.Y.Z`, `X.Y.Z-beta.N` or `X.Y.Z-rc.N`; anything else (alphas, legacy formats) is null. */
+/**
+ * Splits a version like `6.0.10-beta.2` into its parts: major, minor, patch, and the beta or rc stage and
+ * number. Anything that is not a plain release, beta or rc, such as old alpha versions, comes back as null so
+ * the rest of the pipeline ignores it. Every other function here relies on this as the single definition of a
+ * valid pipeline version.
+ *
+ * @param v - The version text to read, without a leading `v`.
+ * @returns The parsed parts, or null if the text is not a release, beta or rc version.
+ */
 export function parse(v: string): Parsed | null {
   const m = VERSION_RE.exec(v);
   if (!m) return null;
@@ -98,9 +106,15 @@ export interface TagRef {
 }
 
 /**
- * Parses `git for-each-ref refs/tags --format='%(refname:short)<TAB>%(objecttype)<TAB>%(objectname)<TAB>
- * %(*objectname)<TAB>%(contents:subject)'`. prepare-release.sh writes "(hotfix)" at the end of the annotation of
- * every tag in a hotfix release; lightweight tags can never carry the marker.
+ * Turns the text printed by `git for-each-ref refs/tags` into a list of release tags and notes which of them
+ * are hotfixes. It skips any tag that is not named like a pipeline version, and only an annotated tag whose
+ * message ends in "(hotfix)" counts as a hotfix. release.ts passes in the raw git output so this parsing can be
+ * tested without running git.
+ *
+ * @param output - Raw git output, one tag per line, with tab-separated name, object type, object id, commit id
+ *   the tag points at, and annotation subject (the format release.ts asks git for).
+ * @returns One entry per pipeline-format tag: its version (no leading `v`), the commit it points at, and
+ *   whether it is a hotfix.
  */
 export function parseTagRefs(output: string): TagRef[] {
   return output
@@ -115,13 +129,29 @@ export function parseTagRefs(output: string): TagRef[] {
     }));
 }
 
-/** Lenient `X.Y.Z` prefix, used for master's package.json version floor. */
+/**
+ * Pulls the plain `X.Y.Z` number off the front of any version text, even one the pipeline would never release,
+ * like `6.0.9-alpha.0`. It is how master's package.json version is read as a "start at least here" floor. That
+ * is how a person starts a new minor or major line without CI ever editing master.
+ *
+ * @param v - Any version text.
+ * @returns The leading `X.Y.Z`, or null if the text does not start with one.
+ */
 export function baseOf(v: string): string | null {
   const m = /^(\d+\.\d+\.\d+)/.exec(v);
   return m ? m[1] : null;
 }
 
-/** Semver order for pipeline versions: beta < rc < GA within the same X.Y.Z. */
+/**
+ * Compares two pipeline versions so they can be sorted oldest to newest, with a beta before an rc and an rc
+ * before the final release of the same number. It is the one ordering rule the planner uses to find the newest
+ * version, the highest release, and anything newer than what is already published.
+ *
+ * @param a - The first version.
+ * @param b - The second version.
+ * @returns A negative number if `a` is older than `b`, a positive number if it is newer, and 0 if they match.
+ * @throws If either version is not a pipeline version.
+ */
 export function cmp(a: string, b: string): number {
   const pa = mustParse(a);
   const pb = mustParse(b);
@@ -134,7 +164,17 @@ export function cmp(a: string, b: string): number {
   );
 }
 
-/** The `simulate_now` dry-run input: `+Nd` from the real clock, an ISO timestamp, or empty. */
+/**
+ * Works out what "now" should mean for a planning run: the real time normally, or a pretend time when someone
+ * wants to see what would happen days from now. release.ts only allows the pretend time on dry runs, so the
+ * soak timers can be rehearsed without waiting and without any risk.
+ *
+ * @param input - Empty for the real time, `+Nd` for N days after it (for example `+15d`), or an ISO date such
+ *   as `2026-12-01T00:00:00Z`.
+ * @param real - The actual current time, passed in so tests can control it.
+ * @returns The time the plan should treat as now.
+ * @throws If the input is neither empty, `+Nd`, nor an ISO date.
+ */
 export function simulatedNow(input: string, real: Date): Date {
   if (!input) return real;
   const offset = /^\+(\d+(?:\.\d+)?)d$/.exec(input);
@@ -145,8 +185,14 @@ export function simulatedNow(input: string, real: Date): Date {
 }
 
 /**
- * The X.Y.Z that new merges ship as betas: the line after the newest rc or GA, master's floor, or a
- * published beta line that is already higher (lowering the floor never moves the pipeline backwards).
+ * Decides which version number new merges are currently shipping as betas. It takes the highest of three
+ * things: the patch after the newest rc or release, the minimum set in master's package.json, and any beta line
+ * that is already published, so lowering master's version can never move the pipeline backwards. planRelease
+ * treats the answer as the current line for every decision it makes.
+ *
+ * @param s - Everything known about npm, git tags and master (see the State type).
+ * @returns The `X.Y.Z` the current line is working toward.
+ * @throws If nothing has been released yet and master's package.json version has no usable number.
  */
 export function activeBase(s: State): string {
   const all = known(s);
@@ -161,8 +207,15 @@ export function activeBase(s: State): string {
 }
 
 /**
- * One past every `pre` number npm or git has ever seen for `base` (npm never reuses a version), and past the
- * version master's package.json already says, which a release commit could not change.
+ * Works out the next beta or rc number for a version, such as the `3` in `6.0.10-beta.3`. It goes one past
+ * every number it has ever seen in npm, in git tags and in master's own package.json version, because npm never
+ * lets a version be reused even after it is unpublished. planRelease calls it whenever it is about to cut a new
+ * beta or rc.
+ *
+ * @param base - The `X.Y.Z` the number is for.
+ * @param pre - Which stage to number: `beta` or `rc`.
+ * @param s - Everything known about npm, git tags and master (see the State type).
+ * @returns The number to use next, starting at 0 when none has been used.
  */
 export function nextNumber(base: string, pre: Pre, s: State): number {
   const seen = [...s.npm.versions, ...Object.keys(s.npm.time), ...Object.keys(s.tags), s.masterVersion]
@@ -172,7 +225,15 @@ export function nextNumber(base: string, pre: Pre, s: State): number {
   return seen.length ? Math.max(...seen) + 1 : 0;
 }
 
-/** A pipeline tag that was pushed but never reached npm (e.g. the publish run failed). */
+/**
+ * Finds a release tag that was created but never reached npm, for example because the publish step failed or
+ * was cancelled. The release workflow retries that publish before doing anything else, so a stuck release
+ * cannot be skipped over. It only looks at tags newer than the highest published release, which keeps old
+ * leftovers from triggering retries.
+ *
+ * @param s - Everything known about npm, git tags and master (see the State type).
+ * @returns The version of the oldest unpublished tag, or null if nothing is waiting.
+ */
 export function pendingPublish(s: State): string | null {
   // Compare with the highest published GA, not the highest version of any kind: while an rc soaks, the next
   // line's betas are already on npm, and a failed GA publish must still be retried.
@@ -184,9 +245,18 @@ export function pendingPublish(s: State): string | null {
 }
 
 /**
- * At most one irreversible step per run, in priority order: finish a pending publish, manual overrides,
- * hotfixes (which skip every soak and never consult Jira), release a soaked rc as latest, promote a soaked
- * beta to rc, cut a beta from master.
+ * The decision-maker for the release pipeline. From what is published, tagged and merged, it picks the single
+ * next step in a fixed priority order (retry a publish, an admin override, a hotfix, release a soaked release
+ * candidate, promote a soaked beta, or cut a beta) and explains why. release.ts calls it on every run and the
+ * workflow carries out whatever it returns, so nothing in here touches the network itself.
+ *
+ * @param s - Everything known about npm, git tags and master (see the State type).
+ * @param bugs - Looks up the Jira bugs blocking a set of labels; only called once a soak period has ended.
+ * @param o - Admin overrides: `forceRc` promotes the newest beta now and `forceGa` releases the newest rc now.
+ * @param isHotfix - Says whether master's latest commit came from a trusted `release:hotfix` PR; defaults to
+ *   never.
+ * @returns The action to take: what kind it is, the version to create, what to build it from and compare it
+ *   against, whether it is a hotfix, and a plain-language reason.
  */
 export async function planRelease(
   s: State,
@@ -204,6 +274,14 @@ export async function planRelease(
   const shippedSha = lastShippedMasterSha(line, s);
   const unreleased = shippedSha !== s.masterSha;
 
+  /**
+   * Builds the "promote the newest beta to a release candidate" action. The new version is numbered one past
+   * any existing rc, built from the beta's tag and compared against that beta, and it inherits the beta's
+   * hotfix flag. planRelease uses it from every place that can decide to promote.
+   *
+   * @param reason - Plain-language explanation shown in the run log.
+   * @returns An `rc` action.
+   */
   const toRc = (reason: string): Action => ({
     kind: 'rc',
     version: `${line}-rc.${nextNumber(line, 'rc', s)}`,
@@ -212,6 +290,15 @@ export async function planRelease(
     hotfix: Boolean(beta && s.tags[beta].hotfix),
     reason,
   });
+  /**
+   * Builds the "cut a new beta from master's latest commit" action. It is numbered one past the betas already
+   * used and compared against the line's newest beta, or the newest published release if the line has no beta
+   * yet. planRelease uses it for both ordinary merges and hotfix merges.
+   *
+   * @param hotfix - Whether this beta is a hotfix, which makes the later steps skip their soaks.
+   * @param reason - Plain-language explanation shown in the run log.
+   * @returns A `beta` action.
+   */
   const toBeta = (hotfix: boolean, reason: string): Action => ({
     kind: 'beta',
     version: `${line}-beta.${nextNumber(line, 'beta', s)}`,
@@ -235,7 +322,7 @@ export async function planRelease(
   const hotRc = rcs.find((rc) => s.tags[rc].hotfix);
   if (hotRc) return ga(hotRc, s, `hotfix: releasing ${hotRc}`);
   if (beta && s.tags[beta].hotfix) return toRc(`hotfix: promoting ${beta}`);
-  if (unreleased && (await isHotfix(shippedSha, s.masterSha))) {
+  if (unreleased && (await isHotfix(s.masterSha))) {
     return toBeta(true, `master ${s.masterSha.slice(0, 7)} has unreleased commits from a ${HOTFIX_LABEL} PR`);
   }
 
@@ -284,6 +371,17 @@ export async function planRelease(
   return toBeta(false, notes.join('; '));
 }
 
+/**
+ * Picks out the Jira bugs that should stop a version from moving forward. A bug blocks if it is still open, or
+ * if it was reported during the current soak and was not closed as something like "Duplicate" or "Won't Do". It
+ * runs on issues that jira.ts has already fetched, which keeps the rules testable without a Jira connection.
+ *
+ * @param issues - The bugs labelled for the version, as read from Jira.
+ * @param since - When the current soak started; bugs that are already done and were created before this do not
+ *   count.
+ * @param nonBugResolutions - Resolution names, in any capitalization, that mean "this was not a real bug".
+ * @returns The issue keys, like `DOMO-123`, that block the release; an empty list means it is clear.
+ */
 export function blockers(issues: JiraIssue[], since: Date, nonBugResolutions: string[]): string[] {
   const ignored = new Set(nonBugResolutions.map(normalize));
   return issues
@@ -295,7 +393,15 @@ export function blockers(issues: JiraIssue[], since: Date, nonBugResolutions: st
     .map((i) => i.key);
 }
 
-/** The base label plus a variant for every known beta and rc, so mislabelled bugs still count. */
+/**
+ * Lists the Jira labels that count as a bug against a version: `ryuu.js-X.Y.Z` plus one for each beta and rc of
+ * it. Including the beta and rc labels means a bug still blocks the release if someone used the wrong suffix.
+ * release.ts passes the result to the Jira search.
+ *
+ * @param base - The `X.Y.Z` to find bug labels for.
+ * @param s - Everything known about npm, git tags and master (see the State type).
+ * @returns The labels, with the plain version label first.
+ */
 export function labelsFor(base: string, s: State): string[] {
   const pres = sorted([...new Set([...s.npm.versions, ...Object.keys(s.tags)])]).filter((v) => {
     const p = mustParse(v);
@@ -304,11 +410,29 @@ export function labelsFor(base: string, s: State): string[] {
   return [base, ...pres].map((v) => `ryuu.js-${v}`);
 }
 
+/**
+ * Builds the "release this rc as latest" action. The final version is the rc's number without the `-rc.N` part,
+ * built from the rc's tag and compared against that rc, and it inherits the rc's hotfix flag. planRelease uses
+ * it from each place that can decide to release.
+ *
+ * @param rc - The release candidate being released, like `6.0.10-rc.0`.
+ * @param s - Everything known about npm, git tags and master (see the State type).
+ * @param reason - Plain-language explanation shown in the run log.
+ * @returns A `ga` action.
+ */
 function ga(rc: string, s: State, reason: string): Action {
   return { kind: 'ga', version: mustParse(rc).base, from: `v${rc}`, compare: rc, hotfix: Boolean(s.tags[rc].hotfix), reason };
 }
 
-/** The newest pipeline rc of each X.Y.Z that has no GA yet and sits above latest, highest first. */
+/**
+ * Lists the release candidates that could be released as latest right now, highest first. It only includes the
+ * newest rc of each version that is not released yet and is higher than anything already published, so rolling
+ * `latest` back never brings an old rc back to life. planRelease walks this list when it decides whether a
+ * release candidate has finished soaking.
+ *
+ * @param s - Everything known about npm, git tags and master (see the State type).
+ * @returns The rc versions, newest first.
+ */
 function gaCandidates(s: State): string[] {
   // Never release at or below latest, nor below any GA already published, so rolling `latest` back
   // can't make a superseded rc eligible again.
@@ -329,6 +453,15 @@ function gaCandidates(s: State): string[] {
     .reverse();
 }
 
+/**
+ * Finds which commit on master was last turned into a release for a version line. Comparing it with master's
+ * current commit tells planRelease whether there are changes still waiting to ship. If the line has no beta
+ * yet, it falls back to the commit behind the newest rc.
+ *
+ * @param line - The `X.Y.Z` version line being checked.
+ * @param s - Everything known about npm, git tags and master (see the State type).
+ * @returns The commit hash, or null if nothing has shipped from master yet.
+ */
 function lastShippedMasterSha(line: string, s: State): string | null {
   const tagged = newest(stage(line, 'beta', Object.keys(s.tags)));
   if (tagged) return s.tags[tagged].parent;
@@ -338,7 +471,15 @@ function lastShippedMasterSha(line: string, s: State): string | null {
   return rc ? s.tags[parentTag(rc, s) as string].parent : null;
 }
 
-/** Beta tags, plus rc and GA tags that sit on the release chain; hand-made tags are ignored. */
+/**
+ * Returns the git release tags that can be trusted: every beta tag, plus rc and release tags that really sit on
+ * top of the right earlier stage. A tag made by hand that does not follow that chain is left out, so it cannot
+ * change which version the pipeline works on or block a publish. It is the starting point for most tag
+ * questions.
+ *
+ * @param s - Everything known about npm, git tags and master (see the State type).
+ * @returns The trusted tag versions, without the leading `v`.
+ */
 function releaseTags(s: State): string[] {
   return Object.keys(s.tags).filter((v) => {
     const p = parse(v);
@@ -346,14 +487,30 @@ function releaseTags(s: State): string[] {
   });
 }
 
-/** An rc tag sits on a beta tag of its X.Y.Z, and a GA tag sits on such an rc tag. */
+/**
+ * Checks that a tag really came out of the pipeline by following the chain downward: a release candidate must
+ * have been cut from a beta tag, and a final release from such a release candidate. This is how hand-made tags
+ * are recognized and ignored.
+ *
+ * @param v - The rc or release version to check, without the leading `v`.
+ * @param s - Everything known about npm, git tags and master (see the State type).
+ * @returns True if the whole chain below the tag is intact.
+ */
 function isPipelineRelease(v: string, s: State): boolean {
   const parent = parentTag(v, s);
   if (!parent) return false;
   return mustParse(v).pre === 'rc' || isPipelineRelease(parent, s);
 }
 
-/** The tag of the stage below `v` (rc → beta, GA → rc) that `v` was cut from. */
+/**
+ * Finds the earlier-stage tag that a release candidate or final release was built from, such as the beta behind
+ * an rc. It matches by commit: the new tag's commit has to sit directly on top of the earlier tag's commit.
+ * isPipelineRelease and lastShippedMasterSha use it to walk down the chain.
+ *
+ * @param v - An rc or release version, without the leading `v`.
+ * @param s - Everything known about npm, git tags and master (see the State type).
+ * @returns The earlier stage's version, or null for a beta, an unknown tag, or a tag with no match.
+ */
 function parentTag(v: string, s: State): string | null {
   const tag = s.tags[v];
   const p = parse(v);
@@ -362,11 +519,27 @@ function parentTag(v: string, s: State): string | null {
   return stage(p.base, below, Object.keys(s.tags)).find((t) => s.tags[t].sha === tag.parent) ?? null;
 }
 
-/** Every parseable version npm or a trusted release tag knows about, ascending. */
+/**
+ * Collects every pipeline version known to exist, whether it is published on npm or tagged in git, sorted from
+ * oldest to newest. Using both sources means a version that is tagged but not yet visible on npm still counts
+ * when deciding what comes next. activeBase builds on it to find the newest finished version.
+ *
+ * @param s - Everything known about npm, git tags and master (see the State type).
+ * @returns Sorted version strings with no duplicates.
+ */
 function known(s: State): string[] {
   return sorted([...new Set([...s.npm.versions, ...releaseTags(s)])]);
 }
 
+/**
+ * Narrows a list of versions to one `X.Y.Z` and one stage, for example only the betas of 6.0.10, sorted oldest
+ * to newest. It is the small helper planRelease uses to ask questions like "what are this line's betas?".
+ *
+ * @param base - The `X.Y.Z` to keep.
+ * @param pre - The stage to keep: `beta` or `rc`.
+ * @param from - Versions to filter; may contain duplicates and unrelated entries.
+ * @returns The matching versions, de-duplicated and sorted.
+ */
 function stage(base: string, pre: Pre, from: string[]): string[] {
   return sorted(
     [...new Set(from)].filter((v) => {
@@ -376,38 +549,98 @@ function stage(base: string, pre: Pre, from: string[]): string[] {
   );
 }
 
+/**
+ * Sorts versions from oldest to newest and drops any that are not pipeline versions, such as old alpha releases
+ * on npm. That keeps legacy entries in npm's list from breaking comparisons everywhere else.
+ *
+ * @param versions - Version strings, in any order.
+ * @returns A new sorted list containing only the valid versions.
+ */
 function sorted(versions: string[]): string[] {
   return versions.filter((v) => parse(v) !== null).sort(cmp);
 }
 
+/**
+ * Returns the last item of an already-sorted list of versions, which is the newest one. Several parts of the
+ * planner need "the latest of something", and this keeps that one-liner in one place.
+ *
+ * @param versions - Versions already sorted from oldest to newest.
+ * @returns The newest version, or null for an empty list.
+ */
 function newest(versions: string[]): string | null {
   return versions.length ? versions[versions.length - 1] : null;
 }
 
-/** A soak has ended once `days` is within SOAK_GRACE_DAYS of it. */
+/**
+ * Says whether a waiting period has finished. It allows a one-hour grace so a daily check that runs a few
+ * minutes early still counts, which keeps release dates predictable. planRelease uses it for every soak timer.
+ *
+ * @param days - How many days have passed so far.
+ * @param soak - How many days the wait needs to last.
+ * @returns True once `days` is within the grace period of `soak`.
+ */
 function ripe(days: number, soak: number): boolean {
   return days + SOAK_GRACE_DAYS >= soak;
 }
 
+/**
+ * Measures how many days have passed between a moment and "now" for this run. Using the run's own clock, rather
+ * than the real one, is what lets a dry run pretend it is later. It feeds all the soak timers.
+ *
+ * @param s - The state, which holds the run's current time.
+ * @param since - The earlier moment, usually when a version was published.
+ * @returns The elapsed time in days, including fractions.
+ */
 function ageDays(s: State, since: Date): number {
   return (s.now.getTime() - since.getTime()) / DAY_MS;
 }
 
+/**
+ * Gives each stage a number so versions with the same `X.Y.Z` sort in release order: beta first, then rc, then
+ * the final release. cmp uses it to break ties after the major, minor and patch numbers.
+ *
+ * @param p - A parsed version.
+ * @returns 0 for a beta, 1 for an rc, and 2 for a final release.
+ */
 function rank(p: Parsed): number {
   return p.pre === 'beta' ? 0 : p.pre === 'rc' ? 1 : 2;
 }
 
+/**
+ * Adds one to the patch number of a version, turning 6.0.10 into 6.0.11. Once a release candidate is cut, new
+ * merges start the next patch's betas, and activeBase uses this to find that number.
+ *
+ * @param v - Any pipeline version.
+ * @returns The `X.Y.Z` of the next patch.
+ */
 function nextPatch(v: string): string {
   const p = mustParse(v);
   return `${p.major}.${p.minor}.${p.patch + 1}`;
 }
 
+/**
+ * Does the same job as `parse`, but for versions that must be valid: it stops with an error instead of
+ * returning null. It is used on versions the code has already filtered, so a failure points to a bug rather
+ * than bad input.
+ *
+ * @param v - A version that should be a release, beta or rc.
+ * @returns The parsed version.
+ * @throws If the text is not a release, beta or rc version.
+ */
 function mustParse(v: string): Parsed {
   const p = parse(v);
   if (!p) throw new Error(`not a pipeline version: ${v}`);
   return p;
 }
 
+/**
+ * Tidies a Jira resolution name so two spellings of the same word compare as equal: it trims spaces, lowercases
+ * the text, and turns curly apostrophes into straight ones. blockers uses it to match resolutions against the
+ * list of "not a real bug" names.
+ *
+ * @param resolution - A resolution name as Jira spells it.
+ * @returns The tidied text.
+ */
 function normalize(resolution: string): string {
   return resolution.trim().toLowerCase().replace(/’/g, "'");
 }

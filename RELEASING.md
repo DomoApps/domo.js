@@ -53,9 +53,10 @@ Betas and rcs are prereleases. No package manager installs one from a normal ran
 To get a fix to customers right away, a **maintainer or admin** adds the **`release:hotfix`** label to its PR **before merging**. The PR still needs review and passing checks to merge. After the merge, Release publishes the beta, the rc and `latest` back to back, about 15 minutes in all. Each step still builds, tests, verifies the tag and checks that the package is identical to the step before.
 
 - **Only a maintainer or admin counts, and only before the merge.** Release looks at who applied the label and when. A label from anyone else, or one added after the merge, is ignored with a note in the run log, and the change goes through the normal soak. (Roles are `HOTFIX_ROLES` in `scripts/ci/lib.ts`.)
+- **Release checks the latest commit on `master`.** Because every PR is squash-merged, that commit is one PR. If another PR lands before Release runs (say Dependabot merges right behind the hotfix), the latest commit is no longer the hotfix and the change goes through the normal soak. That can only make it slower, never faster; an admin can still use `force_rc` and `force_ga`.
 - **It ships everything on `master` that isn't released yet**, not just the fix, because every release is cut from `master`.
 - **A hotfix takes priority** over a normal promotion that happens to be due, and it never asks Jira, so a Jira outage can't hold one up. Any rc still soaking is superseded: it ends up below `latest` and never ships on its own, since its changes are in the hotfix.
-- **It always releases, even if the package didn't change** (for example a comment-only edit). Skipping it would leave its label in scope and make the next unrelated merge look like a hotfix.
+- **If the PR doesn't change the published package** (a comment-only edit, say), nothing is released, hotfix or not.
 - **For a fix that merged without the label**, an admin can use Run workflow with `force_rc` once its beta is published, then with `force_ga` once the rc is published. These are admin-only; see [Run workflow options](#run-workflow-options).
 - **The automatic chain needs `RELEASE_ENABLED=true`.** While releases are paused, start each step yourself with Run workflow (`dry_run` off). The hotfix marker is on the tag, so each step still skips its soak.
 

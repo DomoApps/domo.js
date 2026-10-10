@@ -487,7 +487,7 @@ describe('planRelease: rc → latest after 7 days', () => {
 describe('planRelease: the release:hotfix label', () => {
   const labelled: HotfixCheck = async () => true;
 
-  it('marks the beta as a hotfix when a merged PR since the last release carries the label', async () => {
+  it("marks the beta as a hotfix when master's latest merge carries the label", async () => {
     const isHotfix = jest.fn(labelled);
     const s = inBeta(1);
     s.masterSha = 'm3';
@@ -496,13 +496,22 @@ describe('planRelease: the release:hotfix label', () => {
       version: '6.0.10-beta.2',
       hotfix: true,
     });
-    expect(isHotfix).toHaveBeenCalledWith('m2', 'm3');
+    expect(isHotfix).toHaveBeenCalledWith('m3');
   });
 
-  it('checks only the master commit when nothing has been released by the pipeline yet', async () => {
+  it("checks only master's latest commit, not the ones before it", async () => {
     const isHotfix = jest.fn(labelled);
     await planRelease(base(), noBugs, {}, isHotfix);
-    expect(isHotfix).toHaveBeenCalledWith(null, 'm1');
+    expect(isHotfix).toHaveBeenCalledTimes(1);
+    expect(isHotfix).toHaveBeenCalledWith('m1');
+  });
+
+  it("does not let an earlier hotfix PR speed up a later ordinary merge", async () => {
+    // The labelled PR was a commit before master's tip; only the tip is looked at.
+    const s = inBeta(1);
+    s.masterSha = 'm4';
+    const labelledOnlyM3: HotfixCheck = async (sha) => sha === 'm3';
+    expect(await planRelease(s, noBugs, {}, labelledOnlyM3)).toMatchObject({ kind: 'beta', hotfix: false });
   });
 
   it('only looks up labels when master has unreleased commits', async () => {
