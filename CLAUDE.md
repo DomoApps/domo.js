@@ -5,16 +5,50 @@ JavaScript SDK (published as `ryuu.js` on npm) for building custom apps inside t
 - **Version:** 6.0.0-alpha.0
 - **Zero runtime dependencies**
 - **Build:** Webpack 5 → UMD bundle at `dist/domo.js` (~28KB), exposed as global `Domo`
-- **Tests:** Jest + jsdom (`npm test`) — 235 tests across 20 suites
-- **Type check:** `tsc --noEmit --skipLibCheck`
+- **Tests:** Jest (`npm test`) — `sdk` project (jsdom, `src/`) and `ci` project (node, `scripts/ci/`)
+- **Type check:** `npm run typecheck` (SDK + CI scripts)
+- **Releasing:** automated `beta` → `rc` (first beta 7d + 3d quiet) → `latest` (7d) pipeline; a `release:hotfix` PR label skips both soaks. See [RELEASING.md](RELEASING.md). Never `npm publish` by hand.
+
+## Conventions
+
+Always consume and apply [CONVENTIONS.md](CONVENTIONS.md) to all code you write or modify in this repo, tests and scripts included. It is imported here so it is in context every session; do not skip it for small changes.
+
+@CONVENTIONS.md
+
+The file was written for a JS/React codebase. Its JSX and Immer rules apply only where JSX or Immer are used, which this SDK does not.
 
 ## Commands
 
 ```
-npm test            # jest --silent
+npm test            # jest --silent (both projects)
+npm run typecheck   # tsc --noEmit for src/ and scripts/ci/
 npm run coverage    # jest --coverage --silent
 npm run build       # webpack production build → dist/domo.js
 npm run build:demo  # node demo/build.js
+npm run ci:build    # compile scripts/ci → .ci-out/
+npm run release:plan      # what Release would do now (SIMULATE_NOW=+15d, MASTER_REF=HEAD supported)
+npm run release:rehearse  # full merge → beta → publish rehearsal in a throwaway clone; never pushes or publishes
+```
+
+## Release Pipeline
+
+```
+.github/workflows/
+├── pr-validate.yml     # PR gate: typecheck, test, build, package contents
+├── release.yml         # push/cron/dispatch: plan (decides) -> prepare (builds, no secrets) -> push (deploy key, no repo code)
+└── publish.yml         # dispatched on a v* tag: verifies the tag commit, rebuilds, npm publish via OIDC
+scripts/ci/
+├── lib.ts              # Pure decision logic (version line, beta/rc numbers, soak gates, Jira blocker rule)
+├── jira.ts             # Jira Cloud search client (POST /rest/api/3/search/jql)
+├── github.ts           # release:hotfix integrity: label applied before merge by a maintainer/admin
+├── release.ts          # CLI: gathers npm/git/Jira state, writes the decision to $GITHUB_OUTPUT
+├── prepare-release.sh  # No credentials: build, test, compare package, version-only commit + tag, verify, write a git bundle
+├── push-release.sh     # Deploy key, no repo code: fetch the bundle, re-verify, push the tag (+ release branch), dispatch publish
+├── verify-tag.sh       # Publish gate: every commit in the GA → rc → beta → master chain is a bot-made version bump
+├── same-artifact.sh    # Compare two npm-pack tarballs (names, modes, symlinks, contents, install scripts)
+├── rehearse.sh         # Local end-to-end rehearsal (npm run release:rehearse)
+├── testing/repo.ts     # Test helper: throwaway git repos with stub npm/gh
+└── __tests__/          # lib, jira, github, verify-tag, push-release, same-artifact
 ```
 
 ## Annotated File Tree

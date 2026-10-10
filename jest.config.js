@@ -1,13 +1,21 @@
 const { createDefaultPreset } = require("ts-jest");
 
-const tsJestTransformCfg = createDefaultPreset({
-  tsconfig: "tsconfig.test.json",
-}).transform;
+const transformFor = (tsconfig) => createDefaultPreset({ tsconfig }).transform;
 
 /** @type {import("jest").Config} **/
 module.exports = {
-  testEnvironment: "jsdom",
-  transform: {
-    ...tsJestTransformCfg,
-  },
+  projects: [
+    {
+      displayName: "sdk",
+      testEnvironment: "jsdom",
+      roots: ["<rootDir>/src"],
+      transform: transformFor("tsconfig.test.json"),
+    },
+    {
+      displayName: "ci",
+      testEnvironment: "node",
+      roots: ["<rootDir>/scripts/ci"],
+      transform: transformFor("scripts/ci/tsconfig.json"),
+    },
+  ],
 };

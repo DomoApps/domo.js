@@ -7,3 +7,4 @@ demo/domo.js
 jira.apikey
 docs/
 .worktrees/
+.ci-out/
