@@ -58,6 +58,9 @@ export class Repo {
       chmodSync(path.join(this.bin, name), 0o755);
     }
     this.git('init', '-q', '-b', 'master');
+    // A CI runner has no global git identity; commands that don't pass -c user.* must not depend on one.
+    this.git('config', 'user.name', 'test');
+    this.git('config', 'user.email', 'test@example.invalid');
     writeFileSync(path.join(this.dir, '.git', 'info', 'exclude'), '.stub-bin\n.gh.log\nremote.git\nclone\n');
     this.write('package.json', { name: 'ryuu.js', version: '6.0.9-alpha.0', scripts: { build: 'webpack' } });
     this.write('package-lock.json', {
