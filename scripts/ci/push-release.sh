@@ -47,6 +47,8 @@ if [ "${DRY_RUN:-}" = true ]; then
   exit 0
 fi
 
-git push --atomic "$remote" "${refs[@]}"
+if ! git push --atomic "$remote" "${refs[@]}"; then
+  fail "the push to $remote was rejected, so nothing was pushed or published. Check that RELEASE_DEPLOY_KEY is set in the release environment, that its public key is a deploy key with write access, and that any tag or release-branch rulesets let deploy keys bypass them (RELEASING.md, One-time setup)"
+fi
 gh workflow run publish.yml --ref "refs/tags/$tag"
 echo "Pushed \`${refs[*]}\` and dispatched publish for \`$version\`." | tee -a "$summary"

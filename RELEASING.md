@@ -279,7 +279,7 @@ What this does not cover: the plan job runs repository code while it holds the r
    - On **all tags** (not only `v*`): restrict creations, updates and deletions. The release code no longer trusts short ref names, but there is no reason to let anyone else create tags.
    - On branches `release/v*`: restrict creations, updates and deletions, and block force pushes.
    - The tag and `release/v*` rulesets bypass for **Deploy keys** and the **Repository admin** role. Don't add PR or linear-history rules to `release/v*`.
-7. **First run.** Merge the release PR first: Run workflow only appears for a workflow file that is on `master`. Make sure the Jira account can browse Bug issues in `JIRA_PROJECTS` (the first check that needs Jira refuses to continue if it sees none). Do a dry run, then a real run (`dry_run=false`). Check that `npm view ryuu.js dist-tags` shows the new beta and that `latest` hasn't changed. Then set `RELEASE_ENABLED=true`.
+7. **First run.** Merge the release PR first: Run workflow only appears for a workflow file that is on `master`. Make sure the Jira account can browse Bug issues in `JIRA_PROJECTS` (the first check that needs Jira refuses to continue if it sees none). Do a dry run, then a real run (`dry_run=false`). The dry run fails with "RELEASE_DEPLOY_KEY is not set" until step 2 is done, and a green one proves the key exists and can reach the repository. Only the real run proves it has write access. Check that `npm view ryuu.js dist-tags` shows the new beta and that `latest` hasn't changed. Then set `RELEASE_ENABLED=true`, **only once the earlier steps are complete**: while it is on, every push to `master` and every daily run tries to release and fails if the setup is unfinished.
 
 ## Recovery
 
@@ -287,7 +287,12 @@ What this does not cover: the plan job runs repository code while it holds the r
 - **The run failed on a GitHub or Jira error.** Nothing is released and nothing is lost: the next run recomputes everything. A hotfix in particular is never downgraded to a normal release by a lookup failure.
 - **A hotfix stopped partway**, for example at the beta. Releases were paused, or a step failed. Start Release with Run workflow (`dry_run` off). The hotfix marker is on the tag, so the next step still skips its soak.
 - **A tag can never publish.** Its "Verify the tag" step keeps failing, which holds everything else up. It wasn't made by the pipeline. An admin deletes the tag, plus `release/vX.Y.Z` if there is one, then starts a run. **Never create `v*` tags or `release/v*` branches by hand.**
-- **A push is rejected by a ruleset**, or `release/vX.Y.Z` already exists. The deploy key is missing, read-only, or not in the bypass list, or someone created the branch by hand. Nothing was pushed (the push is atomic), and the message says which. Fix the key or the ruleset, or delete the stray branch, then start a run.
+- **The `push` job fails.** Nothing was pushed or published. The message tells you which of these it is:
+  - *"RELEASE_DEPLOY_KEY is not set in the release environment"*: add the secret (setup step 2).
+  - *"the push ... was rejected"* (usually a bare 403 above it): the key is read-only, or a ruleset blocks it because deploy keys are not in the bypass list.
+  - *"release/vX.Y.Z already exists"*: someone created that branch by hand; delete it.
+
+  Fix the cause, then start a run.
 - **`force_rc` / `force_ga` was refused** with "need the admin role". Ask an admin.
 - **An rc or GA refused because its package differs from the soaked one.** Builds have been byte-for-byte reproducible, so this means something real changed, for example the runner's toolchain. Investigate before forcing.
 - **A fix to `publish.yml` or `scripts/ci/verify-tag.sh` doesn't apply to an existing tag.** Each tag runs its own copy of both files.
