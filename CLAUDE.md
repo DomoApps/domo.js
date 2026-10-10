@@ -9,6 +9,14 @@ JavaScript SDK (published as `ryuu.js` on npm) for building custom apps inside t
 - **Type check:** `npm run typecheck` (SDK + CI scripts)
 - **Releasing:** automated `beta` → `rc` (first beta 7d + 3d quiet) → `latest` (7d) pipeline; a `release:hotfix` PR label skips both soaks. See [RELEASING.md](RELEASING.md). Never `npm publish` by hand.
 
+## Conventions
+
+Always consume and apply [CONVENTIONS.md](CONVENTIONS.md) to all code you write or modify in this repo, tests and scripts included. It is imported here so it is in context every session; do not skip it for small changes.
+
+@CONVENTIONS.md
+
+The file was written for a JS/React codebase. Its JSX and Immer rules apply only where JSX or Immer are used, which this SDK does not.
+
 ## Commands
 
 ```
