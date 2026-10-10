@@ -10,9 +10,10 @@ import {
   blockers,
   BugCheck,
   HOTFIX_LABEL,
+  HOTFIX_ROLES,
   HotfixCheck,
   NON_BUG_RESOLUTIONS,
-  parse,
+  parseTagRefs,
   planRelease,
   simulatedNow,
   State,
@@ -20,7 +21,8 @@ import {
 } from './lib';
 
 const PACKAGE = 'ryuu.js';
-const MASTER = process.env.MASTER_REF || 'origin/master';
+// Fully qualified: a tag named `origin/master` would otherwise shadow the remote-tracking branch.
+const MASTER = process.env.MASTER_REF || 'refs/remotes/origin/master';
 
 function sh(cmd: string, args: string[]): string {
   return execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }).trim();
@@ -31,18 +33,10 @@ function readNpm(): State['npm'] {
   return { versions: view.versions, time: view.time, distTags: view['dist-tags'] };
 }
 
-// cut-release.sh writes "(hotfix)" into the annotation of every tag in a hotfix release.
+// prepare-release.sh writes "(hotfix)" into the annotation of every tag in a hotfix release.
 function readTags(): Record<string, TagInfo> {
   const format = '%(refname:short)%09%(objecttype)%09%(objectname)%09%(*objectname)%09%(contents:subject)';
-  const refs = sh('git', ['for-each-ref', 'refs/tags', `--format=${format}`])
-    .split('\n')
-    .map((line) => line.split('\t'))
-    .filter(([name]) => name?.startsWith('v') && parse(name.slice(1)) !== null)
-    .map(([name, type, obj, peeled, subject]) => ({
-      version: name.slice(1),
-      sha: peeled || obj,
-      hotfix: type === 'tag' && /\(hotfix\)\s*$/.test(subject ?? ''),
-    }));
+  const refs = parseTagRefs(sh('git', ['for-each-ref', 'refs/tags', `--format=${format}`]));
   if (!refs.length) return {};
 
   const parents = new Map(
@@ -55,20 +49,22 @@ function readTags(): Record<string, TagInfo> {
   );
 }
 
-// Only called when a beta is about to be cut: does a merged PR since the last release carry the label?
+// Does a merged PR since the last release carry a hotfix label that a maintainer applied before the merge?
 function prHotfixCheck(): HotfixCheck {
   const cfg: GitHubConfig = {
     repo: process.env.GITHUB_REPOSITORY || 'DomoApps/domo.js',
     token: process.env.GH_TOKEN || process.env.GITHUB_TOKEN,
+    log: (message) => console.log(message),
   };
   return async (from, to) => {
     const shas = sh('git', ['rev-list', '--max-count=50', ...(from ? [`${from}..${to}`] : ['--max-count=1', to])])
       .split('\n')
       .filter(Boolean);
+    const verdicts = new Map<number, boolean>();
     for (const sha of shas) {
-      const prs = await labelledPrs(cfg, sha, HOTFIX_LABEL);
+      const prs = await labelledPrs(cfg, sha, HOTFIX_LABEL, HOTFIX_ROLES, verdicts);
       if (prs.length) {
-        console.log(`PR #${prs[0]} (${sha.slice(0, 7)}) is labelled ${HOTFIX_LABEL}`);
+        console.log(`PR #${prs[0]} (${sha.slice(0, 7)}) carries ${HOTFIX_LABEL}`);
         return true;
       }
     }
@@ -111,7 +107,13 @@ function report(s: State, action: Action): void {
 
   console.log(`plan: ${JSON.stringify(fields, null, 2)}`);
   if (process.env.GITHUB_OUTPUT) {
-    appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(fields).map(([k, v]) => `${k}=${v}\n`).join(''));
+    // One line per value: a newline in any of them would inject extra outputs.
+    appendFileSync(
+      process.env.GITHUB_OUTPUT,
+      Object.entries(fields)
+        .map(([k, v]) => `${k}=${v.replace(/[\r\n]+/g, ' ')}\n`)
+        .join(''),
+    );
   }
   if (process.env.GITHUB_STEP_SUMMARY) {
     const tags = s.npm.distTags;

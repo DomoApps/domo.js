@@ -41,22 +41,23 @@ Betas and rcs are prereleases. No package manager installs one from a normal ran
 ## The rules
 
 1. **Every PR** runs PR Validate (type check, tests, build, package contents). It must pass to merge.
-2. **After a merge**, Release builds `master` and compares the npm package with the last one published. A changed package becomes the next beta. A merge that only touches the demo, tests, CI or devDependencies publishes nothing.
-3. **A version moves from beta to rc** once its **first** beta is 7 days old, its **newest** beta is 3 days old, and it has no blocking bugs. A new beta restarts only the 3-day quiet clock, so steady merging can't hold a release back forever. Once the rc is cut, the next merge that changes the package starts the next patch version.
+2. **After a merge**, Release builds `master` and compares the npm package with the last one published. A changed package becomes the next beta. A merge that only touches the demo, tests, CI or devDependencies publishes nothing. README changes do publish a beta, because npm shows the README on the package page.
+3. **A version moves from beta to rc** once its **first** beta is 7 days old, its **newest** beta is 3 days old, and it has no blocking bugs. A new beta restarts only the 3-day quiet clock, and once the first beta is 14 days old the quiet period is waived, so steady merging can delay a release by at most a couple of weeks and never block it. Once the rc is cut, the next merge that changes the package starts the next patch version.
 4. **An rc that reaches 7 days with no blocking bugs** is published as `latest`, with a `vX.Y.Z` tag and a `release/vX.Y.Z` branch. Each step ships the exact build that soaked; only the version number changes.
-5. **A PR labeled `release:hotfix`** skips both soaks and the Jira check. See [Hotfixes](#hotfixes).
+5. **A PR labeled `release:hotfix`** by a maintainer or admin before it merges skips both soaks and the Jira check. See [Hotfixes](#hotfixes).
 6. **A bug blocks a version** when it's a Jira **Bug** labeled `ryuu.js-X.Y.Z` (no `-beta`/`-rc` suffix), and it's either still unresolved, or was reported during the current soak and wasn't closed as Duplicate, Won't Do, Won't Fix, Cannot Reproduce or Not a Bug. All priorities count.
-7. **Release runs** after every merge, daily at 15:23 UTC, and after every publish, but only while `RELEASE_ENABLED` is `true`. It also runs whenever you click Run workflow, whatever that setting is. Each run does at most one thing, in this order: retry a failed publish, release a soaked rc, promote a soaked beta, cut a beta.
+7. **Release runs** after every merge, daily at 15:23 UTC, and after every publish, but only while `RELEASE_ENABLED` is `true`. It also runs whenever you click Run workflow, whatever that setting is. Each run does at most one thing, in this order: retry a failed publish, a manual override, a hotfix, release a soaked rc, promote a soaked beta, cut a beta.
 
 ## Hotfixes
 
-To get a fix to customers right away, add the **`release:hotfix`** label to its PR **before merging**. The PR still needs review and passing checks to merge. After the merge, Release publishes the beta, the rc and `latest` back to back, about 15 minutes in all. Each step still builds, tests, verifies the tag and checks that the package is identical to the step before.
+To get a fix to customers right away, a **maintainer or admin** adds the **`release:hotfix`** label to its PR **before merging**. The PR still needs review and passing checks to merge. After the merge, Release publishes the beta, the rc and `latest` back to back, about 15 minutes in all. Each step still builds, tests, verifies the tag and checks that the package is identical to the step before.
 
+- **Only a maintainer or admin counts, and only before the merge.** Release looks at who applied the label and when. A label from anyone else, or one added after the merge, is ignored with a note in the run log, and the change goes through the normal soak. (Roles are `HOTFIX_ROLES` in `scripts/ci/lib.ts`.)
 - **It ships everything on `master` that isn't released yet**, not just the fix, because every release is cut from `master`.
-- **Any rc still soaking is superseded.** It ends up below `latest` and never ships on its own; its changes are in the hotfix.
-- **Adding the label after the merge does nothing.** For a fix that's already merged, use Run workflow with `force_rc` once its beta is published, then with `force_ga` once the rc is published.
+- **A hotfix takes priority** over a normal promotion that happens to be due, and it never asks Jira, so a Jira outage can't hold one up. Any rc still soaking is superseded: it ends up below `latest` and never ships on its own, since its changes are in the hotfix.
+- **It always releases, even if the package didn't change** (for example a comment-only edit). Skipping it would leave its label in scope and make the next unrelated merge look like a hotfix.
+- **For a fix that merged without the label**, an admin can use Run workflow with `force_rc` once its beta is published, then with `force_ga` once the rc is published. These are admin-only; see [Run workflow options](#run-workflow-options).
 - **The automatic chain needs `RELEASE_ENABLED=true`.** While releases are paused, start each step yourself with Run workflow (`dry_run` off). The hotfix marker is on the tag, so each step still skips its soak.
-- **If the PR doesn't change the npm package**, there's nothing to release.
 
 ## Example rollout
 
@@ -99,13 +100,14 @@ gantt
 
 | Interrupt | Effect |
 |---|---|
-| **A fix is urgent but already merged without the label** | Click Run workflow with `force_rc` once its beta is published, then with `force_ga` once the rc is published. The result is the same as the label |
+| **A fix is urgent but already merged without the label** | An admin clicks Run workflow with `force_rc` once its beta is published, then with `force_ga` once the rc is published. Each skips one soak and the Jira check |
 | **Releases are paused** (`RELEASE_ENABLED=false`) from day 9 to 15 | Merges and daily runs do nothing. Soak clocks keep counting, because they measure time since publish. The first run after resuming (day 15) cuts `6.0.10-rc.0`, 4 days later than in the example. Merges that waited ship as a beta right after |
 | **Jira is down**, or the token expired, when a promotion is due | That run fails and does nothing: no promotion, and no beta either. Every run with a promotion due keeps failing until it's fixed. After that, the next run carries on. Hotfixes don't consult Jira |
-| **The npm publish fails** (npm outage, trusted publisher misconfigured) | The git tag exists but the version isn't on npm. Every run retries that publish before anything else. Clocks start from the real npm publish time, so no soak is shortened |
+| **The npm publish fails** (npm outage, trusted publisher misconfigured) | The git tag exists but the version isn't on npm. Every run retries that publish before anything else, even a GA while the next version's betas are being published. Clocks start from the real npm publish time, so no soak is shortened |
 | **A bug filed against an rc is closed as Not a Bug** (or Duplicate, Won't Do…) | The block lifts. The rc continues on its original 7-day clock |
 | **A bug filed during a beta soak stays open** | The rc waits. Betas keep publishing as merges land; each restarts only the 3-day quiet clock |
-| **We want 6.1.0** | Open a PR that sets `master`'s `package.json` `version` to `6.1.0-beta.0`. The next merge that changes the package publishes `6.1.0-beta.0`. A 6.0.x line still in beta is abandoned; rcs already cut still continue to `latest` |
+| **We want 6.1.0** | Open a PR that sets `master`'s `package.json` `version` to `6.1.0-alpha.0`. Only the `6.1.0` is read, as a minimum; the next merge that changes the package publishes `6.1.0-beta.0`. A 6.0.x line still in beta is abandoned; rcs already cut still continue to `latest`. (Setting it to `6.1.0-beta.0` also works, but the first beta is then `beta.1`, because a release commit can't change a version that is already there.) Lowering it again later never moves the pipeline backwards |
+| **`latest` is rolled back** (`npm dist-tag add ryuu.js@<previous> latest`) | Release never releases a version at or below one already published, so a superseded rc can't come back. Fix forward with a new patch |
 | **A merge only touches the demo, tests, CI or devDependencies** | Nothing is published, and no clock changes |
 
 ## Testing it yourself
@@ -113,7 +115,8 @@ gantt
 From a local checkout. None of these push to GitHub or publish to npm.
 
 ```bash
-# Unit tests for the release logic
+# Tests for the release logic, the GitHub and Jira clients, and the shell scripts (verify-tag.sh,
+# push-release.sh, same-artifact.sh run against throwaway git repos)
 npx jest --selectProjects ci
 
 # What would Release do right now? (reads npm and origin/master)
@@ -126,14 +129,15 @@ SIMULATE_NOW=+15d npm run release:plan
 # ...as if your current branch were already merged
 MASTER_REF=HEAD npm run release:plan
 
-# Full rehearsal in a throwaway clone: merge → beta → tag → publish check,
-# ending with `npm publish --dry-run`
+# Full rehearsal in a throwaway clone, using the same scripts as the workflows:
+# merge → plan → prepare → push (to a local bare repo) → publish checks, ending with `npm publish --dry-run`.
+# KEEP_SANDBOX=1 keeps the clone afterwards so you can look around.
 npm run release:rehearse
 ```
 
 When a promotion is due, `release:plan` asks Jira, so export `JIRA_BASE_URL`, `JIRA_PROJECTS`, `JIRA_EMAIL` and `JIRA_API_TOKEN` first.
 
-On GitHub. A dry run builds and tests but pushes and publishes nothing:
+On GitHub. A dry run plans, builds, tests and tags on the runner, checks the deploy key, and then stops before pushing or publishing anything:
 
 ```bash
 gh workflow run release.yml --repo DomoApps/domo.js -f dry_run=true
@@ -164,6 +168,7 @@ UI: **Settings → Secrets and variables → Actions → Variables**
 ```bash
 gh variable set RELEASE_ENABLED --body true  --repo DomoApps/domo.js   # turn automatic releases on
 gh variable set RELEASE_ENABLED --body false --repo DomoApps/domo.js   # pause them
+gh variable set JIRA_BASE_URL --body https://domoinc.atlassian.net --repo DomoApps/domo.js
 gh variable set JIRA_PROJECTS --body DOMO    --repo DomoApps/domo.js
 gh variable list --repo DomoApps/domo.js
 ```
@@ -192,9 +197,11 @@ UI: **Actions → Release → Run workflow**
 | Option | Default | What it does |
 |---|---|---|
 | `dry_run` | on | Plan, build, test and compare, but push and publish nothing |
-| `force_rc` | off | Promote the newest beta to rc now, skipping the beta soak and the Jira check |
-| `force_ga` | off | Release the newest rc to `latest` now, skipping the 7-day rc soak and the Jira check |
+| `force_rc` | off | **Admins only.** Promote the newest beta to rc now, skipping the beta soak and the Jira check |
+| `force_ga` | off | **Admins only.** Release the newest rc to `latest` now, skipping the 7-day rc soak and the Jira check |
 | `simulate_now` | empty | Dry runs only: plan as if it were `+15d` from now, or an ISO time |
+
+Anyone with write access can start a run, and a real run (`dry_run` off) works even while `RELEASE_ENABLED` is off. It only does what the rules allow. The two force options are different, so the run refuses them unless the person who started it has the admin role.
 
 ```bash
 gh workflow run release.yml --repo DomoApps/domo.js -f dry_run=false                 # a real run
@@ -208,7 +215,7 @@ UI: the **Labels** box in the PR's sidebar.
 
 | Label | What it does |
 |---|---|
-| `release:hotfix` | When the PR merges, its release goes straight to `latest`. It must be on the PR before it merges. See [Hotfixes](#hotfixes) |
+| `release:hotfix` | When the PR merges, its release goes straight to `latest`. It only counts if a maintainer or admin applied it before the PR merged. See [Hotfixes](#hotfixes) |
 
 ```bash
 gh pr edit <number> --add-label release:hotfix --repo DomoApps/domo.js
@@ -220,7 +227,8 @@ gh pr edit <number> --remove-label release:hotfix --repo DomoApps/domo.js
 | Variable | Example | What it does |
 |---|---|---|
 | `SIMULATE_NOW` | `+15d`, `2026-12-01T00:00:00Z` | Plan as if it were that time |
-| `MASTER_REF` | `HEAD` | Plan as if this ref were `master` (default `origin/master`) |
+| `MASTER_REF` | `HEAD` | Plan as if this ref were `master` (default `refs/remotes/origin/master`) |
+| `GH_TOKEN` | a token | Lets the plan check who applied a `release:hotfix` label; without it, labels are read anonymously and any that need a permission lookup are ignored |
 | `FORCE_RC`, `FORCE_GA` | `true` | Same as the Run workflow options |
 | `JIRA_*` | see above | Only needed when a promotion is due |
 
@@ -230,15 +238,17 @@ Change these with a PR.
 
 | To change | Edit |
 |---|---|
-| The soak lengths | `BETA_SOAK_DAYS` (7), `BETA_QUIET_DAYS` (3) and `RC_SOAK_DAYS` (7) in `scripts/ci/lib.ts` |
-| The hotfix label's name | `HOTFIX_LABEL` in `scripts/ci/lib.ts` |
+| The soak lengths | `BETA_SOAK_DAYS` (7), `BETA_QUIET_DAYS` (3), `BETA_MAX_DAYS` (14), `RC_SOAK_DAYS` (7) and `SOAK_GRACE_DAYS` (1 hour, so a cron run a few minutes early still counts) in `scripts/ci/lib.ts` |
+| The hotfix label's name, and who may apply it | `HOTFIX_LABEL` and `HOTFIX_ROLES` (`admin`, `maintain`) in `scripts/ci/lib.ts` |
 | Which Jira resolutions don't count as bugs | `NON_BUG_RESOLUTIONS` in `scripts/ci/lib.ts` |
 | When the daily run happens | The `cron` line in `.github/workflows/release.yml` |
-| The version line (e.g. start 6.1.0) | `version` in `master`'s `package.json`. Only its X.Y.Z is read, as a minimum |
+| The version line (e.g. start 6.1.0) | `version` in `master`'s `package.json`, e.g. `6.1.0-alpha.0`. Only its X.Y.Z is read, as a minimum |
 
 ## One-time setup
 
-**Who can publish:** only a reviewed merge to `master`, or a repo admin. Only the deploy key and admins can create `v*` tags, and the deploy key is only available to jobs running on `master`.
+**Who can publish.** A publish needs a `v*` tag, and only the deploy key and repo admins can create tags (step 6). The deploy key reaches one small job, which runs on `master` and executes no repository code; the build and the tests run in a job with no secrets, and the key job re-verifies that the tag is exactly a reviewed `master` commit plus a version bump. A change reaches `master` only through a reviewed PR, if the settings in step 6 are in place. Two things deliberately skip the soaks: an admin using `force_rc`/`force_ga`, and a `release:hotfix` label applied by a maintainer or admin before merge.
+
+What this does not cover: the plan job runs repository code while it holds the read-only Jira credentials, and it decides what the later jobs build. A compromised dev dependency could therefore make a release happen early. It cannot make one contain anything but reviewed `master` content. Actions are pinned to major versions, not commit SHAs, which is a supply-chain trade-off to revisit.
 
 1. **Environments.** In the UI: **Settings → Environments → New environment**, then under Deployment branches and tags choose Selected. Create `release` allowing branch `master`, and `npm-publish` allowing tags `v*`. Or from the CLI:
    ```bash
@@ -257,29 +267,30 @@ Change these with a PR.
    gh secret set RELEASE_DEPLOY_KEY --env release --repo DomoApps/domo.js < ryuu-release
    rm ryuu-release ryuu-release.pub
    ```
-3. **Jira secrets and the variables** listed under [Settings](#settings). Leave `RELEASE_ENABLED` off for now.
+3. **Jira secrets and the variables** listed under [Settings](#settings). Leave `RELEASE_ENABLED` off for now. The Jira account only sees issues its permissions allow, so a bug under a restricted security level won't block a release.
 4. **The hotfix label.** UI: **Issues → Labels → New label**. Or:
    ```bash
    gh label create release:hotfix --color B60205 --description "Release straight to latest after merge" --repo DomoApps/domo.js
    ```
-5. **npm trusted publisher**, added by an npm maintainer of `ryuu.js`: on npmjs.com, open the package's **Settings → Trusted publishing** and add GitHub Actions with repo `DomoApps/domo.js`, workflow `publish.yml`, environment `npm-publish`. No npm token is stored anywhere. After the first publish works, set publishing access to disallow tokens.
-6. **Rulesets** (UI: **Settings → Rules → Rulesets**):
-   - On `master`, require the `build-test` status check.
-   - On tags `v*`, restrict creations, updates and deletions.
-   - On branches `release/v*`, restrict creations, updates and deletions, and block force pushes.
-   - Both bypass for **Deploy keys** and the **Repository admin** role.
-   - Don't add PR or linear-history rules to `release/v*`.
-7. **First run.** Do a dry run, then a real run (`dry_run=false`). Check that `npm view ryuu.js dist-tags` shows the new beta and that `latest` hasn't changed. Then set `RELEASE_ENABLED=true`.
+5. **npm trusted publisher**, added by an npm maintainer of `ryuu.js`: on npmjs.com, open the package's **Settings → Trusted publishing** and add GitHub Actions with repo `DomoApps/domo.js`, workflow `publish.yml`, and **environment `npm-publish`. The environment field is optional on npm, but leave it blank and any branch's modified `publish.yml` could publish.** No npm token is stored anywhere. After the first publish works, set publishing access to disallow tokens, so old maintainer tokens stop working too.
+6. **Rulesets** (UI: **Settings → Rules → Rulesets**). Each must be **Active**, not Evaluate:
+   - On `master`: require the `build-test` status check, **dismiss stale approvals when new commits are pushed**, and **require approval of the most recent push**. Without those two, an author can get a harmless change approved, push something else, and merge. Also require code owner review, with `CODEOWNERS` covering `.github/` and `scripts/ci/`, since they run with secrets after merge.
+   - On **all tags** (not only `v*`): restrict creations, updates and deletions. The release code no longer trusts short ref names, but there is no reason to let anyone else create tags.
+   - On branches `release/v*`: restrict creations, updates and deletions, and block force pushes.
+   - The tag and `release/v*` rulesets bypass for **Deploy keys** and the **Repository admin** role. Don't add PR or linear-history rules to `release/v*`.
+7. **First run.** Merge the release PR first: Run workflow only appears for a workflow file that is on `master`. Make sure the Jira account can browse Bug issues in `JIRA_PROJECTS` (the first check that needs Jira refuses to continue if it sees none). Do a dry run, then a real run (`dry_run=false`). Check that `npm view ryuu.js dist-tags` shows the new beta and that `latest` hasn't changed. Then set `RELEASE_ENABLED=true`.
 
 ## Recovery
 
-- **A publish failed after its tag was pushed.** The next run retries it automatically while `RELEASE_ENABLED` is on; otherwise start a run yourself. Re-running Publish on a tag that's already on npm does nothing.
+- **A publish failed or was cancelled after its tag was pushed.** The next run retries it automatically while `RELEASE_ENABLED` is on; otherwise start a run yourself. This includes a GA whose publish was lost while the next version's betas were going out. Re-running Publish on a tag that's already on npm does nothing.
+- **The run failed on a GitHub or Jira error.** Nothing is released and nothing is lost: the next run recomputes everything. A hotfix in particular is never downgraded to a normal release by a lookup failure.
 - **A hotfix stopped partway**, for example at the beta. Releases were paused, or a step failed. Start Release with Run workflow (`dry_run` off). The hotfix marker is on the tag, so the next step still skips its soak.
 - **A tag can never publish.** Its "Verify the tag" step keeps failing, which holds everything else up. It wasn't made by the pipeline. An admin deletes the tag, plus `release/vX.Y.Z` if there is one, then starts a run. **Never create `v*` tags or `release/v*` branches by hand.**
-- **A push is rejected by a ruleset.** The deploy key is missing, read-only, or not in the bypass list. Nothing was pushed. Fix the key or the ruleset, then start a run.
+- **A push is rejected by a ruleset**, or `release/vX.Y.Z` already exists. The deploy key is missing, read-only, or not in the bypass list, or someone created the branch by hand. Nothing was pushed (the push is atomic), and the message says which. Fix the key or the ruleset, or delete the stray branch, then start a run.
+- **`force_rc` / `force_ga` was refused** with "need the admin role". Ask an admin.
 - **An rc or GA refused because its package differs from the soaked one.** Builds have been byte-for-byte reproducible, so this means something real changed, for example the runner's toolchain. Investigate before forcing.
 - **A fix to `publish.yml` or `scripts/ci/verify-tag.sh` doesn't apply to an existing tag.** Each tag runs its own copy of both files.
 - **The daily run stopped.** GitHub disables scheduled workflows after 60 days without repository activity. Re-enable it under **Actions → Release**.
-- **Rolling back `latest`:** an npm maintainer runs `npm dist-tag add ryuu.js@<previous> latest`. Release never moves `latest` backwards, and never releases a version at or below it.
+- **Rolling back `latest`:** an npm maintainer runs `npm dist-tag add ryuu.js@<previous> latest`. Release never moves `latest` backwards, and never releases a version at or below any already published, so a superseded rc can't come back. Fix forward with a new patch.
 
 The scripts behind the workflows live in `scripts/ci/`. The decision logic is in `lib.ts`, which the `ci` Jest project tests.

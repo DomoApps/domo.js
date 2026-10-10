@@ -8,14 +8,18 @@ on:
 
 permissions: {}
 
+# Up to 100 publishes wait in order. By default a newer run would cancel the one waiting, and a GA queued
+# behind a beta would be lost.
 concurrency:
   group: ryuu-publish
   cancel-in-progress: false
+  queue: max
 
 jobs:
   build:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     outputs:
@@ -61,6 +65,7 @@ jobs:
     needs: build
     if: needs.build.outputs.skip == 'false'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: npm-publish
     permissions:
       id-token: write

@@ -9,6 +9,7 @@ import {
   nextNumber,
   NON_BUG_RESOLUTIONS,
   parse,
+  parseTagRefs,
   pendingPublish,
   planRelease,
   simulatedNow,
@@ -144,6 +145,14 @@ describe('activeBase', () => {
     expect(activeBase(s)).toBe('6.0.10');
   });
 
+  it("stays on a published beta line when master's floor is lowered below it", () => {
+    const s = base();
+    s.npm.versions.push('6.1.0-beta.0');
+    s.npm.time['6.1.0-beta.0'] = ago(1);
+    s.masterVersion = '6.0.9-alpha.0';
+    expect(activeBase(s)).toBe('6.1.0');
+  });
+
   it('honours a higher floor from master package.json', () => {
     const s = base();
     s.masterVersion = '6.1.0-beta.0';
@@ -152,6 +161,12 @@ describe('activeBase', () => {
 });
 
 describe('nextNumber', () => {
+  it("never reuses the version master's package.json already says", () => {
+    const s = base();
+    s.masterVersion = '6.1.0-beta.0';
+    expect(nextNumber('6.1.0', 'beta', s)).toBe(1);
+  });
+
   it('starts at 0', () => {
     expect(nextNumber('6.0.10', 'beta', base())).toBe(0);
     expect(nextNumber('6.0.10', 'rc', inBeta(1))).toBe(0);
@@ -176,6 +191,21 @@ describe('pendingPublish', () => {
     const s = inBeta(20);
     s.tags['6.0.10-rc.0'] = { sha: 'r0', parent: 'b1' };
     expect(pendingPublish(s)).toBe('6.0.10-rc.0');
+  });
+
+  it('still finds an unpublished GA when a newer line has already published betas', () => {
+    const s = inRc(8);
+    s.tags['6.0.10'] = { sha: 'g0', parent: 'r0' };
+    s.npm.versions.push('6.0.11-beta.0');
+    s.npm.time['6.0.11-beta.0'] = ago(1);
+    s.tags['6.0.11-beta.0'] = { sha: 'b11', parent: 'm9' };
+    expect(pendingPublish(s)).toBe('6.0.10');
+  });
+
+  it('ignores an unpublished beta tag below the highest published GA', () => {
+    const s = base();
+    s.tags['6.0.8-beta.3'] = { sha: 'old', parent: 'mx' };
+    expect(pendingPublish(s)).toBeNull();
   });
 
   it('ignores tags already on npm and old orphaned tags', () => {
@@ -278,7 +308,8 @@ describe('planRelease: beta', () => {
     const s = inBeta(1);
     s.masterVersion = '6.1.0-beta.0';
     s.masterSha = 'm3';
-    expect(await planRelease(s, noBugs)).toMatchObject({ kind: 'beta', version: '6.1.0-beta.0', compare: '6.0.9' });
+    // master already says 6.1.0-beta.0, which a release commit could not change, so the line starts at beta.1
+    expect(await planRelease(s, noBugs)).toMatchObject({ kind: 'beta', version: '6.1.0-beta.1', compare: '6.0.9' });
   });
 });
 
@@ -298,13 +329,13 @@ describe('planRelease: beta → rc (first beta 7 days old, newest beta 3 days qu
 
   it('waits until the first beta of the line is 7 days old', async () => {
     const bugs = jest.fn(noBugs);
-    expect(await planRelease(inBeta(4, 7 - 1 / 24 / 60), bugs)).toMatchObject({ kind: 'none' });
+    expect(await planRelease(inBeta(4, 7 - 2 / 24), bugs)).toMatchObject({ kind: 'none' });
     expect(bugs).not.toHaveBeenCalled();
   });
 
   it('waits until the newest beta has been quiet for 3 days', async () => {
     const bugs = jest.fn(noBugs);
-    expect(await planRelease(inBeta(3 - 1 / 24 / 60, 30), bugs)).toMatchObject({ kind: 'none' });
+    expect(await planRelease(inBeta(3 - 2 / 24, 10), bugs)).toMatchObject({ kind: 'none' });
     expect(bugs).not.toHaveBeenCalled();
   });
 
@@ -369,7 +400,7 @@ describe('planRelease: after rc, the next line', () => {
 describe('planRelease: rc → latest after 7 days', () => {
   it('waits until the rc has soaked 7 days', async () => {
     const bugs = jest.fn(noBugs);
-    expect(await planRelease(inRc(7 - 1 / 24 / 60), bugs)).toMatchObject({ kind: 'none' });
+    expect(await planRelease(inRc(7 - 2 / 24), bugs)).toMatchObject({ kind: 'none' });
     expect(bugs).not.toHaveBeenCalled();
   });
 
@@ -474,11 +505,52 @@ describe('planRelease: the release:hotfix label', () => {
     expect(isHotfix).toHaveBeenCalledWith(null, 'm1');
   });
 
-  it('only looks up labels when a beta is about to be cut', async () => {
+  it('only looks up labels when master has unreleased commits', async () => {
     const isHotfix = jest.fn(labelled);
     await planRelease(inBeta(1), noBugs, {}, isHotfix);
     await planRelease(inBeta(3, 7), noBugs, {}, isHotfix);
     expect(isHotfix).not.toHaveBeenCalled();
+    const s = inBeta(1);
+    s.masterSha = 'm3';
+    await planRelease(s, noBugs, {}, isHotfix);
+    expect(isHotfix).toHaveBeenCalledTimes(1);
+  });
+
+  it('cuts a hotfix beta even when a normal promotion is ripe and Jira is down', async () => {
+    const s = inRc(20); // 6.0.10-rc.0 has soaked well past 7 days
+    s.masterSha = 'm3';
+    const bugs: BugCheck = async () => {
+      throw new Error('Jira returned 503');
+    };
+    expect(await planRelease(s, bugs, {}, labelled)).toMatchObject({
+      kind: 'beta',
+      version: '6.0.11-beta.0',
+      hotfix: true,
+    });
+  });
+
+  it('a hotfix beta takes priority over releasing a ripe, bug-free rc', async () => {
+    const s = inRc(20);
+    s.masterSha = 'm3';
+    expect(await planRelease(s, noBugs, {}, labelled)).toMatchObject({ kind: 'beta', hotfix: true });
+  });
+
+  it('fails the run if the label lookup fails, rather than cutting a normal beta and losing the hotfix', async () => {
+    const s = inBeta(1);
+    s.masterSha = 'm3';
+    const broken: HotfixCheck = async () => {
+      throw new Error('GitHub 500');
+    };
+    await expect(planRelease(s, noBugs, {}, broken)).rejects.toThrow('GitHub 500');
+  });
+
+  it('continues a hotfix chain without consulting Jira, even if Jira is down', async () => {
+    const s = inBeta(0, 0);
+    s.tags['6.0.10-beta.1'].hotfix = true;
+    const down: BugCheck = async () => {
+      throw new Error('Jira returned 503');
+    };
+    expect(await planRelease(s, down)).toMatchObject({ kind: 'rc', hotfix: true });
   });
 
   it('promotes a hotfix beta to rc immediately, without the soak or the bug check', async () => {
@@ -512,5 +584,136 @@ describe('planRelease: the release:hotfix label', () => {
     s.tags['6.0.11-rc.0'] = { sha: 'r11', parent: 'b11', hotfix: true };
     s.masterSha = 'm3';
     expect(await planRelease(s, noBugs)).toMatchObject({ kind: 'ga', version: '6.0.11', hotfix: true });
+  });
+});
+
+describe('planRelease: edge cases found in review', () => {
+  it('does not re-release a superseded rc after a maintainer rolls latest back', async () => {
+    const s = inRc(20);
+    s.npm.versions.push('6.0.11-beta.0', '6.0.11-rc.0', '6.0.11');
+    s.npm.time['6.0.11-beta.0'] = ago(10);
+    s.npm.time['6.0.11-rc.0'] = ago(9);
+    s.npm.time['6.0.11'] = ago(8);
+    s.tags['6.0.11-beta.0'] = { sha: 'b11', parent: 'm3' };
+    s.tags['6.0.11-rc.0'] = { sha: 'r11', parent: 'b11' };
+    s.tags['6.0.11'] = { sha: 'g11', parent: 'r11' };
+    s.npm.distTags.latest = '6.0.9'; // rolled back
+    s.masterSha = 'm3';
+    expect(await planRelease(s, noBugs)).not.toMatchObject({ kind: 'ga' });
+  });
+
+  it('force_rc promotes the newest beta even when an older rc is ripe for release', async () => {
+    const s = inRc(20);
+    s.npm.versions.push('6.0.11-beta.0');
+    s.npm.time['6.0.11-beta.0'] = ago(1);
+    s.tags['6.0.11-beta.0'] = { sha: 'b11', parent: 'm3' };
+    s.masterSha = 'm3';
+    expect(await planRelease(s, noBugs, { forceRc: true })).toMatchObject({ kind: 'rc', version: '6.0.11-rc.0' });
+  });
+
+  it('force_ga releases the highest rc, not the lowest', async () => {
+    const s = inRc(20);
+    s.npm.versions.push('6.0.11-beta.0', '6.0.11-rc.0');
+    s.npm.time['6.0.11-beta.0'] = ago(3);
+    s.npm.time['6.0.11-rc.0'] = ago(1);
+    s.tags['6.0.11-beta.0'] = { sha: 'b11', parent: 'm3' };
+    s.tags['6.0.11-rc.0'] = { sha: 'r11', parent: 'b11' };
+    s.masterSha = 'm3';
+    expect(await planRelease(s, noBugs, { forceGa: true })).toMatchObject({ kind: 'ga', version: '6.0.11' });
+  });
+
+  it('keeps going past a blocked rc to release an older ripe one', async () => {
+    const s = inRc(20);
+    s.npm.versions.push('6.0.11-beta.0', '6.0.11-rc.0');
+    s.npm.time['6.0.11-beta.0'] = ago(30);
+    s.npm.time['6.0.11-rc.0'] = ago(8);
+    s.tags['6.0.11-beta.0'] = { sha: 'b11', parent: 'm3' };
+    s.tags['6.0.11-rc.0'] = { sha: 'r11', parent: 'b11' };
+    s.masterSha = 'm3';
+    const bugs: BugCheck = async (labels) => (labels.includes('ryuu.js-6.0.11') ? ['DOMO-1'] : []);
+    expect(await planRelease(s, bugs)).toMatchObject({ kind: 'ga', version: '6.0.10' });
+  });
+
+  it('a version stuck at the soak boundary is released by a cron run a few minutes early (grace)', async () => {
+    expect(await planRelease(inRc(7 - 0.5 / 24), noBugs)).toMatchObject({ kind: 'ga', version: '6.0.10' });
+    expect(await planRelease(inBeta(3 - 0.5 / 24, 7 - 0.5 / 24), noBugs)).toMatchObject({ kind: 'rc' });
+  });
+});
+
+describe('planRelease: steady merging cannot starve a release', () => {
+  // Merge every `every` days for `days` days with no bugs; the pipeline runs daily and chains hand-backs.
+  async function simulate(every: number, days: number) {
+    const s = base();
+    s.masterSha = 'm0';
+    s.npm.time['6.0.9'] = ago(60);
+    const t0 = NOW.getTime();
+    let merges = 0;
+    const out = { rcs: 0, gas: 0 };
+    for (let day = 0; day < days; day++) {
+      s.now = new Date(t0 + day * DAY);
+      if (day % every === 0) s.masterSha = `m${++merges}`;
+      for (let step = 0; step < 4; step++) {
+        const a = await planRelease(s, noBugs);
+        if (a.kind !== 'beta' && a.kind !== 'rc' && a.kind !== 'ga') break;
+        s.npm.versions.push(a.version);
+        s.npm.time[a.version] = s.now.toISOString();
+        s.tags[a.version] = { sha: `${a.kind}-${a.version}`, parent: a.kind === 'beta' ? a.from : s.tags[a.from.slice(1)].sha };
+        if (a.kind === 'rc') out.rcs++;
+        if (a.kind === 'ga') {
+          out.gas++;
+          s.npm.distTags.latest = a.version;
+        }
+      }
+    }
+    return out;
+  }
+
+  it.each([1, 2, 3, 7])('a package-changing merge every %i day(s) still reaches latest', async (every) => {
+    const r = await simulate(every, 120);
+    expect(r.rcs).toBeGreaterThan(3);
+    expect(r.gas).toBeGreaterThan(3);
+  });
+
+  it('promotes once the first beta is 14 days old, however recently the newest beta was cut', async () => {
+    expect(await planRelease(inBeta(0.5, 14), noBugs)).toMatchObject({ kind: 'rc', version: '6.0.10-rc.0' });
+  });
+
+  it('does not take the 14-day shortcut early', async () => {
+    expect(await planRelease(inBeta(1, 13 - 2 / 24), noBugs)).toMatchObject({ kind: 'none' });
+  });
+});
+
+describe('parseTagRefs', () => {
+  const line = (...f: string[]) => f.join('\t');
+
+  it('flags an annotated tag whose subject ends in (hotfix)', () => {
+    const out = parseTagRefs(line('v6.0.10-beta.1', 'tag', 'tagobj', 'commit1', 'ryuu.js 6.0.10-beta.1 (hotfix)'));
+    expect(out).toEqual([{ version: '6.0.10-beta.1', sha: 'commit1', hotfix: true }]);
+  });
+
+  it('does not flag a normal annotated tag or one that merely mentions hotfix', () => {
+    const out = parseTagRefs(
+      [
+        line('v6.0.10-beta.0', 'tag', 't1', 'c1', 'ryuu.js 6.0.10-beta.0'),
+        line('v6.0.10-beta.2', 'tag', 't2', 'c2', 'ryuu.js (hotfix) notes'),
+      ].join('\n'),
+    );
+    expect(out.map((o) => o.hotfix)).toEqual([false, false]);
+  });
+
+  it('never flags a lightweight tag, whatever the commit subject says', () => {
+    const out = parseTagRefs(line('v6.0.10-beta.3', 'commit', 'c3', '', 'fix thing (hotfix)'));
+    expect(out).toEqual([{ version: '6.0.10-beta.3', sha: 'c3', hotfix: false }]);
+  });
+
+  it('ignores tags that are not pipeline-format versions', () => {
+    const out = parseTagRefs(
+      [line('latest', 'commit', 'c', '', 'x'), line('v1.0', 'commit', 'c', '', 'x'), line('origin/master', 'commit', 'c', '', 'x')].join('\n'),
+    );
+    expect(out).toEqual([]);
+  });
+
+  it('returns nothing for empty output', () => {
+    expect(parseTagRefs('')).toEqual([]);
   });
 });

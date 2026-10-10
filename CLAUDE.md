@@ -27,17 +27,20 @@ npm run release:rehearse  # full merge → beta → publish rehearsal in a throw
 ```
 .github/workflows/
 ├── pr-validate.yml     # PR gate: typecheck, test, build, package contents
-├── release.yml         # push/cron/dispatch: decides the next step (beta, rc, GA); one irreversible action per run
+├── release.yml         # push/cron/dispatch: plan (decides) -> prepare (builds, no secrets) -> push (deploy key, no repo code)
 └── publish.yml         # dispatched on a v* tag: verifies the tag commit, rebuilds, npm publish via OIDC
 scripts/ci/
 ├── lib.ts              # Pure decision logic (version line, beta/rc numbers, soak gates, Jira blocker rule)
 ├── jira.ts             # Jira Cloud search client (POST /rest/api/3/search/jql)
-├── github.ts           # Looks up merged PRs' labels for release:hotfix
+├── github.ts           # release:hotfix integrity: label applied before merge by a maintainer/admin
 ├── release.ts          # CLI: gathers npm/git/Jira state, writes the decision to $GITHUB_OUTPUT
-├── cut-release.sh      # Build, compare artifact, commit version bump, tag, push, dispatch publish
+├── prepare-release.sh  # No credentials: build, test, compare package, version-only commit + tag, verify, write a git bundle
+├── push-release.sh     # Deploy key, no repo code: fetch the bundle, re-verify, push the tag (+ release branch), dispatch publish
+├── verify-tag.sh       # Publish gate: every commit in the GA → rc → beta → master chain is a bot-made version bump
+├── same-artifact.sh    # Compare two npm-pack tarballs (names, modes, symlinks, contents, install scripts)
 ├── rehearse.sh         # Local end-to-end rehearsal (npm run release:rehearse)
-├── same-artifact.sh    # Compare two npm-pack tarballs, ignoring version/scripts/devDependencies
-└── verify-tag.sh       # publish.yml guard: every commit in the GA → rc → beta → master chain is a bot-made version bump
+├── testing/repo.ts     # Test helper: throwaway git repos with stub npm/gh
+└── __tests__/          # lib, jira, github, verify-tag, push-release, same-artifact
 ```
 
 ## Annotated File Tree

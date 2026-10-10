@@ -5,11 +5,17 @@
 
 /** A line's first beta must be this old before it can become an rc... */
 export const BETA_SOAK_DAYS = 7;
-/** ...and its newest beta this old, so the latest change has soaked too. */
+/** ...and its newest beta this old, so the latest change has soaked too... */
 export const BETA_QUIET_DAYS = 3;
+/** ...unless the first beta is this old, when the newest is promoted regardless, so steady merging can't starve a release. */
+export const BETA_MAX_DAYS = 14;
 export const RC_SOAK_DAYS = 7;
+/** A run that lands within this long of a soak's end counts as ripe (cron jitter, publish latency). */
+export const SOAK_GRACE_DAYS = 1 / 24;
 /** A merged PR with this label sends its release straight to latest. */
 export const HOTFIX_LABEL = 'release:hotfix';
+/** Repository roles whose application of HOTFIX_LABEL counts. */
+export const HOTFIX_ROLES = ['admin', 'maintain'];
 export const NON_BUG_RESOLUTIONS = ['duplicate', "won't do", "won't fix", 'cannot reproduce', 'not a bug'];
 
 const DAY_MS = 86_400_000;
@@ -85,6 +91,30 @@ export function parse(v: string): Parsed | null {
   };
 }
 
+export interface TagRef {
+  version: string;
+  sha: string;
+  hotfix: boolean;
+}
+
+/**
+ * Parses `git for-each-ref refs/tags --format='%(refname:short)<TAB>%(objecttype)<TAB>%(objectname)<TAB>
+ * %(*objectname)<TAB>%(contents:subject)'`. prepare-release.sh writes "(hotfix)" at the end of the annotation of
+ * every tag in a hotfix release; lightweight tags can never carry the marker.
+ */
+export function parseTagRefs(output: string): TagRef[] {
+  return output
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.split('\t'))
+    .filter(([name]) => name.startsWith('v') && parse(name.slice(1)) !== null)
+    .map(([name, type, obj, peeled, subject]) => ({
+      version: name.slice(1),
+      sha: peeled || obj,
+      hotfix: type === 'tag' && /\(hotfix\)\s*$/.test(subject ?? ''),
+    }));
+}
+
 /** Lenient `X.Y.Z` prefix, used for master's package.json version floor. */
 export function baseOf(v: string): string | null {
   const m = /^(\d+\.\d+\.\d+)/.exec(v);
@@ -114,19 +144,28 @@ export function simulatedNow(input: string, real: Date): Date {
   throw new Error(`simulate_now must be +Nd or an ISO timestamp, got "${input}"`);
 }
 
-/** The X.Y.Z that new merges ship as betas: the line after the newest rc or GA, or master's floor. */
+/**
+ * The X.Y.Z that new merges ship as betas: the line after the newest rc or GA, master's floor, or a
+ * published beta line that is already higher (lowering the floor never moves the pipeline backwards).
+ */
 export function activeBase(s: State): string {
-  const finished = known(s).filter((v) => mustParse(v).pre !== 'beta');
+  const all = known(s);
+  const finished = all.filter((v) => mustParse(v).pre !== 'beta');
+  const betas = all.filter((v) => mustParse(v).pre === 'beta').map((v) => mustParse(v).base);
   const next = finished.length ? nextPatch(finished[finished.length - 1]) : null;
   const floor = baseOf(s.masterVersion);
-  const candidates = [next, floor].filter((v): v is string => v !== null).sort(cmp);
+  const highestBeta = betas.length ? betas.sort(cmp)[betas.length - 1] : null;
+  const candidates = [next, floor, highestBeta].filter((v): v is string => v !== null).sort(cmp);
   if (!candidates.length) throw new Error(`no released versions and no usable master version (${s.masterVersion})`);
   return candidates[candidates.length - 1];
 }
 
-/** One past every `pre` number npm or git has ever seen for `base`; npm never reuses a version. */
+/**
+ * One past every `pre` number npm or git has ever seen for `base` (npm never reuses a version), and past the
+ * version master's package.json already says, which a release commit could not change.
+ */
 export function nextNumber(base: string, pre: Pre, s: State): number {
-  const seen = [...s.npm.versions, ...Object.keys(s.npm.time), ...Object.keys(s.tags)]
+  const seen = [...s.npm.versions, ...Object.keys(s.npm.time), ...Object.keys(s.tags), s.masterVersion]
     .map(parse)
     .filter((p): p is Parsed => p !== null && p.base === base && p.pre === pre)
     .map((p) => p.num as number);
@@ -135,18 +174,19 @@ export function nextNumber(base: string, pre: Pre, s: State): number {
 
 /** A pipeline tag that was pushed but never reached npm (e.g. the publish run failed). */
 export function pendingPublish(s: State): string | null {
-  const onNpm = sorted(s.npm.versions);
-  const npmMax = onNpm[onNpm.length - 1];
+  // Compare with the highest published GA, not the highest version of any kind: while an rc soaks, the next
+  // line's betas are already on npm, and a failed GA publish must still be retried.
+  const publishedGa = newest(sorted(s.npm.versions).filter((v) => mustParse(v).pre === null));
   const pending = sorted(releaseTags(s)).filter(
-    (v) => !(v in s.npm.time) && !s.npm.versions.includes(v) && (!npmMax || cmp(v, npmMax) > 0),
+    (v) => !(v in s.npm.time) && !s.npm.versions.includes(v) && (!publishedGa || cmp(v, publishedGa) > 0),
   );
   return pending[0] ?? null;
 }
 
 /**
- * At most one irreversible step per run, in priority order: finish a pending publish,
- * release a soaked rc as latest, promote a soaked beta to rc, cut a beta from master.
- * Hotfix releases (marked on their tags) skip the soaks and the Jira check at every step.
+ * At most one irreversible step per run, in priority order: finish a pending publish, manual overrides,
+ * hotfixes (which skip every soak and never consult Jira), release a soaked rc as latest, promote a soaked
+ * beta to rc, cut a beta from master.
  */
 export async function planRelease(
   s: State,
@@ -157,20 +197,55 @@ export async function planRelease(
   const pending = pendingPublish(s);
   if (pending) return { kind: 'publish', version: pending, reason: `v${pending} is tagged but not on npm` };
 
-  const notes: string[] = [];
-
-  // rc → latest
+  const line = activeBase(s);
   const rcs = gaCandidates(s);
+  const betas = stage(line, 'beta', s.npm.versions).filter((v) => s.tags[v]);
+  const beta = newest(betas);
+  const shippedSha = lastShippedMasterSha(line, s);
+  const unreleased = shippedSha !== s.masterSha;
+
+  const toRc = (reason: string): Action => ({
+    kind: 'rc',
+    version: `${line}-rc.${nextNumber(line, 'rc', s)}`,
+    from: `v${beta}`,
+    compare: beta as string,
+    hotfix: Boolean(beta && s.tags[beta].hotfix),
+    reason,
+  });
+  const toBeta = (hotfix: boolean, reason: string): Action => ({
+    kind: 'beta',
+    version: `${line}-beta.${nextNumber(line, 'beta', s)}`,
+    from: s.masterSha,
+    compare: beta ?? newest(sorted(s.npm.versions).filter((v) => mustParse(v).pre !== 'beta')),
+    hotfix,
+    reason,
+  });
+
+  // Manual overrides
   if (o.forceGa) {
     return rcs.length
       ? ga(rcs[0], s, `force_ga: releasing ${rcs[0]}`)
       : { kind: 'none', reason: 'force_ga: no rc to release' };
   }
+  if (o.forceRc) {
+    return beta ? toRc(`force_rc: promoting ${beta}`) : { kind: 'none', reason: 'force_rc: no beta to promote' };
+  }
+
+  // Hotfixes. A lookup failure fails the run: cutting a normal beta would lose the hotfix for good.
+  const hotRc = rcs.find((rc) => s.tags[rc].hotfix);
+  if (hotRc) return ga(hotRc, s, `hotfix: releasing ${hotRc}`);
+  if (beta && s.tags[beta].hotfix) return toRc(`hotfix: promoting ${beta}`);
+  if (unreleased && (await isHotfix(shippedSha, s.masterSha))) {
+    return toBeta(true, `master ${s.masterSha.slice(0, 7)} has unreleased commits from a ${HOTFIX_LABEL} PR`);
+  }
+
+  const notes: string[] = [];
+
+  // rc → latest
   for (const rc of rcs) {
-    if (s.tags[rc].hotfix) return ga(rc, s, `hotfix: releasing ${rc}`);
     const since = new Date(s.npm.time[rc]);
     const days = ageDays(s, since);
-    if (days < RC_SOAK_DAYS) {
+    if (!ripe(days, RC_SOAK_DAYS)) {
       notes.push(`${rc} has soaked ${days.toFixed(1)}/${RC_SOAK_DAYS} days`);
       continue;
     }
@@ -179,29 +254,19 @@ export async function planRelease(
     notes.push(`${rc} blocked by ${found.join(', ')}`);
   }
 
-  // beta → rc
-  const line = activeBase(s);
-  const betas = stage(line, 'beta', s.npm.versions).filter((v) => s.tags[v]);
-  const beta = newest(betas);
-  const rc = (reason: string): Action => ({
-    kind: 'rc',
-    version: `${line}-rc.${nextNumber(line, 'rc', s)}`,
-    from: `v${beta}`,
-    compare: beta as string,
-    hotfix: Boolean(beta && s.tags[beta].hotfix),
-    reason,
-  });
-  if (o.forceRc) return beta ? rc(`force_rc: promoting ${beta}`) : { kind: 'none', reason: 'force_rc: no beta to promote' };
-  if (beta && s.tags[beta].hotfix) return rc(`hotfix: promoting ${beta}`);
+  // beta → rc. The first-beta clock never restarts, and past BETA_MAX_DAYS the quiet period is waived,
+  // so steady merging can't hold a line back forever.
   if (beta) {
-    // The first-beta clock never restarts, so steady merging can't hold a line back
-    // forever; the quiet period still gives the newest change a few days of soak.
     const since = new Date(s.npm.time[beta]);
     const firstDays = ageDays(s, new Date(s.npm.time[betas[0]]));
     const quietDays = ageDays(s, since);
-    if (firstDays >= BETA_SOAK_DAYS && quietDays >= BETA_QUIET_DAYS) {
+    const eligible =
+      ripe(firstDays, BETA_MAX_DAYS) || (ripe(firstDays, BETA_SOAK_DAYS) && ripe(quietDays, BETA_QUIET_DAYS));
+    if (eligible) {
       const found = await bugs(labelsFor(line, s), since);
-      if (!found.length) return rc(`${line} in beta ${firstDays.toFixed(1)} days, ${beta} quiet ${quietDays.toFixed(1)} days, no bugs`);
+      if (!found.length) {
+        return toRc(`${line} in beta ${firstDays.toFixed(1)} days, ${beta} quiet ${quietDays.toFixed(1)} days, no bugs`);
+      }
       notes.push(`rc of ${line} blocked by ${found.join(', ')}`);
     } else {
       notes.push(
@@ -211,22 +276,12 @@ export async function planRelease(
   }
 
   // master → beta
-  const shippedSha = lastShippedMasterSha(line, s);
-  if (shippedSha === s.masterSha) {
+  if (!unreleased) {
     notes.push(`master ${s.masterSha.slice(0, 7)} is already released`);
     return { kind: 'none', reason: notes.join('; ') };
   }
-  const hotfix = await isHotfix(shippedSha, s.masterSha);
-  const shipped = sorted(s.npm.versions).filter((v) => mustParse(v).pre !== 'beta');
-  notes.push(`master ${s.masterSha.slice(0, 7)} has unreleased commits${hotfix ? ` from a ${HOTFIX_LABEL} PR` : ''}`);
-  return {
-    kind: 'beta',
-    version: `${line}-beta.${nextNumber(line, 'beta', s)}`,
-    from: s.masterSha,
-    compare: beta ?? newest(shipped),
-    hotfix,
-    reason: notes.join('; '),
-  };
+  notes.push(`master ${s.masterSha.slice(0, 7)} has unreleased commits`);
+  return toBeta(false, notes.join('; '));
 }
 
 export function blockers(issues: JiraIssue[], since: Date, nonBugResolutions: string[]): string[] {
@@ -255,8 +310,12 @@ function ga(rc: string, s: State, reason: string): Action {
 
 /** The newest pipeline rc of each X.Y.Z that has no GA yet and sits above latest, highest first. */
 function gaCandidates(s: State): string[] {
+  // Never release at or below latest, nor below any GA already published, so rolling `latest` back
+  // can't make a superseded rc eligible again.
   const latest = s.npm.distTags.latest;
-  const floor = latest && parse(latest) ? latest : null;
+  const publishedGa = newest(sorted(s.npm.versions).filter((v) => mustParse(v).pre === null));
+  const floor =
+    [latest && parse(latest) ? latest : null, publishedGa].filter((v): v is string => v !== null).sort(cmp).pop() ?? null;
   const released = new Set(known(s).filter((v) => mustParse(v).pre === null));
   const newestRc = new Map<string, string>();
   for (const v of sorted(s.npm.versions)) {
@@ -323,6 +382,11 @@ function sorted(versions: string[]): string[] {
 
 function newest(versions: string[]): string | null {
   return versions.length ? versions[versions.length - 1] : null;
+}
+
+/** A soak has ended once `days` is within SOAK_GRACE_DAYS of it. */
+function ripe(days: number, soak: number): boolean {
+  return days + SOAK_GRACE_DAYS >= soak;
 }
 
 function ageDays(s: State, since: Date): number {

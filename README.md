@@ -128,8 +128,8 @@ const Domo = require('ryuu.js').default;
 | Install | You get |
 |---|---|
 | `npm install ryuu.js` (or `@latest`, or a CDN URL without a version) | The newest release, after about a week as a beta and a week as a release candidate (hotfixes skip both) |
-| `npm install ryuu.js@rc` | The next release candidate |
-| `npm install ryuu.js@beta` | The newest build of the next version |
+| `npm install ryuu.js@rc` | The newest release candidate. Right after a release it can still be the version you already have, and it fails until the first one exists |
+| `npm install ryuu.js@beta` | The newest beta build. Right after a release it can be older than `latest` |
 
 See [RELEASING.md](RELEASING.md) for how a change moves through these channels.
 
