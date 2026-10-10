@@ -65,7 +65,7 @@ jobs:
     needs: build
     if: needs.build.outputs.skip == 'false'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     environment: npm-publish
     permissions:
       id-token: write
@@ -81,15 +81,26 @@ jobs:
         with:
           name: tarball
       - name: Publish ryuu.js@${{ needs.build.outputs.version }} as ${{ needs.build.outputs.dist_tag }}
-        run: npm publish "./ryuu.js-$VERSION.tgz" --tag "$DIST_TAG"
+        run: |
+          # A version npm already has, or is still validating, must not make a retry fail: wait for it instead.
+          status=0
+          output=$(npm publish "./ryuu.js-$VERSION.tgz" --tag "$DIST_TAG" 2>&1) || status=$?
+          echo "$output"
+          if [ "$status" -ne 0 ] && grep -qiE 'previously published|cannot publish over' <<<"$output"; then
+            echo "::notice::ryuu.js@$VERSION is already published or still being validated by npm; waiting for it to be listed."
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
         env:
           VERSION: ${{ needs.build.outputs.version }}
           DIST_TAG: ${{ needs.build.outputs.dist_tag }}
+      # npm validates a new version before the registry lists it (about 4 minutes on the first publish), so allow
+      # up to 20 minutes (80 tries, 15 seconds apart). The two settings exist so tests can shorten the wait.
       - name: Wait until the registry serves it
         run: |
-          for _ in $(seq 20); do
+          for _ in $(seq "${WAIT_ATTEMPTS:-80}"); do
             [ -n "$(npm view "ryuu.js@$VERSION" version --prefer-online 2>/dev/null)" ] && exit 0
-            sleep 15
+            sleep "${WAIT_SECONDS:-15}"
           done
           echo "::error::ryuu.js@$VERSION was published but is not visible yet"
           exit 1
