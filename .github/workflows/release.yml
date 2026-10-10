@@ -160,6 +160,16 @@ jobs:
       contents: read
       actions: write
     steps:
+      # Without this, a missing secret makes checkout quietly use the read-only workflow token instead, a dry run
+      # would pass, and a real run would only fail at the very end with a bare 403.
+      - name: Require the deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::error::RELEASE_DEPLOY_KEY is not set in the release environment, so nothing can be pushed. See RELEASING.md, One-time setup, step 2."
+            exit 1
+          fi
       - uses: actions/checkout@v7
         with:
           ref: master
@@ -171,7 +181,13 @@ jobs:
           name: release-bundle
           path: ${{ runner.temp }}/in
       - name: Check the deploy key can reach the repository
-        run: git ls-remote --heads origin master
+        run: |
+          # With a key, checkout uses an SSH remote; an https remote means it fell back to the read-only token.
+          case "$(git remote get-url origin)" in
+            git@* | ssh://*) ;;
+            *) echo "::error::checkout did not use the deploy key (remote is not SSH)"; exit 1 ;;
+          esac
+          git ls-remote --heads origin master
       - name: Push v${{ needs.plan.outputs.version }}
         run: '"$RUNNER_TEMP/ci/push-release.sh" "$KIND" "$VERSION" "$RUNNER_TEMP/in/release.bundle"'
         env:

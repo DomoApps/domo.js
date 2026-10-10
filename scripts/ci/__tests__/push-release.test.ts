@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs';
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { gitIn, Repo, run, SCRIPTS } from '../testing/repo';
 
@@ -121,6 +121,19 @@ describe('push-release.sh', () => {
     gitIn(pusher, 'remote', 'set-url', 'origin', path.join(repo.dir, 'does-not-exist.git'));
     const r = run('bash', [SCRIPT, 'beta', '6.0.10-beta.0', file], pusher, repo.env(registry));
     expect(r.status).not.toBe(0);
+    expect(repo.ghCalls()).toEqual([]);
+  });
+
+  it('explains how to fix a rejected push, such as a missing or read-only deploy key, and dispatches nothing', () => {
+    repo.release('6.0.10-beta.0', 'master');
+    const hook = path.join(remote, 'hooks', 'pre-receive');
+    writeFileSync(hook, '#!/bin/sh\necho "remote: Permission denied" >&2\nexit 1\n');
+    chmodSync(hook, 0o755);
+    const r = push('beta', '6.0.10-beta.0', bundle('v6.0.10-beta.0'));
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/RELEASE_DEPLOY_KEY/);
+    expect(r.stderr).toMatch(/write access/);
+    expect(remoteRefs()).toEqual(['refs/heads/master']);
     expect(repo.ghCalls()).toEqual([]);
   });
 
