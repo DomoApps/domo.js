@@ -1,6 +1,6 @@
 # Releasing ryuu.js
 
-Releases are automatic. You merge PRs into `master`; GitHub Actions decides when each change is ready for customers. Nobody runs `npm publish` by hand. A typical change reaches customers about two weeks after it merges; a PR labeled `release:hotfix` reaches them in about 15 minutes.
+Releases are automatic. You merge PRs into `master`; GitHub Actions decides when each change is ready for customers. Nobody runs `npm publish` by hand. A typical change reaches customers about two weeks after it merges; a PR labeled `release:hotfix` reaches them in about half an hour.
 
 - [The release cycle](#the-release-cycle)
 - [The rules](#the-rules)
@@ -20,7 +20,7 @@ flowchart TD
     MERGE --> CHANGED{"Did the npm package change?"}
     CHANGED -->|"no (demo, tests, CI, devDependencies)"| NOTHING["Nothing published"]
     CHANGED -->|"yes"| HOT{"PR labeled<br/>release:hotfix?"}
-    HOT -->|"yes"| FAST["beta, rc and latest<br/>back to back, about 15 minutes"]
+    HOT -->|"yes"| FAST["beta, rc and latest<br/>back to back, about half an hour"]
     HOT -->|"no"| BETA["X.Y.Z-beta.N on npm tag beta"]
     BETA --> SOAK1{"First beta 7+ days old,<br/>newest beta 3+ days old,<br/>no blocking bugs?"}
     SOAK1 -->|"bug: fix it and merge"| BETA
@@ -50,7 +50,7 @@ Betas and rcs are prereleases. No package manager installs one from a normal ran
 
 ## Hotfixes
 
-To get a fix to customers right away, a **maintainer or admin** adds the **`release:hotfix`** label to its PR **before merging**. The PR still needs review and passing checks to merge. After the merge, Release publishes the beta, the rc and `latest` back to back, about 15 minutes in all. Each step still builds, tests, verifies the tag and checks that the package is identical to the step before.
+To get a fix to customers right away, a **maintainer or admin** adds the **`release:hotfix`** label to its PR **before merging**. The PR still needs review and passing checks to merge. After the merge, Release publishes the beta, the rc and `latest` back to back, about half an hour in all, because npm checks each new version for a few minutes before it lists it and every step waits for that. Each step still builds, tests, verifies the tag and checks that the package is identical to the step before.
 
 - **Only a maintainer or admin counts, and only before the merge.** Release looks at who applied the label and when. A label from anyone else, or one added after the merge, is ignored with a note in the run log, and the change goes through the normal soak. (Roles are `HOTFIX_ROLES` in `scripts/ci/lib.ts`.)
 - **Release checks the latest commit on `master`.** Because every PR is squash-merged, that commit is one PR. If another PR lands before Release runs (say Dependabot merges right behind the hotfix), the latest commit is no longer the hotfix and the change goes through the normal soak. That can only make it slower, never faster; an admin can still use `force_rc` and `force_ga`.
@@ -95,7 +95,7 @@ gantt
 | 18 (Nov 20) | Daily run: `6.0.10-rc.0` is 7 days old with no bugs | **Publishes `6.0.10` on `latest`.** Customers move from 6.0.9 to 6.0.10. Creates `release/v6.0.10` |
 | 20 | Daily run | Promotes `6.0.11-beta.0` to `6.0.11-rc.0` |
 | 22 | **Interrupt:** a Bug is filed against `ryuu.js-6.0.11` | 6.0.11 can no longer reach `latest` (unless the bug is closed as Not a Bug, Duplicate, etc.) |
-| 23 (Nov 25) | **Interrupt:** the fix merges with the `release:hotfix` label | Publishes `6.0.12-beta.0`, then `6.0.12-rc.0`, then **`6.0.12` on `latest`**, about 15 minutes after the merge. 6.0.11 is skipped; its changes ship in 6.0.12 |
+| 23 (Nov 25) | **Interrupt:** the fix merges with the `release:hotfix` label | Publishes `6.0.12-beta.0`, then `6.0.12-rc.0`, then **`6.0.12` on `latest`**, about half an hour after the merge. 6.0.11 is skipped; its changes ship in 6.0.12 |
 
 ## Interrupts: what happens if…
 
@@ -283,6 +283,7 @@ What this does not cover: the plan job runs repository code while it holds the r
 
 ## Recovery
 
+- **npm shows the new version as "validating"** with no publish date. After an upload npm checks the version before listing it, which took about 4 minutes the first time. The Publish run waits up to 20 minutes for it, and retrying a version npm already has waits instead of failing. If it is still not listed after that, check the maintainer account's email and the package page for notices, and contact npm support.
 - **A publish failed or was cancelled after its tag was pushed.** The next run retries it automatically while `RELEASE_ENABLED` is on; otherwise start a run yourself. This includes a GA whose publish was lost while the next version's betas were going out. Re-running Publish on a tag that's already on npm does nothing.
 - **The run failed on a GitHub or Jira error.** Nothing is released and nothing is lost: the next run recomputes everything. A hotfix in particular is never downgraded to a normal release by a lookup failure.
 - **A hotfix stopped partway**, for example at the beta. Releases were paused, or a step failed. Start Release with Run workflow (`dry_run` off). The hotfix marker is on the tag, so the next step still skips its soak.
