@@ -5,8 +5,8 @@ JavaScript SDK (published as `ryuu.js` on npm) for building custom apps inside t
 - **Version:** 6.0.0-alpha.0
 - **Zero runtime dependencies**
 - **Build:** Webpack 5 → UMD bundle at `dist/domo.js` (~28KB), exposed as global `Domo`
-- **Tests:** Jest (`npm test`) — `sdk` project (jsdom, `src/`) and `ci` project (node, `scripts/ci/`)
-- **Type check:** `npm run typecheck` (SDK + CI scripts)
+- **Tests:** Jest (`npm test`) — `sdk` project (jsdom, `src/`), `ci` project (node, `scripts/ci/`) and `demo` project (node, `demo/`)
+- **Type check:** `npm run typecheck` (SDK + CI scripts + demo build scripts)
 - **Releasing:** automated `beta` → `rc` (first beta 7d + 3d quiet) → `latest` (7d) pipeline; a `release:hotfix` PR label skips both soaks. See [RELEASING.md](RELEASING.md). Never `npm publish` by hand.
 
 ## Conventions
@@ -20,11 +20,14 @@ The file was written for a JS/React codebase. Its JSX and Immer rules apply only
 ## Commands
 
 ```
-npm test            # jest --silent (both projects)
-npm run typecheck   # tsc --noEmit for src/ and scripts/ci/
+npm test            # jest --silent (all three projects)
+npm run typecheck   # tsc --noEmit for src/, scripts/ci/ and demo/
 npm run coverage    # jest --coverage --silent
 npm run build       # webpack production build → dist/domo.js
 npm run build:demo  # node demo/build.js
+npm run upload:dev       # build + domo publish the demo app to the dev instance (ryuu.js@beta); needs `domo login -i dev.dev.domo.com` first
+npm run upload:demo      # same for the demo instance (ryuu.js@rc)
+npm run build:demo:dev   # the same builds without publishing → demo/.build/dev/ (build:demo:demo for demo)
 npm run ci:build    # compile scripts/ci → .ci-out/
 npm run release:plan      # what Release would do now (SIMULATE_NOW=+15d, MASTER_REF=HEAD supported)
 npm run release:rehearse  # full merge → beta → publish rehearsal in a throwaway clone; never pushes or publishes

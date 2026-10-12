@@ -21,11 +21,27 @@
       "2.5.10","2.5.9","2.5.8","2.5.7","2.5.6","2.5.5","2.5.4","2.5.3","2.5.2","2.5.1","2.5.0",
       "2.4.1","2.4.0","2.3.1","2.3.0","2.2.0","2.1.2","2.1.1","2.1.0","2.0.4","2.0.3","2.0.2","2.0.1"
     ];
-    var RYUUJS_CHOSEN = new URLSearchParams(window.location.search).get("v") || "local";
-    var _src = RYUUJS_CHOSEN === "local"
-      ? "domo.js"
-      : "https://cdn.jsdelivr.net/npm/ryuu.js@" + RYUUJS_CHOSEN + "/dist/domo.js";
-    document.write('<script src="' + _src + '"><\/script>');
+    // env.js defines window.DEMO_ENV in deployed builds (npm run build:demo:dev / build:demo:demo), so a deployment
+    // loads its environment's channel (dev: beta, demo: rc). Local runs have no DEMO_ENV and default to the local build.
+    var RYUUJS_DEFAULT = (window.DEMO_ENV && window.DEMO_ENV.sdkChannel) || "local";
+    var _requested = new URLSearchParams(window.location.search).get("v");
+    // ?v= ends up inside a document.write, so only a version or dist-tag is accepted.
+    var RYUUJS_CHOSEN = (_requested && /^[A-Za-z0-9._-]+$/.test(_requested)) ? _requested : RYUUJS_DEFAULT;
+    var RYUUJS_LOADED = RYUUJS_CHOSEN;
+    var RYUUJS_FALLBACK = null;
+    function _ryuujsSrc(v) {
+      return v === "local" ? "domo.js" : "https://cdn.jsdelivr.net/npm/ryuu.js@" + v + "/dist/domo.js";
+    }
+    document.write('<script src="' + _ryuujsSrc(RYUUJS_CHOSEN) + '"><\/script>');
+  </script>
+  <script>
+    // A dist-tag with nothing published behind it (rc, before the first rc) 404s, so window.domo never appears.
+    // Run latest instead and say so loudly; app.js shows the banner.
+    if (typeof window.domo === "undefined" && (RYUUJS_CHOSEN === "beta" || RYUUJS_CHOSEN === "rc")) {
+      RYUUJS_LOADED = "latest";
+      RYUUJS_FALLBACK = { requested: RYUUJS_CHOSEN, loaded: "latest" };
+      document.write('<script src="' + _ryuujsSrc("latest") + '"><\/script>');
+    }
   </script>
 </head>
 <body>

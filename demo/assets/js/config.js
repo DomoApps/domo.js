@@ -3,6 +3,18 @@
  * All manifest values are hardcoded to match manifest.json.
  */
 
+/**
+ * Link to the dataset mapped to `alias` on this deployment's Domo instance.
+ * window.DEMO_ENV is stamped by `npm run build:demo:<env>` (see ManifestOverrides.ts); a local run has none and
+ * keeps the demo-instance link.
+ */
+function datasetOverviewUrl(alias) {
+  var env = window.DEMO_ENV;
+  var instance = env ? env.instance : 'domo.demo.domo.com';
+  var datasetId = env ? env.datasetIds[alias] : 'f8956b7f-13cf-45f1-96dd-a27ed3910c18';
+  return 'https://' + instance + '/datasources/' + datasetId + '/details/overview';
+}
+
 const APP_CONFIG = {
   // Manifest-declared aliases (must match manifest.json)
   DATASET_ALIAS: 'test',

@@ -540,7 +540,7 @@ const testDefinitions = [
     category: "events",
     description: "Listen for dataset updates",
     fn: () => new Promise(), // Never resolves - event driven
-    pendingMsg: 'This will run when you change <a href="https://domo.demo.domo.com/datasources/f8956b7f-13cf-45f1-96dd-a27ed3910c18/details/overview" target="_blank">this dataset</a>.',
+    pendingMsg: `This will run when you change <a href="${datasetOverviewUrl(APP_CONFIG.DATASET_ALIAS)}" target="_blank">this dataset</a>.`,
   },
   {
     name: "onFiltersUpdated",
