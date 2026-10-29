@@ -16,6 +16,7 @@ class DomoApp {
     }
 
     initVersionPicker();
+    renderSdkFallbackBanner();
     this._initTabs();
     this._initEnvPanel();
 
@@ -123,7 +124,8 @@ class DomoApp {
         ['Page ID', env.pageId || 'N/A'],
         ['Analyzer', env.analyzer || 'N/A'],
         ['Debug', debugOn ? 'ON' : 'OFF'],
-        ['Version', typeof RYUUJS_CHOSEN !== 'undefined' ? RYUUJS_CHOSEN : 'unknown'],
+        ['Environment', window.DEMO_ENV ? window.DEMO_ENV.name : 'local'],
+        ['Version', sdkVersionLabel()],
       ];
 
       body.innerHTML = rows.map(function(r) {
@@ -140,7 +142,32 @@ class DomoApp {
 }
 
 /* -----------------------------------------------------------------------
-   Version Picker (unchanged from original)
+   SDK channel — what index.html asked for vs what actually loaded
+   ----------------------------------------------------------------------- */
+function sdkVersionLabel() {
+  var fallback = (typeof RYUUJS_FALLBACK !== 'undefined') ? RYUUJS_FALLBACK : null;
+  if (fallback) return fallback.requested + ' → ' + fallback.loaded + ' (fallback)';
+  return (typeof RYUUJS_CHOSEN !== 'undefined') ? RYUUJS_CHOSEN : 'unknown';
+}
+
+// A dist-tag with nothing published (rc, before the first rc) falls back to latest in index.html. Say so, so a
+// latest run is never mistaken for an rc run.
+function renderSdkFallbackBanner() {
+  var fallback = (typeof RYUUJS_FALLBACK !== 'undefined') ? RYUUJS_FALLBACK : null;
+  var container = document.querySelector('.container');
+  if (!fallback || !container) return;
+
+  var banner = document.createElement('div');
+  banner.className = 'sdk-fallback-banner';
+  banner.setAttribute('role', 'alert');
+  banner.innerHTML = '<strong>ryuu.js@' + DataRenderer.escapeHTML(fallback.requested) + ' is not published yet.</strong> ' +
+    'This page is running ryuu.js@' + DataRenderer.escapeHTML(fallback.loaded) + ', so these results are not ' +
+    DataRenderer.escapeHTML(fallback.requested) + ' results.';
+  container.insertBefore(banner, container.firstChild);
+}
+
+/* -----------------------------------------------------------------------
+   Version Picker
    ----------------------------------------------------------------------- */
 function initVersionPicker() {
   var select = document.getElementById('versionSelect');
@@ -148,19 +175,26 @@ function initVersionPicker() {
   if (!select || !badge) return;
 
   var chosen = (typeof RYUUJS_CHOSEN !== 'undefined') ? RYUUJS_CHOSEN : 'local';
+  var defaultChannel = (typeof RYUUJS_DEFAULT !== 'undefined') ? RYUUJS_DEFAULT : 'local';
   var versions = (typeof RYUUJS_VERSIONS !== 'undefined') ? RYUUJS_VERSIONS : [];
 
-  var localOpt = document.createElement('option');
-  localOpt.value = 'local';
-  localOpt.textContent = 'Local (dev build)';
-  select.appendChild(localOpt);
-
-  versions.forEach(function(v) {
+  function addOption(value, label) {
     var opt = document.createElement('option');
-    opt.value = v;
-    opt.textContent = v;
+    opt.value = value;
+    opt.textContent = label;
     select.appendChild(opt);
-  });
+  }
+
+  // A deployed build (env.js present) ships no local domo.js, so offering it would only 404.
+  if (!window.DEMO_ENV) addOption('local', 'Local (dev build)');
+  addOption('beta', 'beta (npm tag)');
+  addOption('rc', 'rc (npm tag)');
+  addOption('latest', 'latest (npm tag)');
+  versions.forEach(function(v) { addOption(v, v); });
+
+  // A ?v= value that is not listed (a newer release, say) would otherwise leave the select blank.
+  var listed = Array.prototype.some.call(select.options, function(opt) { return opt.value === chosen; });
+  if (!listed) addOption(chosen, chosen);
 
   select.value = chosen;
   badge.textContent = chosen === 'local' ? 'local' : 'cdn';
@@ -170,7 +204,8 @@ function initVersionPicker() {
   select.addEventListener('change', function() {
     var next = select.value;
     var url = new URL(window.location.href);
-    if (next === 'local') {
+    // Choosing the page's own default drops ?v=, so the link goes back to following that channel.
+    if (next === defaultChannel) {
       url.searchParams.delete('v');
     } else {
       url.searchParams.set('v', next);

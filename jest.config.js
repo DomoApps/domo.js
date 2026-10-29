@@ -17,5 +17,11 @@ module.exports = {
       roots: ["<rootDir>/scripts/ci"],
       transform: transformFor("scripts/ci/tsconfig.json"),
     },
+    {
+      displayName: "demo",
+      testEnvironment: "node",
+      roots: ["<rootDir>/demo"],
+      transform: transformFor("demo/tsconfig.json"),
+    },
   ],
 };

@@ -3,5 +3,5 @@
   "compilerOptions": {
     "types": ["jest", "node"]
   },
-  "exclude": ["dist", "scripts"]
+  "exclude": ["dist", "scripts", "demo"]
 }

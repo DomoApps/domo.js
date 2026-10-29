@@ -8,16 +8,42 @@ Interactive test suite for the `domo.js` library. Exercises every API — HTTP, 
 
 1. Build the library from the project root: `npm run build`
 2. Build the demo assets: `node build.js`
-3. Publish to Domo: `domo publish`
+3. Publish to Domo: `domo publish` (for the dev or demo instance, use the [environment builds](#environments-bluegreen-testing) instead)
 4. Create a card from the app design and open it
 
 ## Version Picker
 
 The dropdown in the header lets you switch between:
-- **Local (dev build)** — the bundled `domo.js` from `dist/`
+- **Local (dev build)** — the bundled `domo.js` from `dist/`. Not offered in the dev and demo deployments, which ship no local copy
+- **An npm tag** (`beta`, `rc`, `latest`) — the newest build on that channel
 - **Any published version** — loaded from `cdn.jsdelivr.net/npm/ryuu.js@{version}`
 
 Changing the version reloads the page. Tests that use APIs not available in older versions show "N/A" instead of failing.
+
+## Environments (blue/green testing)
+
+Two deployments of this app exercise the `ryuu.js` release channels:
+
+| Environment | Domo instance | ryuu.js loaded by default |
+|---|---|---|
+| `dev` | `dev.dev.domo.com` | `beta` |
+| `demo` | `domo.demo.domo.com` | `rc` |
+
+From the repo root:
+
+```bash
+domo login -i dev.dev.domo.com         # or domo.demo.domo.com
+npm run upload:dev                     # or upload:demo
+```
+
+`upload:<env>` builds `demo/.build/<env>/` and runs `domo publish` from it. `domo publish` has no `--instance` flag and goes to whichever instance you logged into most recently, so `upload:<env>` first checks that instance is the environment's and stops with the `domo login` to run if it isn't. Logging into one environment makes the other stale, so log in again when you switch. `npm run build:demo:dev` / `build:demo:demo` build the folder without publishing.
+
+`ManifestOverrides.ts` holds each environment's design id, the dataset, workflow and Code Engine ids it must point at, and its default channel. The build writes a stamped copy of `manifest.json` into `demo/.build/<env>/` and publishes from there, because the Domo CLI reads only `manifest.id` and rewrites it when it creates a design. The tracked `manifest.json` is never edited.
+
+- **A missing id is a warning, not an error.** The build keeps whatever `manifest.json` has for that alias and says so. For dev that means the demo instance's dataset id until `ManifestOverrides.ts` has dev's own.
+- **No rc yet.** Until the first rc is promoted, `ryuu.js@rc` does not exist, so the demo deployment loads `latest` and shows a banner saying so.
+- **Tags are cached.** jsDelivr caches a tag URL for up to 12 hours at the edge and 7 days in the browser, so `beta` can lag a fresh publish. Add `?v=<exact version>` to pin one.
+- `?v=` always overrides the environment's default.
 
 ## Test Categories
 

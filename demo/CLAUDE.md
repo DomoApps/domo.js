@@ -48,14 +48,37 @@ demo/assets/js/
 
 Script load order: config → renderer → store → request-builder → event-monitor → test-suite → app
 
+```
+demo/
+├── ManifestOverrides.ts  # Per-environment (dev/demo): design id, dataset/workflow/Code Engine ids, SDK channel
+├── build-env.ts          # --env dev|demo → demo/.build/<env>/ (stamped manifest, env.js, index.html, assets)
+├── upload.ts             # --env dev|demo → build-env, check the CLI's current instance, then domo publish
+├── tsconfig.json         # Compiles the .ts files above to .demo-out/ (gitignored)
+└── __tests__/            # Jest `demo` project
+```
+
 ## Build system
 
 | Script | What it does |
 |---|---|
 | `node build.js` | Copies `assets/`, `domo.js`, `manifest.json`, `README.md`, `thumbnail.png` into `public-assets/` and rewrites `index.html` paths. |
 | `node clean.js` | Reverses `build.js` — deletes `public-assets/` and restores original paths. |
+| `npm run build:demo:dev` / `build:demo:demo` | Compiles the TS, then writes `demo/.build/<env>/` without publishing (see Blue/green environments). |
+| `npm run upload:dev` / `upload:demo` | Same build, then `domo publish` from `demo/.build/<env>/`. Refuses unless the Domo CLI's current instance is the environment's. |
 
-No changes needed to build.js/clean.js — `ITEMS_TO_MOVE` includes `'assets'` as a directory, so all JS files are copied automatically.
+No changes needed to build.js/clean.js — `ITEMS_TO_MOVE` includes `'assets'` as a directory, so all JS files are copied automatically. `public-assets/` is committed, so after editing `assets/` run `npm run build:demo` to keep it in sync.
+
+## Blue/green environments
+
+`dev` (`dev.dev.domo.com`) loads `ryuu.js@beta` by default and `demo` (`domo.demo.domo.com`) loads `ryuu.js@rc`.
+
+- `ManifestOverrides.ts` is the single home for per-environment values. `applyManifestOverrides` is pure and returns `{ manifest, warnings }`; a missing override **warns and keeps manifest.json's value**, it does not throw. Only an override that is set but not a UUID throws.
+- The Domo CLI (`ryuu`) reads only `manifest.id`, never `devId`/`demoId`/`prodId`, and writes `id` back when it creates a design. So each environment is published from its own generated folder, never from the tracked manifest.
+- `upload.ts` wraps `build-env.ts` and `domo publish`. `domo publish` has no `--instance` flag; the CLI's current instance is the most recently written `~/.config/configstore/ryuu/<instance>.json` (read from ryuu 5.1.0 source). `upload.ts` compares file names only, never token contents, and stops with the `domo login -i <instance>` to run on a mismatch. A wrong-instance publish would otherwise 403 or offer to create a duplicate design.
+- `build-env.ts` writes `public-assets/env.js` (`window.DEMO_ENV = { name, sdkChannel, instance, datasetIds }`) and loads it before the SDK loader. `index.html` picks the SDK source as `?v=` → `DEMO_ENV.sdkChannel` → `local`; `?v=` is validated, since it is written into a `document.write`.
+- `beta`/`rc` with nothing published (rc before the first rc) 404s, `window.domo` stays undefined, and `index.html` loads `latest` instead and sets `RYUUJS_FALLBACK`. `app.js` shows a banner and `rc → latest (fallback)` in the env panel.
+- jsDelivr caches tag URLs (up to 12h edge, 7d browser); the env panel shows the requested channel, not the resolved version.
+- The workflow and Code Engine id keys (`modelId`, `packageId`) are assumed; the CLI and client do not validate them.
 
 ## Key patterns
 
@@ -65,4 +88,4 @@ No changes needed to build.js/clean.js — `ITEMS_TO_MOVE` includes `'assets'` a
 - **Reactive store** — `SimpleStore` with `get/set/push/on/clear`. Components subscribe to state changes.
 - **Event monitor hooks** into `domo.debug.log` by monkey-patching — captures all SDK-level events without modifying SDK source.
 - **Version-resilient** — `resolveEventMethod()` and `resolveListenerKey()` try canonical names first, then legacy aliases.
-- **Manifest values hardcoded** — dataset `test`, collection `SanityTest`, workflow `testWorkflow`, package `awesomeFunction` must match manifest.json.
+- **Manifest aliases hardcoded** — dataset `test`, collection `SanityTest`, workflow `testWorkflow`, package `awesomeFunction` must match manifest.json. The ids behind those aliases are per environment and live in `ManifestOverrides.ts`.

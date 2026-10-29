@@ -213,6 +213,20 @@ body::before {
   border: 1px solid rgba(6, 182, 212, 0.25);
 }
 
+.sdk-fallback-banner {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-md);
+  color: var(--accent-amber);
+  font-size: 0.875rem;
+}
+
+.sdk-fallback-banner strong {
+  color: var(--text-primary);
+}
+
 .device-detection-header {
   display: inline-flex;
   align-items: center;

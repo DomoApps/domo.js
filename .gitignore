@@ -8,3 +8,5 @@ jira.apikey
 docs/
 .worktrees/
 .ci-out/
+.demo-out/
+demo/.build/

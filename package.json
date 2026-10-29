@@ -44,7 +44,12 @@
     "build": "rm -rf dist && mkdir dist && NODE_ENV=production webpack && cp dist/domo.js demo/domo.js",
     "build:demo": "node demo/build.js",
     "clean:demo": "node demo/clean.js",
-    "typecheck": "tsc --noEmit --skipLibCheck && tsc -p scripts/ci --noEmit",
+    "compile:demo": "rm -rf .demo-out && tsc -p demo",
+    "build:demo:dev": "npm run compile:demo --silent && node .demo-out/build-env.js --env dev",
+    "build:demo:demo": "npm run compile:demo --silent && node .demo-out/build-env.js --env demo",
+    "upload:dev": "npm run compile:demo --silent && node .demo-out/upload.js --env dev",
+    "upload:demo": "npm run compile:demo --silent && node .demo-out/upload.js --env demo",
+    "typecheck": "tsc --noEmit --skipLibCheck && tsc -p scripts/ci --noEmit && tsc -p demo --noEmit",
     "ci:build": "rm -rf .ci-out && tsc -p scripts/ci",
     "release:plan": "npm run ci:build --silent && DRY_RUN=true node .ci-out/release.js plan",
     "release:rehearse": "bash scripts/ci/rehearse.sh"
