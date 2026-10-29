@@ -1,0 +1,14 @@
+# Keeps the commit SHAs that the workflows pin their actions to up to date. Dependabot reads the
+# trailing "# vX.Y.Z" comment on each `uses:` line and rewrites both the SHA and the comment.
+# npm dependencies are not listed here; they stay on Dependabot security updates only.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # Same idea as the release soak: give a new action release a week before proposing it.
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
