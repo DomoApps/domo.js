@@ -32,7 +32,12 @@
     function _ryuujsSrc(v) {
       return v === "local" ? "domo.js" : "https://cdn.jsdelivr.net/npm/ryuu.js@" + v + "/dist/domo.js";
     }
-    document.write('<script src="' + _ryuujsSrc(RYUUJS_CHOSEN) + '"><\/script>');
+    function _loadRyuujs(v) {
+      var s = document.createElement("script");
+      s.src = _ryuujsSrc(v);
+      document.head.appendChild(s);
+    }
+    _loadRyuujs(RYUUJS_CHOSEN);
   </script>
   <script>
     // A dist-tag with nothing published behind it (rc, before the first rc) 404s, so window.domo never appears.
@@ -40,7 +45,7 @@
     if (typeof window.domo === "undefined" && (RYUUJS_CHOSEN === "beta" || RYUUJS_CHOSEN === "rc")) {
       RYUUJS_LOADED = "latest";
       RYUUJS_FALLBACK = { requested: RYUUJS_CHOSEN, loaded: "latest" };
-      document.write('<script src="' + _ryuujsSrc("latest") + '"><\/script>');
+      _loadRyuujs("latest");
     }
   </script>
 </head>
