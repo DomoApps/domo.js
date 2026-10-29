@@ -74,12 +74,12 @@ jobs:
             echo "::error::force_rc and force_ga skip the soaks and the Jira check, so they need the admin role; $ACTOR has $role."
             exit 1
           fi
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: master
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - run: npm ci --ignore-scripts
@@ -120,12 +120,12 @@ jobs:
     outputs:
       ready: ${{ steps.prepare.outputs.ready }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: master
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       # prepare-release.sh checks out other trees, so run the scripts from a copy.
@@ -140,7 +140,7 @@ jobs:
           COMPARE: ${{ needs.plan.outputs.compare }}
           HOTFIX: ${{ needs.plan.outputs.hotfix }}
       - if: steps.prepare.outputs.ready == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-bundle
           path: ${{ runner.temp }}/out/release.bundle
@@ -170,13 +170,13 @@ jobs:
             echo "::error::RELEASE_DEPLOY_KEY is not set in the release environment, so nothing can be pushed. See RELEASING.md, One-time setup, step 2."
             exit 1
           fi
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: master
           fetch-depth: 0
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
       - run: mkdir "$RUNNER_TEMP/ci" && cp scripts/ci/*.sh "$RUNNER_TEMP/ci/"
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-bundle
           path: ${{ runner.temp }}/in
