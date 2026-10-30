@@ -39,12 +39,12 @@ interface DomoEnv {
  *
  * @example
  * // Available immediately (from query params):
- * console.log(domo.env.userId);    // "481303514"
- * console.log(domo.env.userName);  // "JSON"
+ * console.log(domo.env.userId);    // "123456789"
+ * console.log(domo.env.userName);  // "Jane Doe"
  * console.log(domo.env.platform);  // "desktop"
  *
  * // Available after the environment API loads:
- * console.log(domo.env.host);      // "domo.demo.domo.com"
+ * console.log(domo.env.host);      // "acme.domo.com"
  */
 function buildEnv(): DomoEnv {
   const params = getQueryParams();

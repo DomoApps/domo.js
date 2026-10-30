@@ -188,16 +188,16 @@ Domo.requestFiltersUpdate(
 
 ```javascript
 // Available immediately
-console.log(Domo.env.userId);      // "481303514"
-console.log(Domo.env.userName);    // "JSON"
-console.log(Domo.env.userEmail);   // "Jason.Hansen@domo.com"
-console.log(Domo.env.customer);    // "domo"
+console.log(Domo.env.userId);      // "123456789"
+console.log(Domo.env.userName);    // "Jane Doe"
+console.log(Domo.env.userEmail);   // "jane.doe@example.com"
+console.log(Domo.env.customer);    // "acme"
 console.log(Domo.env.locale);      // "en-US"
 console.log(Domo.env.platform);    // "desktop" | "mobile"
-console.log(Domo.env.pageId);      // "1185508957"
+console.log(Domo.env.pageId);      // "987654321"
 
 // Available after environment API loads
-console.log(Domo.env.host);        // "domo.demo.domo.com"
+console.log(Domo.env.host);        // "acme.domo.com"
 console.log(Domo.env.loaded);      // true
 ```
 
